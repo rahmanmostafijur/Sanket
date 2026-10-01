@@ -4,3 +4,9 @@ __pycache__/
 *.pyc
 *.db
 *.sqlite3
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+node_modules/
