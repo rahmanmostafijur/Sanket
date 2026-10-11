@@ -1,4 +1,4 @@
-from sqlalchemy import case, func
+from sqlalchemy import Engine, case, func
 from sqlalchemy.dialects.postgresql import insert
 
 from sanket.db import engine
@@ -15,7 +15,7 @@ def to_row(job: dict, source: str) -> dict:
     }
 
 
-def save_postings(rows: list[dict]) -> None:
+def save_postings(rows: list[dict], db_engine: Engine = engine) -> None:
     stmt = insert(Posting).values(rows)
     stmt = stmt.on_conflict_do_update(
         index_elements=[Posting.source, Posting.source_id],
@@ -29,5 +29,5 @@ def save_postings(rows: list[dict]) -> None:
             ),
         },
     )
-    with engine.begin() as conn:
+    with db_engine.begin() as conn:
         conn.execute(stmt)
