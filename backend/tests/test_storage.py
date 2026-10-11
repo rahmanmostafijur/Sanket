@@ -10,7 +10,7 @@ def test_to_row_maps_job_fields() -> None:
         "description": "Build APIs",
         "location": "Remote",
     }
-    row = to_row(job)
+    row = to_row(job, "remoteok")
     assert row["source_id"] == "123"
     assert row["raw"] == job
     assert row["content_hash"] == make_hash(job)
