@@ -5,12 +5,10 @@ from sanket.db import engine
 from sanket.hashing import make_hash
 from sanket.models import Posting
 
-SOURCE = "remoteok"
 
-
-def to_row(job: dict) -> dict:
+def to_row(job: dict, source: str) -> dict:
     return {
-        "source": SOURCE,
+        "source": source,
         "source_id": str(job["id"]),
         "raw": job,
         "content_hash": make_hash(job),

@@ -10,7 +10,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     jobs = fetch_remoteok_jobs()
     logger.info("Fetched %d jobs", len(jobs))
-    rows = [to_row(job) for job in jobs]
+    rows = [to_row(job, "remoteok") for job in jobs]
     save_postings(rows)
     logger.info("Saved %d postings", len(rows))
 
