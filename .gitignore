@@ -11,3 +11,4 @@ build/
 dist/
 node_modules/
 scratch_*.py
+sanket-context.md
