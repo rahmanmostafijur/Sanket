@@ -1,4 +1,5 @@
 import httpx
+from ftfy import fix_encoding
 
 from sanket.sources.base import NormalizedPosting
 
@@ -20,17 +21,23 @@ def fetch_remoteok_jobs():
     return jobs
 
 
+def _fix_encoding(text: str | None) -> str | None:
+    if text is None:
+        return None
+    return fix_encoding(text)
+
+
 def to_posting(item: dict) -> NormalizedPosting:
     description = _strip_anti_spam(item.get("description") or "") or None
     return NormalizedPosting(
         source="remoteok",
         source_id=item["id"],
         url=item["url"],
-        title=item["position"],
+        title=_fix_encoding(item["position"]),
         raw=item,
-        company=item.get("company") or None,
-        location=item.get("location") or None,
-        description=description,
+        company=_fix_encoding(item.get("company")) or None,
+        location=_fix_encoding(item.get("location")) or None,
+        description=_fix_encoding(description),
         published_at=item.get("date") or None,
         salary_text=_salary_text(item),
     )
