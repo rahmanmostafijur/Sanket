@@ -2,16 +2,17 @@ from sqlalchemy import Engine, case, func
 from sqlalchemy.dialects.postgresql import insert
 
 from sanket.db import engine
-from sanket.hashing import make_hash
+from sanket.hashing import content_hash
 from sanket.models import Posting
+from sanket.sources.base import NormalizedPosting
 
 
-def to_row(job: dict, source: str) -> dict:
+def to_row(posting: NormalizedPosting) -> dict:
     return {
-        "source": source,
-        "source_id": str(job["id"]),
-        "raw": job,
-        "content_hash": make_hash(job),
+        "source": posting.source,
+        "source_id": posting.source_id,
+        "raw": posting.raw,
+        "content_hash": content_hash(posting),
     }
 
 
