@@ -14,6 +14,7 @@ dependencies = [
     "pydantic-settings>=2.15",
     "httpx>=0.28,<1",
     "ftfy>=6.3",
+    "google-genai>=1.0",
     ]
 
 [tool.setuptools.packages.find]

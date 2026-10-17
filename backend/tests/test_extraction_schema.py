@@ -15,6 +15,7 @@ def valid_data() -> dict:
         "salary_min": 50000,
         "salary_max": 80000,
         "salary_currency": "USD",
+        "salary_period": "year",
         "benefits": [],
         "allowed_regions": None,
     }

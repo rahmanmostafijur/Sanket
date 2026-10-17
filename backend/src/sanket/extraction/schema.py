@@ -24,6 +24,12 @@ class EmploymentType(StrEnum):
     INTERNSHIP = "internship"
 
 
+class SalaryPeriod(StrEnum):
+    HOUR = "hour"
+    MONTH = "month"
+    YEAR = "year"
+
+
 class EducationLevel(StrEnum):
     NONE = "none"
     BACHELOR = "bachelor"
@@ -33,7 +39,7 @@ class EducationLevel(StrEnum):
 
 class JobExtraction(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    
+
     skills: list[str]
     seniority: Seniority | None
     years_experience_min: int | None
@@ -45,3 +51,4 @@ class JobExtraction(BaseModel):
     salary_currency: str | None
     benefits: list[str]
     allowed_regions: list[str] | None
+    salary_period: SalaryPeriod | None
