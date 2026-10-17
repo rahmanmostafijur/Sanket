@@ -1,4 +1,8 @@
+from datetime import UTC, datetime
+
 import httpx
+
+from sanket.sources.base import NormalizedPosting
 
 URL = "https://remotive.com/api/remote-jobs"
 USER_AGENT = "Sanket/0.1.0 (github.com/rahmanmostafijur/Sanket)"
@@ -22,3 +26,28 @@ def fetch_remotive_jobs() -> list[dict]:
         }
         for job in data["jobs"]
     ]
+
+
+def _parse_published_at(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        # Remotive sends naive timestamps; assumed to be UTC.
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed
+
+
+def to_posting(item: dict) -> NormalizedPosting:
+    return NormalizedPosting(
+        source="remotive",
+        source_id=str(item["id"]),
+        url=item["url"],
+        title=item["title"],
+        raw=item,
+        company=item.get("company_name") or None,
+        location=item.get("candidate_required_location") or None,
+        description=item.get("description") or None,
+        salary_text=item.get("salary") or None,
+        published_at=_parse_published_at(item.get("publication_date")),
+    )
