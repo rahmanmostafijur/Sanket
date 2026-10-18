@@ -1,5 +1,6 @@
 from google import genai
 from google.genai import types
+from pydantic import ValidationError
 
 from sanket.config import settings
 from sanket.extraction.schema import JobExtraction
@@ -21,6 +22,14 @@ def _client() -> genai.Client:
     if settings.gemini_api_key is None:
         raise RuntimeError("GEMINI_API_KEY is not set")
     return genai.Client(api_key=settings.gemini_api_key.get_secret_value())
+
+
+def _format_errors(error: ValidationError) -> str:
+    lines = []
+    for err in error.errors(include_url=False, include_input=False):
+        field = ".".join(str(part) for part in err["loc"])
+        lines.append(f"{field}: {err['msg']}")
+    return "\n".join(lines)
 
 
 def extract(text: str) -> JobExtraction:
