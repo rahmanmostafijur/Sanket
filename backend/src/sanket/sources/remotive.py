@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime
 
 import httpx
@@ -6,6 +7,8 @@ from sanket.sources.base import NormalizedPosting
 
 URL = "https://remotive.com/api/remote-jobs"
 USER_AGENT = "Sanket/0.1.0 (github.com/rahmanmostafijur/Sanket)"
+
+logger = logging.getLogger(__name__)
 
 
 def fetch_remotive_jobs() -> list[dict]:
@@ -17,6 +20,11 @@ def fetch_remotive_jobs() -> list[dict]:
     response.raise_for_status()
     data = response.json()
 
+    logger.info(
+        "Fetched %d jobs from remotive (job-count=%s)",
+        len(data["jobs"]),
+        data.get("job-count"),
+    )
     return [
         {
             **job,
