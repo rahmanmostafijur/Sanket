@@ -13,6 +13,14 @@ def to_row(posting: NormalizedPosting) -> dict:
         "source_id": posting.source_id,
         "raw": posting.raw,
         "content_hash": content_hash(posting),
+        "url": posting.url,
+        "title": posting.title,
+        "company": posting.company,
+        "location": posting.location,
+        "description": posting.description,
+        "salary_text": posting.salary_text,
+        "published_at": posting.published_at,
+        "deadline": posting.deadline,
     }
 
 
