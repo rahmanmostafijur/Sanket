@@ -1,9 +1,13 @@
+import logging
+
 from google import genai
 from google.genai import types
 from pydantic import ValidationError
 
 from sanket.config import settings
 from sanket.extraction.schema import JobExtraction
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """
 You extract structured information from a job posting.
@@ -50,7 +54,10 @@ def _generate(client: genai.Client, contents) -> str:
             response_json_schema=JobExtraction.model_json_schema(),
         ),
     )
-    return response.text
+    text = response.text
+    if text is None:
+        raise ExtractionError("Model returned no text", last_output=None)
+    return text
 
 
 def extract(text: str) -> JobExtraction:
@@ -60,11 +67,17 @@ def extract(text: str) -> JobExtraction:
     ]
     raw = None
 
-    for _ in range(MAX_REPAIR_ATTEMPTS + 1):
+    for attempt in range(MAX_REPAIR_ATTEMPTS + 1):
         raw = _generate(client, contents)
         try:
             return JobExtraction.model_validate_json(raw)
         except ValidationError as error:
+            logger.warning(
+                "Extraction failed validation (attempt %d of %d): %s",
+                attempt + 1,
+                MAX_REPAIR_ATTEMPTS + 1,
+                _format_errors(error),
+            )
             contents.append(types.Content(role="model", parts=[types.Part(text=raw)]))
             contents.append(
                 types.Content(
