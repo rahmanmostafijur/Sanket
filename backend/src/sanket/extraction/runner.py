@@ -11,7 +11,15 @@ def find_pending(model: str, limit: int, db_engine: Engine = engine) -> list[Row
         PostingExtraction.model == model,
     )
     stmt = (
-        select(Posting.id, Posting.raw, Posting.content_hash)
+        select(
+            Posting.id,
+            Posting.location,
+            Posting.content_hash,
+            Posting.title,
+            Posting.company,
+            Posting.description,
+            Posting.salary_text,
+        )
         .where(~already_done)
         .order_by(Posting.id)
         .limit(limit)
