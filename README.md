@@ -17,7 +17,7 @@ Sources (RemoteOK, Remotive, We Work Remotely, Jobicy, Himalayas,
   → Normalisation into a common posting model
   → Change detection with a content hash
   → PostgreSQL upsert
-  → [planned] LLM extraction with schema validation
+  → LLM extraction with schema validation
   → [planned] Hybrid search (full-text + vector)
   → [planned] Matching and real-time feed
 ```
@@ -97,6 +97,39 @@ pytest
 Note: Remotive allows at most four requests per day. The scheduled job
 already uses that budget, so do not run Remotive locally, and avoid
 running ingestion repeatedly against the live sources.
+
+## LLM extraction (M2)
+
+`python -m sanket.extraction.runner` extracts structured fields from
+pending postings and runs in the scheduled workflow after ingestion.
+
+- **Schema.** `sanket/extraction/schema.py` defines `JobExtraction`
+  (title, company, seniority, work mode, employment type, ISO country,
+  city, up to 30 normalised skills, minimum years of experience and an
+  optional salary with an ISO 4217 currency). Unknown values are
+  `"unknown"` or null. `SCHEMA_VERSION` and `PROMPT_VERSION` are stored
+  with every result.
+- **Validation and repair.** The model's JSON is validated; on failure
+  the errors are sent back for at most two repairs, after which the
+  posting is stored as `failed` with the error. Unvalidated data is
+  never stored.
+- **Storage.** Results live in `posting_extraction`, one row per
+  `(posting, schema_version, prompt_version)`, together with the content
+  hash that was extracted, the model, attempts and token usage. A
+  posting is pending until its current content hash has an `ok` result
+  (or has failed `EXTRACTION_MAX_ATTEMPTS` times).
+- **Cost guards.** HTML is stripped and descriptions are truncated
+  (`EXTRACTION_MAX_DESCRIPTION_CHARS`), each run is capped
+  (`EXTRACTION_BATCH_LIMIT`), and calls are paced to
+  `GEMINI_REQUESTS_PER_MINUTE`. A run stops after three provider errors
+  in a row.
+- **Provider.** Gemini sits behind the small `LlmClient` interface in
+  `sanket/extraction/llm.py`, so another provider can be swapped in.
+  `extract_posting(posting_id, ...)` handles a single posting and can be
+  called from a queue worker unchanged.
+- **Data use.** On Gemini's free tier, Google may use API inputs to
+  improve its models. Remote OK reserves AI training on its data, so its
+  postings are excluded (`EXTRACTION_EXCLUDED_SOURCES`).
 
 ## Database migrations
 
