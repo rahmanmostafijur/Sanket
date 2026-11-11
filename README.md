@@ -11,7 +11,8 @@ against user profiles.
 ## Architecture
 
 ```
-Sources (RemoteOK, Remotive)
+Sources (RemoteOK, Remotive, We Work Remotely, Jobicy, Himalayas,
+         Greenhouse and Lever company boards)
   → Scheduled ingestion (GitHub Actions, every 6 hours)
   → Normalisation into a common posting model
   → Change detection with a content hash
@@ -33,6 +34,13 @@ Sources (RemoteOK, Remotive)
   the hashing logic can change safely.
 - **Idempotent writes.** Postings are upserted on `(source, source_id)`,
   so re-running ingestion never creates duplicates.
+- **Polite, isolated sources.** Every source implements the same small
+  interface (`sanket.sources.base.Source`). Requests have explicit
+  timeouts, retry with backoff only on network errors, 429 and 5xx, and
+  count against a per-source daily request budget stored in the
+  database (`source_request`), so the limits hold across CI runs. One
+  failing source is logged and the others continue; each run ends with
+  one summary line per source.
 
   ## Tech stack
 
@@ -76,10 +84,10 @@ python -m venv .venv
 source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -e .
 
-# 4. Create the database tables
+# 4. Create the database tables (local database only)
 alembic upgrade head
 
-# 5. Run ingestion once
+# 5. Run ingestion once (INGEST_SOURCES in .env leaves out Remotive)
 python -m sanket.ingest
 
 # 6. Run the tests
@@ -87,16 +95,38 @@ pytest
 ```
 
 Note: Remotive allows at most four requests per day. The scheduled job
-already uses that budget, so avoid running ingestion repeatedly against
-the live sources.
+already uses that budget, so do not run Remotive locally, and avoid
+running ingestion repeatedly against the live sources.
+
+## Database migrations
+
+The scheduled ingestion workflow does not run migrations. Production
+migrations run only through the manual **Migrate production database**
+workflow (`.github/workflows/migrate.yml`).
+
+A migration is applied to production **before** the code that depends on
+it is merged: run the migrate workflow from the feature branch, check it,
+then merge. Migrations must therefore stay compatible with the code
+already on `main`.
 
 ## Data sources
 
-Job postings come from the public APIs of:
+Job postings come from these public APIs and feeds. Every posting keeps
+a link to its original listing, and each source is credited as the
+origin of its data.
 
-- [RemoteOK](https://remoteok.com)
-- [Remotive](https://remotive.com)
+| Source | Access | Terms that apply |
+|---|---|---|
+| [Remote OK](https://remoteok.com) | Public API | Link back (do-follow) and name Remote OK as the source; no logo. Its robots.txt reserves AI training (`ai-train=no`): never train or fine-tune on this data. |
+| [Remotive](https://remotive.com) | Public API | At most 4 requests a day. Link back and credit Remotive. Do not pass jobs on to other job sites or gate them behind sign-ups. |
+| [We Work Remotely](https://weworkremotely.com) | Public RSS feed | Link back to We Work Remotely. |
+| [Jobicy](https://jobicy.com) | Public API | Credit Jobicy with a link and keep apply links on Jobicy. At most one pass an hour. Mark closed jobs as unavailable when shown. |
+| [Himalayas](https://himalayas.app) | Public API (optional key) | Apply via `applicationLink`, credit Himalayas with a link, at most one run a day. Do not pass jobs on to other boards, aggregators or Google Jobs. Remove jobs once they expire. |
+| Greenhouse boards | Public job board API | One request per company per run. Content belongs to each employer; always link back. |
+| Lever boards | Public postings API | One request per company per run. Content belongs to each employer; always link back. |
 
-Every posting keeps a link to its original listing, and each source is
-credited as the origin of its data. Postings are used according to each
-source's API terms.
+The Greenhouse and Lever companies are configured with the
+`GREENHOUSE_BOARDS` and `LEVER_COMPANIES` variables.
+
+Considered and not used: The Muse (API shut down), Adzuna (terms need a
+licence for aggregate analysis), Arbeitnow (terms forbid public display).
