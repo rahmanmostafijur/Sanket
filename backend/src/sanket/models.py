@@ -2,11 +2,13 @@ from datetime import date, datetime
 
 from sqlalchemy import (
     BigInteger,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
     Identity,
     Index,
+    Integer,
     MetaData,
     String,
     Text,
@@ -70,18 +72,37 @@ class SourceRequest(Base):
 
 
 class PostingExtraction(Base):
+    """Latest extraction of a posting for one (schema_version, prompt_version) pair.
+
+    `content_hash` is the posting hash that was extracted; when the posting changes, the
+    row is re-extracted and overwritten. `attempts` counts runs for that content hash, and
+    the token columns hold the usage of the latest run, repairs included.
+    """
+
     __tablename__ = "posting_extraction"
-    __table_args__ = (UniqueConstraint("posting_id", "content_hash", "model"),)
+    __table_args__ = (
+        UniqueConstraint("posting_id", "schema_version", "prompt_version"),
+        CheckConstraint("status IN ('ok', 'failed')", name="status_valid"),
+        CheckConstraint("status <> 'ok' OR data IS NOT NULL", name="ok_has_data"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
     posting_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("posting.id", ondelete="CASCADE"), nullable=False
     )
+    schema_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    prompt_version: Mapped[int] = mapped_column(Integer, nullable=False)
     content_hash: Mapped[str] = mapped_column(Text, nullable=False)
     model: Mapped[str] = mapped_column(String(100), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False)
+    input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
