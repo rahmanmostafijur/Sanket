@@ -1,19 +1,23 @@
-import pytest
+from sanket.extraction import extract
+from sanket.extraction.llm import LlmResponse
 
-from sanket.extraction import llm
+
+class InvalidJsonClient:
+    model = "fake"
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def generate(self, system_prompt, messages, response_schema) -> LlmResponse:
+        self.calls += 1
+        return LlmResponse(text="not valid json")
 
 
-def test_extract_raises_after_all_repairs_fail(monkeypatch):
-    calls = []
+def test_extract_fails_after_all_repairs_fail() -> None:
+    client = InvalidJsonClient()
 
-    def fake_generate(client, contents):
-        calls.append(1)
-        return "not valid json"
+    result = extract.extract(client, "any posting")
 
-    monkeypatch.setattr(llm, "_client", lambda: None)
-    monkeypatch.setattr(llm, "_generate", fake_generate)
-
-    with pytest.raises(llm.ExtractionError):
-        llm.extract("any posting")
-
-    assert len(calls) == llm.MAX_REPAIR_ATTEMPTS + 1
+    assert not result.ok
+    assert result.data is None
+    assert client.calls == extract.MAX_REPAIR_ATTEMPTS + 1
