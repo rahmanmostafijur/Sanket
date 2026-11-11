@@ -5,11 +5,20 @@ on:
   - cron: "0 */6 * * *"
   workflow_dispatch:
 
+# Shared with the migrate workflow so ingestion never overlaps a migration or another
+# ingestion run (which could also double-spend the per-source request budgets).
+concurrency:
+  group: prod-db
+  cancel-in-progress: false
+
 jobs:
   ingest:
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      HIMALAYAS_API_KEY: ${{ secrets.HIMALAYAS_API_KEY }}
+      GREENHOUSE_BOARDS: ${{ vars.GREENHOUSE_BOARDS }}
+      LEVER_COMPANIES: ${{ vars.LEVER_COMPANIES }}
     defaults:
       run:
         working-directory: backend
@@ -19,5 +28,4 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e .
-      - run: alembic upgrade head
       - run: python -m sanket.ingest
