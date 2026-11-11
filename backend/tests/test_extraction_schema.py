@@ -6,18 +6,21 @@ from sanket.extraction.schema import JobExtraction, WorkMode
 
 def valid_data() -> dict:
     return {
+        "title": "Backend Engineer",
+        "company": "Acme",
         "skills": ["Python", "PostgreSQL"],
         "seniority": "senior",
-        "years_experience_min": 3,
+        "min_years_experience": 3,
         "work_mode": "remote",
         "employment_type": "full_time",
-        "education_level": None,
-        "salary_min": 50000,
-        "salary_max": 80000,
-        "salary_currency": "USD",
-        "salary_period": "year",
-        "benefits": [],
-        "allowed_regions": None,
+        "country": "DE",
+        "city": "Berlin",
+        "salary": {
+            "min_amount": 50000,
+            "max_amount": 80000,
+            "currency": "USD",
+            "period": "year",
+        },
     }
 
 
