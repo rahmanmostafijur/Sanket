@@ -1,24 +1,33 @@
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
-import httpx
-
-from sanket.sources.base import NormalizedPosting
+from sanket.sources.base import FetchResult, NormalizedPosting
+from sanket.sources.http import Fetcher
 
 URL = "https://remotive.com/api/remote-jobs"
-USER_AGENT = "Sanket/0.1.0 (github.com/rahmanmostafijur/Sanket)"
 
 logger = logging.getLogger(__name__)
 
 
-def fetch_remotive_jobs() -> list[dict]:
-    response = httpx.get(
-        URL,
-        headers={"User-Agent": USER_AGENT},
-        timeout=httpx.Timeout(10.0, connect=5.0),
-    )
-    response.raise_for_status()
-    data = response.json()
+class RemotiveSource:
+    """Remotive public API.
+
+    Terms: at most 4 requests a day, link back to the Remotive URL and credit Remotive,
+    and do not pass the jobs on to other job sites. One attempt per run, no retries, so a
+    retry can never push the daily count over the limit.
+    """
+
+    name = "remotive"
+    max_requests_per_day: int | None = 4
+    max_attempts = 1
+    min_interval: timedelta | None = None
+
+    def fetch(self, http: Fetcher) -> FetchResult:
+        return FetchResult([to_posting(item) for item in fetch_remotive_jobs(http)])
+
+
+def fetch_remotive_jobs(http: Fetcher) -> list[dict]:
+    data = http.get(URL).json()
 
     logger.info(
         "Fetched %d jobs from remotive (job-count=%s)",

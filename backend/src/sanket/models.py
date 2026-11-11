@@ -6,6 +6,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Identity,
+    Index,
     MetaData,
     String,
     Text,
@@ -51,6 +52,19 @@ class Posting(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class SourceRequest(Base):
+    """One HTTP request attempt to a job source, used for daily request budgets."""
+
+    __tablename__ = "source_request"
+    __table_args__ = (Index("ix_source_request_source_requested_at", "source", "requested_at"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    source: Mapped[str] = mapped_column(String(50), nullable=False)
+    requested_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 

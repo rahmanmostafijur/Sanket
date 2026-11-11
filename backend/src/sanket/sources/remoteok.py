@@ -1,24 +1,30 @@
-import httpx
+from datetime import timedelta
+
 from ftfy import fix_encoding
 
-from sanket.sources.base import NormalizedPosting
+from sanket.sources.base import FetchResult, NormalizedPosting
+from sanket.sources.http import Fetcher
 
 URL = "https://remoteok.com/api"
-USER_AGENT = "Sanket/0.1.0 (github.com/rahmanmostafijur/Sanket)"
 ANTI_SPAM_MARKER = "Please mention the word"
 
 
-def fetch_remoteok_jobs():
-    response = httpx.get(
-        URL,
-        headers={"User-Agent": USER_AGENT},
-        timeout=httpx.Timeout(10.0, connect=5.0),
-    )
-    response.raise_for_status()
-    data = response.json()
+class RemoteOkSource:
+    """Remote OK public API. Terms: link back (do-follow) and name "Remote OK" as source."""
 
-    jobs = [item for item in data if "id" in item]
-    return jobs
+    name = "remoteok"
+    max_requests_per_day: int | None = 12
+    max_attempts = 3
+    min_interval: timedelta | None = None
+
+    def fetch(self, http: Fetcher) -> FetchResult:
+        return FetchResult([to_posting(item) for item in fetch_remoteok_jobs(http)])
+
+
+def fetch_remoteok_jobs(http: Fetcher) -> list[dict]:
+    data = http.get(URL).json()
+    # The first element is the API legal notice, not a job.
+    return [item for item in data if "id" in item]
 
 
 def _fix_encoding(text: str | None) -> str | None:
