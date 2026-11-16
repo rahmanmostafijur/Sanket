@@ -52,6 +52,7 @@ module = [
     "sanket.db",
     "sanket.sources.ashby",
     "sanket.sources.jobtech_se",
+    "sanket.sources.usajobs",
     "sanket.extraction.prompt",
     "sanket.extraction.schema",
 ]

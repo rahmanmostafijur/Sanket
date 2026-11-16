@@ -38,6 +38,14 @@ class FetchResult:
     skipped: int = 0
 
 
+class SourceNotConfiguredError(Exception):
+    """Raised by a source that needs credentials it does not have, before any request.
+
+    The run is reported as skipped, not failed, because leaving an optional source
+    unconfigured is a normal setup.
+    """
+
+
 def convert_items(
     source: str, items: Iterable[dict], convert: Callable[[dict], NormalizedPosting]
 ) -> tuple[list[NormalizedPosting], int]:

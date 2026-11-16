@@ -7,7 +7,7 @@ import httpx
 
 from sanket.config import Settings, settings
 from sanket.sources.ashby import AshbySource
-from sanket.sources.base import Source
+from sanket.sources.base import Source, SourceNotConfiguredError
 from sanket.sources.budget import DbRequestBudget, utc_now
 from sanket.sources.greenhouse import GreenhouseSource
 from sanket.sources.himalayas import HimalayasSource
@@ -17,6 +17,7 @@ from sanket.sources.jobtech_se import JobTechSource
 from sanket.sources.lever import LeverSource
 from sanket.sources.remoteok import RemoteOkSource
 from sanket.sources.remotive import RemotiveSource
+from sanket.sources.usajobs import UsaJobsSource
 from sanket.sources.weworkremotely import WeWorkRemotelySource
 from sanket.storage import SaveResult, save_postings, to_row
 
@@ -56,6 +57,7 @@ def build_sources(config: Settings) -> list[Source]:
         GreenhouseSource(config.greenhouse_boards),
         LeverSource(config.lever_companies),
         AshbySource(config.ashby_boards),
+        UsaJobsSource(config.usajobs_api_key, config.usajobs_user_agent_email),
         JobTechSource(
             config.jobtech_query,
             config.jobtech_max_pages,
@@ -98,6 +100,9 @@ def run_source(
     try:
         result = source.fetch(http)
         saved = save([to_row(posting) for posting in result.postings])
+    except SourceNotConfiguredError as error:
+        logger.info("%s: %s, skipping", source.name, error)
+        return SourceSummary(source.name, STATUS_SKIPPED, skipped=1)
     except BudgetExceededError as error:
         logger.warning("%s: %s, skipping", source.name, error)
         return SourceSummary(source.name, STATUS_SKIPPED, skipped=1)

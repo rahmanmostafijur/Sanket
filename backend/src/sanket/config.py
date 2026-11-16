@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     lever_companies: CommaList = []
     ashby_boards: CommaList = []
     himalayas_api_key: SecretStr | None = None
+    # USAJOBS needs both: the key, and the email address it was registered with, which the
+    # API takes as the User-Agent. Without them the source is skipped.
+    usajobs_api_key: SecretStr | None = None
+    usajobs_user_agent_email: str | None = None
     # JobTech Sweden: optional free-text query, pages of 100 ads per run (the API allows 20),
     # and how far back to look for ads published since.
     jobtech_query: str | None = None
@@ -58,7 +62,14 @@ class Settings(BaseSettings):
     # used to improve Google's models, so Remote OK postings are not sent by default.
     extraction_excluded_sources: CommaList = ["remoteok"]
 
-    @field_validator("himalayas_api_key", "gemini_api_key", "jobtech_query", mode="before")
+    @field_validator(
+        "himalayas_api_key",
+        "gemini_api_key",
+        "jobtech_query",
+        "usajobs_api_key",
+        "usajobs_user_agent_email",
+        mode="before",
+    )
     @classmethod
     def _blank_is_none(cls, value: object) -> object:
         # An unset GitHub Actions secret or variable arrives as an empty string.

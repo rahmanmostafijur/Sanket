@@ -22,6 +22,8 @@ jobs:
       LEVER_COMPANIES: ${{ vars.LEVER_COMPANIES }}
       ASHBY_BOARDS: ${{ vars.ASHBY_BOARDS }}
       JOBTECH_QUERY: ${{ vars.JOBTECH_QUERY }}
+      USAJOBS_API_KEY: ${{ secrets.USAJOBS_API_KEY }}
+      USAJOBS_USER_AGENT_EMAIL: ${{ secrets.USAJOBS_USER_AGENT_EMAIL }}
     defaults:
       run:
         working-directory: backend
