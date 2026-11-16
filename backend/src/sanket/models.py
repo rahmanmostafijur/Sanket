@@ -56,6 +56,52 @@ class Posting(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    # The canonical job this posting belongs to. NULL until it has been canonicalised, and
+    # for postings with no usable title or company.
+    job_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("job.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+
+class Job(Base):
+    """The canonical entity that groups the postings describing one real job.
+
+    `fingerprint` is the versioned hash of the normalised company, title and location
+    (`sanket.canonical.fingerprint`). The display fields and the aggregates are copied from
+    the member postings by `sanket.canonical`; `representative_posting_id` is the member
+    that supplies the display fields. A job whose last posting moved away keeps its row with
+    `posting_count` 0, so ids that other tables refer to stay valid. Whether a job is still
+    open is not stored: it is answered at query time from `last_seen_at`.
+    """
+
+    __tablename__ = "job"
+    __table_args__ = (
+        UniqueConstraint("fingerprint"),
+        CheckConstraint("posting_count >= 0", name="posting_count_nonnegative"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    fingerprint: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    company: Mapped[str] = mapped_column(Text, nullable=False)
+    location: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # use_alter breaks the posting <-> job foreign key cycle for metadata table sorting.
+    representative_posting_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("posting.id", ondelete="SET NULL", use_alter=True), nullable=True
+    )
+    posting_count: Mapped[int] = mapped_column(Integer, server_default="0", nullable=False)
+    first_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 class SourceRequest(Base):
