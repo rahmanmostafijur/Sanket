@@ -97,6 +97,51 @@ class Settings(BaseSettings):
     # full-text results only.
     search_embedding_timeout_seconds: float = Field(default=5.0, gt=0, le=60)
 
+    # Task queue (see docs/adr/0005-task-queue.md). Without REDIS_URL nothing is queued: the
+    # API still saves profiles and the indexing run still succeeds, and the pending work is
+    # picked up later by `python -m sanket.matching` (docs/matching.md). The URL may carry a
+    # password, so it is a secret.
+    redis_url: SecretStr | None = None
+    queue_name: str = Field(
+        default="sanket", min_length=1, max_length=50, pattern=r"^[A-Za-z0-9_-]+$"
+    )
+    # Attempts per task in total (the first run included) and the delay before each retry:
+    # base * factor ** (retry number - 1), capped.
+    queue_max_attempts: int = Field(default=5, ge=1, le=20)
+    queue_backoff_base_seconds: float = Field(default=30.0, gt=0)
+    queue_backoff_factor: float = Field(default=2.0, ge=1)
+    queue_backoff_max_seconds: float = Field(default=3600.0, gt=0)
+    # A task running longer than this is treated as dead and its slot is released.
+    queue_task_timeout_seconds: int = Field(default=600, ge=10)
+    # How long a dead-lettered task is kept for inspection and requeueing.
+    queue_dead_letter_ttl_days: int = Field(default=30, ge=1)
+    # Redis connect and read timeouts, so an unreachable Redis fails fast in a request.
+    redis_timeout_seconds: float = Field(default=3.0, gt=0, le=60)
+
+    # Profiles and matching (see docs/adr/0006-profiles-and-matching.md). Until authentication
+    # exists every request acts as this owner; the authenticated principal replaces it.
+    default_owner_id: str = Field(default="default", min_length=1, max_length=100)
+    max_profiles_per_owner: int = Field(default=20, ge=1, le=1000)
+    # Queue a matching task for every job whose embedding changed in an indexing run.
+    # Only effective when REDIS_URL is set.
+    match_enqueue_after_indexing: bool = True
+    # A match must reach this blended score (0 to 1), and its embedding cosine similarity
+    # must reach MATCH_MIN_COSINE. The cosine component of the score is rescaled from
+    # MATCH_MIN_COSINE (0) to 1 (1). Defaults are reasoned starting points, not tuned values.
+    match_min_score: float = Field(default=0.55, ge=0, le=1)
+    match_min_cosine: float = Field(default=0.5, ge=0, lt=1)
+    match_weight_cosine: float = Field(default=0.6, ge=0)
+    match_weight_skills: float = Field(default=0.25, ge=0)
+    match_weight_title: float = Field(default=0.15, ge=0)
+    # Share of a profile's required skills a job must list (1.0 means all of them).
+    match_required_skills_min_fraction: float = Field(default=1.0, gt=0, le=1)
+    # Nearest stored profiles examined for a changed job, then scored exactly.
+    match_max_profiles_per_job: int = Field(default=200, ge=1, le=5000)
+    # Jobs examined for a changed profile: seen within this many days, nearest first, at most
+    # this many.
+    match_recent_job_days: int = Field(default=30, ge=1, le=365)
+    match_max_jobs_per_profile: int = Field(default=200, ge=1, le=5000)
+
     # The API server. Loopback by default; bind to another address deliberately.
     api_host: str = "127.0.0.1"
     api_port: int = Field(default=8000, ge=1, le=65535)
@@ -107,6 +152,7 @@ class Settings(BaseSettings):
         "jobtech_query",
         "usajobs_api_key",
         "usajobs_user_agent_email",
+        "redis_url",
         mode="before",
     )
     @classmethod
