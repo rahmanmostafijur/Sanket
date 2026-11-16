@@ -50,6 +50,7 @@ warn_redundant_casts = true
 module = [
     "sanket.config",
     "sanket.db",
+    "sanket.canonical.*",
     "sanket.sources.ashby",
     "sanket.sources.jobtech_se",
     "sanket.sources.usajobs",
