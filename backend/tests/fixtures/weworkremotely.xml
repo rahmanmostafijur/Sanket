@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>We Work Remotely: Remote jobs</title>
+    <item>
+      <title>Acme Corp: Senior Python Developer</title>
+      <region>Anywhere in the World</region>
+      <country>Germany</country>
+      <state></state>
+      <guid>https://weworkremotely.com/remote-jobs/acme-senior-python</guid>
+      <link>https://weworkremotely.com/remote-jobs/acme-senior-python</link>
+      <pubDate>Mon, 10 Nov 2026 09:00:00 +0000</pubDate>
+      <description><![CDATA[<p>Build <b>APIs</b> &amp; services.</p>]]></description>
+      <media:content url="https://example.com/logo.png" />
+    </item>
+    <item>
+      <title>A title with no company separator</title>
+      <guid>https://weworkremotely.com/remote-jobs/no-company</guid>
+      <link>https://weworkremotely.com/remote-jobs/no-company</link>
+    </item>
+    <item>
+      <title>Tom &amp;amp; Jerry Ltd: Data Engineer</title>
+      <guid>https://weworkremotely.com/remote-jobs/tom-jerry</guid>
+      <link>https://weworkremotely.com/remote-jobs/tom-jerry</link>
+      <pubDate>Tue, 11 Nov 2026 12:30:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>Broken Inc: Item without a guid</title>
+      <link>https://weworkremotely.com/remote-jobs/no-guid</link>
+    </item>
+    <item>
+      <title>Broken Inc: Item with a bad date</title>
+      <guid>https://weworkremotely.com/remote-jobs/bad-date</guid>
+      <link>https://weworkremotely.com/remote-jobs/bad-date</link>
+      <pubDate>not a date</pubDate>
+    </item>
+  </channel>
+</rss>

@@ -1,0 +1,22 @@
+{
+  "job-count": 2,
+  "jobs": [
+    {
+      "id": 2001,
+      "url": "https://remotive.com/remote-jobs/data/data-analyst-2001",
+      "title": "Data Analyst",
+      "company_name": "Beta Corp",
+      "candidate_required_location": "USA Only",
+      "description": "<p>Analyse data.</p>",
+      "salary": "$60k-$80k",
+      "publication_date": "2026-11-10T09:00:00"
+    },
+    {
+      "id": 2002,
+      "url": "https://remotive.com/remote-jobs/other/minimal-2002",
+      "title": "Minimal Role",
+      "company_name": "",
+      "candidate_required_location": ""
+    }
+  ]
+}
