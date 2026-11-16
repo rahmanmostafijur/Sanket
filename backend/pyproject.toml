@@ -61,6 +61,8 @@ module = [
     "sanket.extraction.schema",
     "sanket.indexing.*",
     "sanket.embeddings.*",
+    "sanket.search.*",
+    "sanket.api.*",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
