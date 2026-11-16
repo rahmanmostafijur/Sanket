@@ -87,12 +87,28 @@ def truncate(text: str, max_chars: int) -> str:
     return text[:max_chars].rstrip() + TRUNCATION_MARKER
 
 
-WRAPPER_TAG_START = re.compile(r"<(?=\s*/?\s*posting\b)", re.IGNORECASE)
+# Characters that render as nothing (zero-width, soft hyphen, BOM, bidi marks) and so can be
+# slipped into a tag name without changing how a model reads it.
+_INVISIBLE = "\u00ad\u200b-\u200f\u202a-\u202e\u2060-\u2064\ufeff"
+_GAP = f"[{_INVISIBLE}]*"
+_SKIP = rf"[\s{_INVISIBLE}]*"  # whitespace or invisible characters
+# `<` plus its fullwidth and small-form lookalikes; `/` plus its fullwidth form.
+_OPEN = "[<\uff1c\ufe64]"
+_SLASH = "[/\uff0f]"
+# Each letter may also be written fullwidth (U+FF21..U+FF5A = ASCII + 0xFEE0).
+_NAME = _GAP.join(f"[{c}{chr(ord(c) + 0xFEE0)}]" for c in "posting")
+WRAPPER_TAG_START = re.compile(
+    rf"{_OPEN}(?={_SKIP}(?:{_SLASH}{_SKIP})?{_NAME}(?!\w))", re.IGNORECASE
+)
 
 
 def neutralise_wrapper_tags(text: str) -> str:
     """Escape any `<posting>` or `</posting>` in posting content (entities are decoded by
-    html_to_text, so `&lt;/posting&gt;` would otherwise close the prompt wrapper early)."""
+    html_to_text, so `&lt;/posting&gt;` would otherwise close the prompt wrapper early).
+
+    Also catches case, whitespace, attributes, self-closing forms, and look-alikes made of
+    invisible characters or fullwidth characters. A double-encoded `&amp;lt;` is decoded once
+    to the inert text `&lt;`, which is not a tag, so it needs no handling here."""
     return WRAPPER_TAG_START.sub("&lt;", text)
 
 
