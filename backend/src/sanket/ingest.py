@@ -4,8 +4,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 import httpx
+from sqlalchemy import Engine
 
+from sanket.canonical.service import canonicalise
 from sanket.config import Settings, settings
+from sanket.db import engine
 from sanket.sources.ashby import AshbySource
 from sanket.sources.base import Source, SourceNotConfiguredError
 from sanket.sources.budget import DbRequestBudget, utc_now
@@ -137,6 +140,17 @@ def run_all(
     return summaries
 
 
+def canonicalise_postings_after_ingest(enabled: bool, db_engine: Engine = engine) -> None:
+    """Group the stored postings into jobs. Never raises: ingestion has already succeeded."""
+    if not enabled:
+        logger.info("canonicalisation after ingest is disabled")
+        return
+    try:
+        logger.info(canonicalise(db_engine, apply=True).line())
+    except Exception:
+        logger.exception("Canonicalisation failed; postings stay as they were until the next run")
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     sources = select_sources(build_sources(settings), settings.ingest_sources)
@@ -146,6 +160,7 @@ def main() -> None:
 
     for summary in summaries:
         logger.info(summary.line())
+    canonicalise_postings_after_ingest(settings.canonicalise_after_ingest)
 
     failed = [summary.name for summary in summaries if summary.status == STATUS_FAILED]
     if failed:

@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     jobtech_max_pages: int = Field(default=5, ge=1, le=20)
     jobtech_lookback_days: int = Field(default=2, ge=1, le=30)
 
+    # Group postings into canonical jobs at the end of every ingest run. A failure is logged and
+    # never fails the run; turn it off if the job table has not been migrated yet.
+    canonicalise_after_ingest: bool = True
+
     @field_validator(
         "ingest_sources",
         "greenhouse_boards",
