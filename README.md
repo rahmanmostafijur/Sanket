@@ -82,7 +82,7 @@ cp .env.example .env
 cd backend
 python -m venv .venv
 source .venv/bin/activate      # Windows: .venv\Scripts\activate
-pip install -e .
+pip install -e ".[dev]"
 
 # 4. Create the database tables (local database only)
 alembic upgrade head
@@ -97,6 +97,35 @@ pytest
 Note: Remotive allows at most four requests per day. The scheduled job
 already uses that budget, so do not run Remotive locally, and avoid
 running ingestion repeatedly against the live sources.
+
+## Development
+
+CI (`.github/workflows/ci.yml`) runs the same checks on every push and
+pull request. To run them locally, from `backend/` with the dev extras
+installed (`pip install -e ".[dev]"`):
+
+```bash
+ruff check .
+ruff format --check .
+mypy
+pytest -q -rs
+```
+
+Database tests need a throwaway local database whose name ends in
+`_test`, migrated to head. Create it once in the Docker database, then
+point `TEST_DATABASE_URL` at it (same user and password as in `.env`,
+host `127.0.0.1`, port 5433). Tests refuse any other host or name.
+
+```bash
+docker compose exec db createdb -U "$POSTGRES_USER" sanket_test
+DATABASE_URL=<test url> alembic upgrade head
+TEST_DATABASE_URL=<test url> pytest -q -rs
+```
+
+Without `TEST_DATABASE_URL` the database tests are skipped, and CI fails
+on any skipped test. `mypy` is lenient by default; modules listed in the
+`[[tool.mypy.overrides]]` section of `backend/pyproject.toml` are checked
+strictly, and new modules should be added there.
 
 ## LLM extraction (M2)
 
