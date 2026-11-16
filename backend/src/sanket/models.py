@@ -3,9 +3,11 @@ from datetime import date, datetime
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
+    Double,
     ForeignKey,
     Identity,
     Index,
@@ -210,3 +212,136 @@ class PostingExtraction(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class EmbeddingStatus:
+    """Where a profile's embedding stands, `profile.embedding_status`."""
+
+    PENDING = "pending"
+    READY = "ready"
+    FAILED = "failed"
+
+
+class MatchStatus:
+    """`job_match.status`. A match that stops holding is kept, withdrawn, so its id is stable."""
+
+    ACTIVE = "active"
+    WITHDRAWN = "withdrawn"
+
+
+class Profile(Base):
+    """What one user is looking for (docs/adr/0006-profiles-and-matching.md).
+
+    `owner_id` is an opaque identifier of the owner; every query is scoped by it. `criteria`
+    is the validated `sanket.profiles.criteria.ProfileCriteria` as JSON. `search_text` is the
+    text that is embedded and `content_hash` covers the criteria and `active`, so an
+    unchanged save re-embeds and re-matches nothing. A profile is deleted for real, which
+    removes its embeddings and matches.
+    """
+
+    __tablename__ = "profile"
+    __table_args__ = (
+        UniqueConstraint("owner_id", "name"),
+        CheckConstraint(
+            "embedding_status IN ('pending', 'ready', 'failed')", name="embedding_status_valid"
+        ),
+        Index("ix_profile_owner_id_id", "owner_id", "id"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    owner_id: Mapped[str] = mapped_column(Text, nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    criteria: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, server_default="true", nullable=False)
+    search_text: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    # `pending` from every content change until the embedding for that content exists,
+    # `failed` when the latest attempt to embed it failed; only `ready` profiles are matched.
+    embedding_status: Mapped[str] = mapped_column(
+        String(20), server_default="pending", nullable=False
+    )
+    embedding_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ProfileEmbedding(Base):
+    """The vector of a profile for one embedding model; same conventions as `JobEmbedding`."""
+
+    __tablename__ = "profile_embedding"
+    __table_args__ = (
+        UniqueConstraint("profile_id", "model_name", "model_version"),
+        CheckConstraint("dimension = vector_dims(embedding)", name="dimension_matches_vector"),
+        Index(
+            "ix_profile_embedding_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_with={"m": HNSW_M, "ef_construction": HNSW_EF_CONSTRUCTION},
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    profile_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("profile.id", ondelete="CASCADE"), nullable=False
+    )
+    model_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    model_version: Mapped[str] = mapped_column(String(50), nullable=False)
+    dimension: Mapped[int] = mapped_column(Integer, nullable=False)
+    content_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(
+        Vector(EMBEDDING_COLUMN_DIMENSIONS), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class JobMatch(Base):
+    """A job scored against a profile (docs/adr/0006-profiles-and-matching.md).
+
+    One row per (profile, job), written by `INSERT ... ON CONFLICT DO UPDATE`, so repeating a
+    run changes nothing. `id` only ever grows (identity), which is what the match feed uses as
+    its event id and resume point; a row keeps its id for life, also when the match is
+    `withdrawn` (the job no longer passes) and again `active`. `components` explains the
+    score. `job_embedding_hash` and `profile_hash` identify what it was scored against, and
+    `scorer_version` the algorithm. `notified_at` is set once the notification hook ran and
+    reset when a withdrawn match becomes active again.
+    """
+
+    __tablename__ = "job_match"
+    __table_args__ = (
+        UniqueConstraint("profile_id", "job_id"),
+        CheckConstraint("status IN ('active', 'withdrawn')", name="status_valid"),
+        CheckConstraint("score >= 0 AND score <= 1", name="score_in_range"),
+        Index("ix_job_match_profile_id_id", "profile_id", "id"),
+        Index("ix_job_match_job_id", "job_id"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    profile_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("profile.id", ondelete="CASCADE"), nullable=False
+    )
+    job_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("job.id", ondelete="CASCADE"), nullable=False
+    )
+    score: Mapped[float] = mapped_column(Double, nullable=False)
+    components: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    scorer_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), server_default="active", nullable=False)
+    job_embedding_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    profile_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
