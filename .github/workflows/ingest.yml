@@ -20,6 +20,7 @@ jobs:
       HIMALAYAS_API_KEY: ${{ secrets.HIMALAYAS_API_KEY }}
       GREENHOUSE_BOARDS: ${{ vars.GREENHOUSE_BOARDS }}
       LEVER_COMPANIES: ${{ vars.LEVER_COMPANIES }}
+      ASHBY_BOARDS: ${{ vars.ASHBY_BOARDS }}
     defaults:
       run:
         working-directory: backend

@@ -49,6 +49,7 @@ warn_redundant_casts = true
 module = [
     "sanket.config",
     "sanket.db",
+    "sanket.sources.ashby",
     "sanket.extraction.prompt",
     "sanket.extraction.schema",
 ]

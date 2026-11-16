@@ -27,12 +27,14 @@ class Settings(BaseSettings):
     ingest_sources: CommaList = []
     greenhouse_boards: CommaList = []
     lever_companies: CommaList = []
+    ashby_boards: CommaList = []
     himalayas_api_key: SecretStr | None = None
 
     @field_validator(
         "ingest_sources",
         "greenhouse_boards",
         "lever_companies",
+        "ashby_boards",
         "extraction_excluded_sources",
         mode="before",
     )

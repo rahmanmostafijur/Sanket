@@ -6,6 +6,7 @@ from datetime import datetime
 import httpx
 
 from sanket.config import Settings, settings
+from sanket.sources.ashby import AshbySource
 from sanket.sources.base import Source
 from sanket.sources.budget import DbRequestBudget, utc_now
 from sanket.sources.greenhouse import GreenhouseSource
@@ -53,6 +54,7 @@ def build_sources(config: Settings) -> list[Source]:
         HimalayasSource(config.himalayas_api_key),
         GreenhouseSource(config.greenhouse_boards),
         LeverSource(config.lever_companies),
+        AshbySource(config.ashby_boards),
     ]
 
 

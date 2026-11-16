@@ -1,0 +1,228 @@
+{
+ "jobs": [
+  {
+   "id": "7458d4e9-da2e-47bd-98cb-adfda43d42b2",
+   "title": "Engineering Manager - EU",
+   "department": "Engineering",
+   "team": "EMEA Engineering",
+   "employmentType": "FullTime",
+   "location": "Remote - European Union",
+   "secondaryLocations": [
+    {
+     "location": "Spain",
+     "address": {
+      "postalAddress": {
+       "addressRegion": "Spain",
+       "addressCountry": "Spain",
+       "addressLocality": "Spain"
+      }
+     }
+    },
+    {
+     "location": "Italy",
+     "address": {
+      "postalAddress": {
+       "addressRegion": "",
+       "addressCountry": "Italy",
+       "addressLocality": ""
+      }
+     }
+    },
+    {
+     "location": "Germany",
+     "address": {
+      "postalAddress": {
+       "addressCountry": "Germany",
+       "addressLocality": ""
+      }
+     }
+    }
+   ],
+   "publishedAt": "2024-03-04T14:29:08.532+00:00",
+   "isListed": true,
+   "isRemote": true,
+   "workplaceType": "Remote",
+   "address": {
+    "postalAddress": {
+     "postalCode": "",
+     "addressRegion": "",
+     "addressCountry": "European Union",
+     "addressLocality": ""
+    }
+   },
+   "jobUrl": "https://jobs.ashbyhq.com/Ashby/7458d4e9-da2e-47bd-98cb-adfda43d42b2",
+   "applyUrl": "https://jobs.ashbyhq.com/Ashby/7458d4e9-da2e-47bd-98cb-adfda43d42b2/application",
+   "descriptionHtml": "<p style=\"min-height:1.5em\">Hi 👋 I’m <a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://uk.linkedin.com/in/colinhoweuk\"><u>Colin</u></a>, Director of Engineering, Europe. How do you feel about software engineers writing product specs, making product decisions, and not breaking down ...[trimmed]",
+   "descriptionPlain": "Hi 👋 I’m Colin https://uk.linkedin.com/in/colinhoweuk, Director of Engineering, Europe. How do you feel about software engineers writing product specs, making product decisions, and not breaking down projects into individual tickets? If that sounds exciting (even if a bit scary), read on because I’m...[trimmed]",
+   "compensation": {
+    "compensationTierSummary": "€150K – €250K • Offers Equity • Offers Bonus",
+    "scrapeableCompensationSalarySummary": "€150K - €250K",
+    "compensationTiers": [
+     {
+      "id": "f1284fac-20e9-4ed0-9a10-776d526a636c",
+      "tierSummary": "€150K – €250K • Offers Equity • Offers Bonus",
+      "title": "EU",
+      "additionalInformation": null,
+      "components": [
+       {
+        "id": "04679796-e0e4-4d9b-a5c0-0cad3ff8ae95",
+        "summary": "Offers Bonus",
+        "compensationType": "Bonus",
+        "interval": "1 YEAR",
+        "currencyCode": "EUR",
+        "minValue": null,
+        "maxValue": null
+       },
+       {
+        "id": "da741ab6-ff38-4fc2-b7b7-c1ccd7260347",
+        "summary": "Offers Equity",
+        "compensationType": "EquityPercentage",
+        "interval": "NONE",
+        "currencyCode": null,
+        "minValue": null,
+        "maxValue": null
+       },
+       {
+        "id": "201b8495-aa7c-417d-923b-94fced49b246",
+        "summary": "€150K – €250K",
+        "compensationType": "Salary",
+        "interval": "1 YEAR",
+        "currencyCode": "EUR",
+        "minValue": 150000,
+        "maxValue": 250000
+       }
+      ]
+     }
+    ],
+    "summaryComponents": [
+     {
+      "compensationType": "Bonus",
+      "interval": "1 YEAR",
+      "currencyCode": "EUR",
+      "minValue": null,
+      "maxValue": null
+     },
+     {
+      "compensationType": "EquityPercentage",
+      "interval": "NONE",
+      "currencyCode": null,
+      "minValue": null,
+      "maxValue": null
+     },
+     {
+      "compensationType": "Salary",
+      "interval": "1 YEAR",
+      "currencyCode": "EUR",
+      "minValue": 150000,
+      "maxValue": 250000
+     }
+    ]
+   },
+   "shouldDisplayCompensationOnJobPostings": true
+  },
+  {
+   "id": "86a60834-ba64-484d-9658-afa1bc97a957",
+   "title": "Mid Market Account Executive - EMEA (French Speaking)",
+   "department": "Sales",
+   "team": "Sales",
+   "employmentType": "FullTime",
+   "location": "France",
+   "secondaryLocations": [
+    {
+     "location": "United Kingdom",
+     "address": {
+      "postalAddress": {
+       "addressRegion": "",
+       "addressCountry": "United Kingdom",
+       "addressLocality": ""
+      }
+     }
+    },
+    {
+     "location": "Belgium",
+     "address": {
+      "postalAddress": {
+       "addressRegion": "",
+       "addressCountry": "Belgium",
+       "addressLocality": ""
+      }
+     }
+    },
+    {
+     "location": "Germany",
+     "address": {
+      "postalAddress": {
+       "addressCountry": "Germany",
+       "addressLocality": ""
+      }
+     }
+    }
+   ],
+   "publishedAt": "2026-09-08T16:27:26.694+00:00",
+   "isListed": true,
+   "isRemote": true,
+   "workplaceType": "Remote",
+   "address": {
+    "postalAddress": {
+     "addressRegion": "",
+     "addressCountry": "France",
+     "addressLocality": ""
+    }
+   },
+   "jobUrl": "https://jobs.ashbyhq.com/Ashby/86a60834-ba64-484d-9658-afa1bc97a957",
+   "applyUrl": "https://jobs.ashbyhq.com/Ashby/86a60834-ba64-484d-9658-afa1bc97a957/application",
+   "descriptionHtml": "<h2><strong>Why Join Sales at Ashby</strong></h2><p style=\"min-height:1.5em\">Sales at Ashby is a unique opportunity to sell a <a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://www.ashbyhq.com/customers\"><u>product customers genuinely love</u></a> during an AI-fueled market expansio...[trimmed]",
+   "descriptionPlain": "WHY JOIN SALES AT ASHBY\n\nSales at Ashby is a unique opportunity to sell a product customers genuinely love https://www.ashbyhq.com/customers during an AI-fueled market expansion. Over 5,000 companies rely on Ashby, including OpenAI, Doctolib, Alan, Mistral and Monday.com http://Monday.com, and our b...[trimmed]"
+  },
+  {
+   "id": "hand-0003-unlisted",
+   "title": "Unlisted Role",
+   "location": "Remote",
+   "publishedAt": "2026-10-01T09:00:00.000+00:00",
+   "isListed": false,
+   "isRemote": true,
+   "jobUrl": "https://jobs.ashbyhq.com/Ashby/hand-0003-unlisted",
+   "descriptionPlain": "Should never be stored."
+  },
+  {
+   "id": "hand-0004-html-only",
+   "title": "  Support Engineer ",
+   "location": "Berlin",
+   "publishedAt": "2026-10-02T09:00:00.000+00:00",
+   "isListed": true,
+   "isRemote": false,
+   "jobUrl": "https://jobs.ashbyhq.com/Ashby/hand-0004-html-only",
+   "descriptionHtml": "<p>Help &amp; support customers.</p>",
+   "descriptionPlain": "",
+   "shouldDisplayCompensationOnJobPostings": false,
+   "compensation": {
+    "compensationTierSummary": "$1 - $2"
+   }
+  },
+  {
+   "id": "hand-0005-no-location",
+   "title": "Remote Anywhere Role",
+   "isListed": true,
+   "isRemote": true,
+   "jobUrl": "https://jobs.ashbyhq.com/Ashby/hand-0005-no-location",
+   "descriptionPlain": "Work from anywhere.",
+   "compensation": {
+    "compensationTierSummary": null,
+    "scrapeableCompensationSalarySummary": "$90K - $120K"
+   }
+  },
+  {
+   "id": "hand-0006-no-url",
+   "title": "Role without a url",
+   "isListed": true
+  },
+  {
+   "id": "hand-0007-bad-date",
+   "title": "Role with a bad date",
+   "isListed": true,
+   "jobUrl": "https://jobs.ashbyhq.com/Ashby/hand-0007-bad-date",
+   "publishedAt": "last week"
+  }
+ ],
+ "apiVersion": "1"
+}
