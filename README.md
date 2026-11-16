@@ -20,7 +20,7 @@ Sources (RemoteOK, Remotive, We Work Remotely, Jobicy, Himalayas,
   → LLM extraction with schema validation
   → Canonical jobs (postings of the same job grouped by fingerprint)
   → Index (full-text tsvector + pgvector embeddings)
-  → [planned] Hybrid search (full-text + vector)
+  → Hybrid search API (full-text + vector, rank fusion, filters)
   → [planned] Matching and real-time feed
 ```
 
@@ -54,10 +54,11 @@ Sources (RemoteOK, Remotive, We Work Remotely, Jobicy, Himalayas,
 | Database | PostgreSQL (Neon in production, Docker locally) |
 | ORM and migrations | SQLAlchemy 2.0, Alembic, psycopg 3 |
 | Search index | PostgreSQL full-text (tsvector), pgvector (HNSW) |
+| API | FastAPI, uvicorn |
 | Scheduling | GitHub Actions (cron) |
 | Testing | pytest |
 
-**Planned:** pgvector, Redis workers, FastAPI, React + TypeScript,
+**Planned:** Redis workers, React + TypeScript,
 OpenTelemetry, Prometheus, Grafana.
 
 ## Status
@@ -66,7 +67,8 @@ OpenTelemetry, Prometheus, Grafana.
   PostgreSQL, running unattended every 6 hours.
 - [ ] **M2: LLM extraction.** Structured fields extracted from job
   descriptions and validated against a schema. *(in progress)*
-- [ ] Hybrid search (full-text + vector)
+- [x] **Hybrid search.** Filterable full-text and vector retrieval fused by rank,
+  behind `GET /search`, with an evaluation harness. Search quality is not tuned yet.
 - [ ] Matching and real-time feed
 - [ ] Self-hosted deployment with CI/CD and observability
 
@@ -190,8 +192,22 @@ and jobs without postings are removed from the index. Embeddings are behind a
 provider-neutral `EmbeddingClient` (Gemini `gemini-embedding-001` for now), and
 rows for several model versions can coexist for a model migration. The design is
 in [docs/adr/0003-job-indexing.md](docs/adr/0003-job-indexing.md); running it
-and reading its summary is in [docs/indexing.md](docs/indexing.md). Search
-itself (filters, rank fusion, API) is not built yet.
+and reading its summary is in [docs/indexing.md](docs/indexing.md).
+
+## Search
+
+`python -m sanket.api` serves `GET /search` on `127.0.0.1:8000` (no authentication
+yet, so it binds to loopback). A query runs a full-text and a vector search, each
+pre-filtered by work mode, seniority, employment type, country, source, company,
+location, posting date and skills, and fuses the two ranked lists with
+Reciprocal Rank Fusion on ranks, not scores. If the query cannot be embedded,
+the answer comes from full text only and says so. Every result links back to its
+source and carries the credit line the source asks for. The design is in
+[docs/adr/0004-search-design.md](docs/adr/0004-search-design.md) and the API is in
+[docs/search.md](docs/search.md). `python -m sanket.search.evaluate` measures
+recall, precision, MRR and nDCG against a labelled query file; see
+[docs/search-evaluation.md](docs/search-evaluation.md). About 100 labelled pairs
+are needed before any tuning.
 
 ## Database migrations
 

@@ -557,3 +557,13 @@ def test_posted_after_uses_the_posting_date_over_first_seen(clean_db: Engine) ->
 
     assert ids(get(client, q="python", posted_after="2021-01-01")) == []
     assert ids(get(client, q="python", posted_after="2019-01-01")) == [job_id]
+
+
+@pytest.mark.parametrize(
+    "moment", ["0001-01-01", "9999-12-31T23:59:59Z", "2026-11-17T10:00:00+05:30"]
+)
+def test_extreme_dates_are_accepted(clean_db: Engine, moment: str) -> None:
+    add_search_job(clean_db, title="Python Developer")
+    client = api_client(clean_db, index_everything(clean_db))
+
+    assert client.get("/search", params={"q": "python", "posted_after": moment}).status_code == 200

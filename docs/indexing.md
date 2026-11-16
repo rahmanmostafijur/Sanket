@@ -99,10 +99,12 @@ is refused by the client until a client for it is written.
 - A job with no postings has its search entry removed; if its postings come
   back, it is indexed again.
 - The tsvector uses the `simple` configuration: no stemming, symbols dropped.
-- Retrieval primitives for the search code are in `sanket.indexing.queries`:
+- Retrieval primitives are in `sanket.indexing.queries`:
   `fulltext_candidates(query, limit)` and `vector_candidates(embedding, spec,
-  limit)`. They return ranked `(job_id, rank, score)` lists and apply no
-  filters; filters and rank fusion are built on top of them later.
+  limit)`. They return ranked `(job_id, rank, score)` lists and take optional
+  `filters` (`sanket.indexing.filters.SearchFilters`) that are applied inside the
+  query. Rank fusion, the service and the API are built on them
+  (see [search.md](search.md)).
 - To embed a query, build an `EmbeddingClient` with the same
   `EMBEDDING_MODEL`, version and dimensions and call `embed_query`. A query
   vector from another model would be meaningless against these rows.
