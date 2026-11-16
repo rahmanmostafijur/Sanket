@@ -14,18 +14,22 @@ from sqlalchemy import (
     ColumnElement,
     Connection,
     Engine,
+    Integer,
     Row,
+    String,
+    Text,
     and_,
     case,
+    cast,
     exists,
     func,
+    literal,
     not_,
     null,
     or_,
     select,
-    text,
 )
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.sql.base import ColumnCollection
 
 from sanket.config import Settings, settings
@@ -112,21 +116,46 @@ def save_extraction(
     content_hash: str,
     cfg: ExtractionConfig,
     result: ExtractionResult,
-) -> None:
-    """Upsert the result. Only validated data is stored; a failure stores the error."""
-    stmt = insert(PostingExtraction).values(
-        posting_id=posting_id,
-        schema_version=cfg.schema_version,
-        prompt_version=cfg.prompt_version,
-        model=cfg.model,
-        content_hash=content_hash,
-        status=STATUS_OK if result.ok else STATUS_FAILED,
-        # null() stores SQL NULL; a plain None would be stored as the JSON value null.
-        data=result.data.model_dump(mode="json") if result.data else null(),
-        last_error=result.error,
-        attempts=1,
-        input_tokens=result.input_tokens,
-        output_tokens=result.output_tokens,
+) -> bool:
+    """Upsert the result and return whether a row was written.
+
+    Only validated data is stored; a failure stores the error. Nothing is written if the
+    posting no longer has `content_hash` (it changed while the model was working), or if
+    the write would replace an ok result with a failure.
+    """
+    # null() stores SQL NULL; a plain None would be stored as the JSON value null.
+    data = (
+        literal(result.data.model_dump(mode="json"), JSONB) if result.data else cast(null(), JSONB)
+    )
+    # One statement reads the posting and inserts, so a stale hash inserts no row at all.
+    proposed = select(
+        Posting.id,
+        literal(cfg.schema_version, Integer),
+        literal(cfg.prompt_version, Integer),
+        Posting.content_hash,
+        literal(cfg.model, String),
+        literal(STATUS_OK if result.ok else STATUS_FAILED, String),
+        data,
+        literal(result.error, Text),
+        literal(1, Integer),
+        literal(result.input_tokens, Integer),
+        literal(result.output_tokens, Integer),
+    ).where(Posting.id == posting_id, Posting.content_hash == content_hash)
+    stmt = insert(PostingExtraction).from_select(
+        [
+            "posting_id",
+            "schema_version",
+            "prompt_version",
+            "content_hash",
+            "model",
+            "status",
+            "data",
+            "last_error",
+            "attempts",
+            "input_tokens",
+            "output_tokens",
+        ],
+        proposed,
     )
     excluded = stmt.excluded
     stmt = stmt.on_conflict_do_update(
@@ -155,26 +184,24 @@ def save_extraction(
         },
         where=_may_overwrite(excluded),
     )
-    conn.execute(stmt)
+    # RETURNING yields a row only if one was inserted or updated; a rejected update or a
+    # stale hash yields none. (Rowcount is not reliable for INSERT ... SELECT here.)
+    return conn.execute(stmt.returning(PostingExtraction.id)).first() is not None
 
 
 def _may_overwrite(excluded: ColumnCollection) -> ColumnElement[bool]:
-    """Guard against stale or duplicate writers (for example a batch and a worker).
+    """Guard an existing row against duplicate writers (for example a batch and a worker).
 
-    Write only if the extracted hash is still the posting's current hash, and never
-    replace an ok result for the same hash with a failure.
+    Never replace an ok result for the same hash with a failure. The stale-hash check is
+    in the INSERT ... SELECT, so a proposed row always carries the posting's current hash.
     """
-    # Plain SQL: ON CONFLICT ... WHERE cannot correlate an ORM subquery to `excluded`.
-    hash_is_current = text(
-        "EXISTS (SELECT 1 FROM posting AS p "
-        "WHERE p.id = excluded.posting_id AND p.content_hash = excluded.content_hash)"
+    return not_(
+        and_(
+            PostingExtraction.status == STATUS_OK,
+            PostingExtraction.content_hash == excluded.content_hash,
+            excluded.status == STATUS_FAILED,
+        )
     )
-    ok_would_be_lost = and_(
-        PostingExtraction.status == STATUS_OK,
-        PostingExtraction.content_hash == excluded.content_hash,
-        excluded.status == STATUS_FAILED,
-    )
-    return and_(hash_is_current, not_(ok_would_be_lost))
 
 
 def extract_posting(
@@ -200,7 +227,13 @@ def extract_posting(
         return Outcome.PROVIDER_ERROR
 
     with db_engine.begin() as conn:
-        save_extraction(conn, row.id, row.content_hash, cfg, result)
+        written = save_extraction(conn, row.id, row.content_hash, cfg, result)
+    if not written:
+        # The posting changed during the call, or another worker already stored an ok
+        # result. Either way this result is not the current answer; the posting stays
+        # pending if it still needs extraction.
+        logger.info("Posting %d: result not stored (stale or already extracted)", posting_id)
+        return Outcome.SKIPPED
     return Outcome.OK if result.ok else Outcome.FAILED
 
 

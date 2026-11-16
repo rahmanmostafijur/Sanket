@@ -25,9 +25,9 @@ def failed_result(error: str = "failed validation after 2 repairs: boom"):
     return ExtractionResult(None, error, 3, 30, 9)
 
 
-def save(engine: Engine, posting_id: int, content_hash: str, result, cfg=CFG) -> None:
+def save(engine: Engine, posting_id: int, content_hash: str, result, cfg=CFG) -> bool:
     with engine.begin() as conn:
-        save_extraction(conn, posting_id, content_hash, cfg, result)
+        return save_extraction(conn, posting_id, content_hash, cfg, result)
 
 
 def test_ok_result_is_stored_with_data_and_usage(clean_db) -> None:
@@ -55,13 +55,35 @@ def test_failed_result_stores_the_error_and_sql_null_data(clean_db) -> None:
     assert row.data_is_sql_null
 
 
-def test_result_for_a_stale_hash_never_marks_the_posting_done(clean_db) -> None:
+def test_first_insert_for_a_stale_hash_is_not_stored(clean_db) -> None:
     posting_id = add_posting(clean_db, content_hash="h1")
     set_content_hash(clean_db, posting_id, "h2")
 
-    save(clean_db, posting_id, "h1", ok_result())
+    written = save(clean_db, posting_id, "h1", ok_result())
 
+    assert written is False
+    assert get_extraction(clean_db, posting_id) is None
     assert find_pending(CFG, 10, clean_db) == [posting_id]
+
+
+def test_first_insert_of_a_failure_for_a_stale_hash_is_not_stored(clean_db) -> None:
+    posting_id = add_posting(clean_db, content_hash="h1")
+    set_content_hash(clean_db, posting_id, "h2")
+
+    written = save(clean_db, posting_id, "h1", failed_result())
+
+    assert written is False
+    assert count_extractions(clean_db) == 0
+
+
+def test_save_reports_whether_a_row_was_written(clean_db) -> None:
+    posting_id = add_posting(clean_db, content_hash="h1")
+
+    first = save(clean_db, posting_id, "h1", ok_result())
+    replaced = save(clean_db, posting_id, "h1", ok_result(title="Second"))
+    blocked_failure = save(clean_db, posting_id, "h1", failed_result())
+
+    assert (first, replaced, blocked_failure) == (True, True, False)
 
 
 def test_stale_result_does_not_replace_an_existing_row(clean_db) -> None:

@@ -169,8 +169,10 @@ def test_posting_changed_during_the_call_is_extracted_again_on_the_next_run(clea
         [valid_response()], during_call=lambda: set_content_hash(clean_db, posting_id, "h2")
     )
 
-    extract_posting(posting_id, racing, CFG, clean_db)
+    outcome = extract_posting(posting_id, racing, CFG, clean_db)
 
+    assert outcome is Outcome.SKIPPED
+    assert count_extractions(clean_db) == 0
     assert find_pending(CFG, 10, clean_db) == [posting_id]
     retry = ScriptedClient([valid_response()])
     assert extract_posting(posting_id, retry, CFG, clean_db) is Outcome.OK
@@ -188,8 +190,9 @@ def test_ok_result_survives_a_concurrent_failing_worker(clean_db) -> None:
         ),
     )
 
-    extract_posting(posting_id, client, CFG, clean_db)
+    outcome = extract_posting(posting_id, client, CFG, clean_db)
 
+    assert outcome is Outcome.SKIPPED
     row = get_extraction(clean_db, posting_id)
     assert row.status == STATUS_OK
     assert row.last_error is None
