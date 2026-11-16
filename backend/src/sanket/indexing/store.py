@@ -45,6 +45,8 @@ class JobSource:
     company: str
     location: str | None
     posting_count: int
+    # Source of the representative posting, which supplies the text.
+    source: str | None
     description: str | None
     extraction: dict[str, Any] | None
     search_hash: str | None
@@ -88,6 +90,7 @@ def _source_query(spec: EmbeddingSpec, description_chars: int) -> Select[Any]:
             Job.company,
             Job.location,
             Job.posting_count,
+            posting.source,
             func.left(posting.description, description_chars * DESCRIPTION_FETCH_FACTOR).label(
                 "description"
             ),

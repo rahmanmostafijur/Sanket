@@ -76,6 +76,7 @@ class JobPlan:
     search_write: SearchWrite | None = None
     embedding_text: str | None = None
     embedding_hash: str | None = None
+    embedding_excluded: bool = False
 
 
 @dataclass(frozen=True)
@@ -86,6 +87,7 @@ class IndexSummary:
     unchanged: int = 0
     removed: int = 0
     skipped_no_text: int = 0
+    embedding_excluded: int = 0
     failed: int = 0
     applied: bool = False
     stopped_early: bool = False
@@ -96,7 +98,8 @@ class IndexSummary:
             f"indexing mode={mode} model={model} scanned={self.scanned} "
             f"tsvector_updated={self.tsvector_updated} embedded={self.embedded} "
             f"unchanged={self.unchanged} removed={self.removed} "
-            f"skipped_no_text={self.skipped_no_text} failed={self.failed} "
+            f"skipped_no_text={self.skipped_no_text} "
+            f"embedding_excluded={self.embedding_excluded} failed={self.failed} "
             f"stopped_early={str(self.stopped_early).lower()}"
         )
 
@@ -113,6 +116,7 @@ class _Run:
     unchanged: int = 0
     removed: int = 0
     skipped_no_text: int = 0
+    embedding_excluded: int = 0
     failed_ids: set[int] = field(default_factory=set)
     failed_batches_in_a_row: int = 0
     stopped: bool = False
@@ -126,6 +130,7 @@ class _Run:
             unchanged=self.unchanged,
             removed=self.removed,
             skipped_no_text=self.skipped_no_text,
+            embedding_excluded=self.embedding_excluded,
             failed=len(self.failed_ids),
             applied=self.apply,
             stopped_early=self.stopped_early,
@@ -163,9 +168,10 @@ def plan_job(source: JobSource, cfg: IndexConfig) -> JobPlan:
         text, cfg.spec.model_name, cfg.spec.model_version, cfg.spec.dimensions
     )
     needs_tsvector = source.search_hash != new_search_hash or not source.has_search_vector
-    needs_embedding = source.embedding_hash != new_embedding_hash
+    excluded = source.source in cfg.excluded_sources
+    needs_embedding = not excluded and source.embedding_hash != new_embedding_hash
     if not (needs_tsvector or needs_embedding):
-        return JobPlan(source.job_id, Action.UNCHANGED)
+        return JobPlan(source.job_id, Action.UNCHANGED, embedding_excluded=excluded)
     return JobPlan(
         job_id=source.job_id,
         action=Action.INDEX,
@@ -176,6 +182,7 @@ def plan_job(source: JobSource, cfg: IndexConfig) -> JobPlan:
         ),
         embedding_text=text if needs_embedding else None,
         embedding_hash=new_embedding_hash if needs_embedding else None,
+        embedding_excluded=excluded,
     )
 
 
@@ -185,6 +192,7 @@ def _classify(run: _Run, sources: Sequence[JobSource], cfg: IndexConfig) -> list
     for source in sources:
         plan = plan_job(source, cfg)
         run.scanned += 1
+        run.embedding_excluded += plan.embedding_excluded
         if plan.action is Action.UNCHANGED:
             run.unchanged += 1
         elif plan.action is Action.SKIP_NO_TEXT:

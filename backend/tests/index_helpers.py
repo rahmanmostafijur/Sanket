@@ -23,10 +23,16 @@ def add_indexable_job(
     description: str | None = "<p>Build APIs.</p>",
     with_extraction: bool = False,
     posting_count: int = 1,
+    source: str = "greenhouse",
 ) -> int:
     """A job with one representative posting (and optionally an ok extraction)."""
     posting_id = add_posting(
-        engine, title=title, company=company, location=location, description=description
+        engine,
+        source=source,
+        title=title,
+        company=company,
+        location=location,
+        description=description,
     )
     job_id = add_job(
         engine,

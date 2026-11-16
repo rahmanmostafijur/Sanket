@@ -141,6 +141,24 @@ def test_job_without_description_or_extraction_is_indexed_from_its_fields(
     assert search_state(clean_db, job_id)[0] is not None
 
 
+def test_text_of_excluded_sources_is_never_sent_to_the_embedding_provider(
+    clean_db: Engine,
+) -> None:
+    excluded = add_indexable_job(clean_db, title="Plumber", source="remoteok")
+    allowed = add_indexable_job(clean_db, title="Data Analyst")
+    cfg = replace(CFG, excluded_sources=("remoteok",))
+    client = fake()
+
+    first = run(clean_db, client, cfg)
+    second = run(clean_db, fake(), cfg)
+
+    assert client.texts_embedded == 1 and "Data Analyst" in client.document_calls[0][0]
+    assert (first.embedded, first.tsvector_updated, first.embedding_excluded) == (1, 2, 1)
+    assert embeddings_of(clean_db, excluded) == {} and embeddings_of(clean_db, allowed)
+    assert search_state(clean_db, excluded)[0] is not None
+    assert (second.unchanged, second.embedding_excluded, second.failed) == (2, 1, 0)
+
+
 def test_job_with_no_text_is_skipped(clean_db: Engine) -> None:
     job_id = add_indexable_job(clean_db, title=" ", company=" ", location=None, description=None)
     client = fake()

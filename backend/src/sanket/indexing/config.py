@@ -1,5 +1,6 @@
 """Indexing configuration and the startup check that the vector width matches."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from sqlalchemy import Engine, text
@@ -24,6 +25,9 @@ class IndexConfig:
     embedding_batch_size: int
     # Jobs that need work handled per run; the run stops after this many.
     batch_limit: int
+    # Sources whose text is never sent to the embedding provider (data-use rules, the same
+    # list as EXTRACTION_EXCLUDED_SOURCES). Their jobs are still searchable by full text.
+    excluded_sources: Sequence[str] = ()
     scan_page_size: int = DEFAULT_SCAN_PAGE_SIZE
 
 
@@ -37,6 +41,7 @@ def config_from_settings(config: Settings) -> IndexConfig:
         max_description_chars=config.indexing_max_description_chars,
         embedding_batch_size=config.embedding_batch_size,
         batch_limit=config.indexing_batch_limit,
+        excluded_sources=tuple(config.extraction_excluded_sources),
     )
 
 
