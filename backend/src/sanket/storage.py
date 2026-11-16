@@ -71,6 +71,18 @@ def _existing_hashes(conn: Connection, rows: Sequence[dict]) -> dict[PostingKey,
     return {(source, source_id): digest for source, source_id, digest in conn.execute(stmt)}
 
 
+NORMALIZED_FIELDS = (
+    "url",
+    "title",
+    "company",
+    "location",
+    "description",
+    "salary_text",
+    "published_at",
+    "deadline",
+)
+
+
 def _upsert(conn: Connection, rows: Sequence[dict]) -> None:
     stmt = insert(Posting).values(list(rows))
     stmt = stmt.on_conflict_do_update(
@@ -78,6 +90,9 @@ def _upsert(conn: Connection, rows: Sequence[dict]) -> None:
         set_={
             "raw": stmt.excluded.raw,
             "content_hash": stmt.excluded.content_hash,
+            # Keep the readable fields in step with the hash, so extraction never reads
+            # text that belongs to an older version of the posting.
+            **{name: stmt.excluded[name] for name in NORMALIZED_FIELDS},
             "last_seen_at": func.now(),
             "updated_at": case(
                 (Posting.content_hash != stmt.excluded.content_hash, func.now()),
