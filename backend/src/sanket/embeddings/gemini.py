@@ -54,6 +54,8 @@ class GeminiEmbeddingClient:
         client: genai.Client | None = None,
         sleep: Callable[[float], None] = time.sleep,
         clock: Callable[[], float] = time.monotonic,
+        retry_attempts: int = RETRY_ATTEMPTS,
+        timeout_ms: int = REQUEST_TIMEOUT_MS,
     ) -> None:
         if UNSUPPORTED_MODEL_MARKER in model_name:
             raise ValueError(f"{model_name} is not supported: see the module docstring")
@@ -62,8 +64,10 @@ class GeminiEmbeddingClient:
         self.dimensions = dimensions
         self._client = client or genai.Client(
             api_key=api_key.get_secret_value(),
-            http_options=types.HttpOptions(timeout=REQUEST_TIMEOUT_MS),
+            http_options=types.HttpOptions(timeout=timeout_ms),
         )
+        # A search request wants to fail fast, the indexing worker wants to be patient.
+        self._retry_attempts = retry_attempts
         self._min_interval = SECONDS_PER_MINUTE / requests_per_minute if requests_per_minute else 0
         self._sleep = sleep
         self._clock = clock
@@ -94,7 +98,7 @@ class GeminiEmbeddingClient:
 
     def _request_with_retry(self, texts: list[str], task_type: str) -> types.EmbedContentResponse:
         delay = RETRY_BASE_DELAY_SECONDS
-        for attempt in range(1, RETRY_ATTEMPTS + 1):
+        for attempt in range(1, self._retry_attempts + 1):
             self._pace()
             try:
                 return self._client.models.embed_content(
@@ -110,12 +114,12 @@ class GeminiEmbeddingClient:
                 failure = _to_error(error, retryable=True)
             except httpx.HTTPError as error:
                 failure = _to_error(error, retryable=True)
-            if attempt == RETRY_ATTEMPTS:
+            if attempt == self._retry_attempts:
                 raise failure
             logger.warning(
                 "Embedding request failed (attempt %d of %d), retrying in %.0fs: %s",
                 attempt,
-                RETRY_ATTEMPTS,
+                self._retry_attempts,
                 delay,
                 failure,
             )

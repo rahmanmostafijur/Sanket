@@ -187,6 +187,17 @@ def test_gives_up_after_the_last_attempt_with_a_retryable_error() -> None:
     assert len(sleeps) == RETRY_ATTEMPTS - 1
 
 
+def test_the_number_of_attempts_can_be_lowered_for_latency_sensitive_callers() -> None:
+    stub = StubGenai([api_error(503), api_error(503), response([1.0] * DIMENSIONS)])
+    sleeps: list[float] = []
+
+    with pytest.raises(EmbeddingError):
+        gemini(stub, sleeps, retry_attempts=2).embed_query("q")
+
+    assert len(stub.calls) == 2
+    assert len(sleeps) == 1
+
+
 def test_client_errors_are_not_retried_and_are_marked_non_retryable() -> None:
     stub = StubGenai([api_error(400)])
 

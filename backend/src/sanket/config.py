@@ -85,6 +85,22 @@ class Settings(BaseSettings):
     # pgvector hnsw.ef_search: candidates examined per vector query (recall against speed).
     hnsw_ef_search: int = Field(default=100, ge=1, le=1000)
 
+    # Search (see docs/adr/0004-search-design.md). Candidates per ranked list (full text and
+    # vector) before fusion; it is also the deepest page reachable. RRF k and the per-list
+    # weights of the fusion. The query-embedding cache holds this many entries in process.
+    search_candidates: int = Field(default=100, ge=1, le=1000)
+    search_rrf_k: int = Field(default=60, ge=1)
+    search_fulltext_weight: float = Field(default=1.0, ge=0)
+    search_vector_weight: float = Field(default=1.0, ge=0)
+    search_query_cache_size: int = Field(default=1000, ge=0)
+    # A search waits at most this long for the query embedding before falling back to
+    # full-text results only.
+    search_embedding_timeout_seconds: float = Field(default=5.0, gt=0, le=60)
+
+    # The API server. Loopback by default; bind to another address deliberately.
+    api_host: str = "127.0.0.1"
+    api_port: int = Field(default=8000, ge=1, le=65535)
+
     @field_validator(
         "himalayas_api_key",
         "gemini_api_key",
