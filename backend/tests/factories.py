@@ -60,6 +60,7 @@ def add_extraction(
     schema_version: int = SCHEMA_VERSION,
     prompt_version: int = PROMPT_VERSION,
     attempts: int = 1,
+    data: dict | None = None,
 ) -> None:
     is_ok = status == STATUS_OK
     stmt = insert(PostingExtraction).values(
@@ -69,7 +70,7 @@ def add_extraction(
         content_hash=content_hash,
         model="test-model",
         status=status,
-        data=valid_data() if is_ok else null(),
+        data=(valid_data() if data is None else data) if is_ok else null(),
         last_error=None if is_ok else "earlier failure",
         attempts=attempts,
     )
