@@ -5,9 +5,9 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy import Engine
 
+from sanket.extraction.schema import SCHEMA_VERSION
 from sanket.indexing.filters import SearchFilters
 from sanket.indexing.queries import fulltext_candidates, vector_candidates
-from sanket.extraction.schema import SCHEMA_VERSION
 from tests.factories import add_extraction
 from tests.index_helpers import (
     SPEC,
