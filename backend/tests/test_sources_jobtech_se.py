@@ -46,7 +46,8 @@ def test_jobtech_maps_fields_from_a_recorded_ad() -> None:
     assert posting.location == "Stockholm, Stockholms län, Sverige"
     assert posting.description is not None
     assert posting.description.startswith("Senior Robotics Engineer")
-    assert posting.salary_text == "Fast månads- vecko- eller timlön"
+    # salary_type.label only names the pay type (fixed monthly/weekly/hourly), not an amount.
+    assert posting.salary_text is None
     assert posting.deadline == date(2026, 11, 27)
     assert posting.raw["id"] == FIRST_ID
 

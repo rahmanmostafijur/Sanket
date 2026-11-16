@@ -121,8 +121,9 @@ def _location(ad: dict[str, Any]) -> str | None:
 
 
 def _salary(ad: dict[str, Any]) -> str | None:
-    salary_type = ad.get("salary_type") or {}
-    return clean_text(ad.get("salary_description")) or clean_text(salary_type.get("label"))
+    # salary_type.label is only the pay type ("fixed monthly pay"), not an amount, so it is
+    # left out: it would read as a salary to the extraction model.
+    return clean_text(ad.get("salary_description"))
 
 
 def _deadline(value: str | None) -> date | None:
