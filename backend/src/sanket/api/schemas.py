@@ -279,7 +279,7 @@ def _text(data: dict[str, Any], key: str) -> str | None:
     return value if isinstance(value, str) else None
 
 
-def _extracted(data: dict[str, Any] | None) -> ExtractedOut | None:
+def extracted_from(data: dict[str, Any] | None) -> ExtractedOut | None:
     if not data:
         return None
     skills = data.get("skills")
@@ -312,7 +312,7 @@ def item_from_hit(hit: SearchHit) -> SearchItem:
         published_at=details.published_at,
         first_seen_at=details.first_seen_at,
         salary_text=details.salary_text,
-        extracted=_extracted(details.extraction),
+        extracted=extracted_from(details.extraction),
         score=hit.score,
         matched_by=hit.matched_by,  # type: ignore[arg-type]
     )

@@ -3,7 +3,8 @@
 Everything the app depends on is passed in, so tests run it against the test database with a
 fake embedding client and nothing global is touched at import time. Omit `embedding_client`
 to build the real one from the settings (or none, without a key); pass None to disable
-embeddings explicitly.
+embeddings explicitly. `task_queue` works the same way (the Redis queue when REDIS_URL is set,
+else none); the profile endpoints queue their embedding work on it.
 
 Authentication is not built yet. `dependencies` is applied to every route, which is where an
 auth dependency goes when it exists (`create_app(dependencies=[Depends(require_user)])`).
@@ -18,11 +19,14 @@ from fastapi.params import Depends
 from sqlalchemy import Engine
 
 from sanket.api.deps import ApiContext
+from sanket.api.routers import profiles as profiles_router
 from sanket.api.routers import search as search_router
 from sanket.config import Settings
 from sanket.config import settings as default_settings
 from sanket.db import engine as default_engine
 from sanket.embeddings.client import EmbeddingClient, spec_of
+from sanket.queue.base import TaskQueue
+from sanket.queue.connection import task_queue_from_settings
 from sanket.search.cache import QueryEmbeddingCache
 from sanket.search.client import query_embedding_client
 from sanket.search.retrieval import search_config_from_settings
@@ -44,6 +48,7 @@ def create_app(
     settings: Settings | None = None,
     db_engine: Engine | None = None,
     embedding_client: EmbeddingClient | None | _UseSettings = USE_SETTINGS,
+    task_queue: TaskQueue | None | _UseSettings = USE_SETTINGS,
     dependencies: Sequence[Depends] = (),
 ) -> FastAPI:
     config = settings or default_settings
@@ -64,7 +69,13 @@ def create_app(
         search_config=search_config,
         embedding_client=client,
         query_cache=QueryEmbeddingCache(config.search_query_cache_size),
+        task_queue=(
+            task_queue_from_settings(config) if isinstance(task_queue, _UseSettings) else task_queue
+        ),
+        default_owner_id=config.default_owner_id,
+        max_profiles_per_owner=config.max_profiles_per_owner,
     )
     app.state.context = context
     app.include_router(search_router.router)
+    app.include_router(profiles_router.router)
     return app
