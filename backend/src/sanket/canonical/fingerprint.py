@@ -40,7 +40,9 @@ Location, after the shared steps applied per part:
     - Remote and worldwide wording ("Remote", "Anywhere", "Worldwide", "Global",
       "Work from home", "Remote - Worldwide") becomes the single token "remote". A part such
       as "Remote - European Union" yields "remote" plus "european union".
-    - "hybrid" and "on-site" words are dropped.
+    - "hybrid" and "on-site" words are dropped from a part that says more ("Berlin (Hybrid)"
+      is "berlin"); a part that is only that word stays, so a bare "Hybrid" is not treated
+      as having no location.
     - Parts are de-duplicated and sorted, so order does not matter. Country codes are not
       guessed: "US" and "United States" stay different.
     - An empty location is allowed and is its own value.
@@ -272,16 +274,15 @@ def normalise_company(company: str | None) -> str:
 
 
 def _drop_noise_words(words: list[str]) -> list[str]:
-    """Remove "hybrid", "onsite" and "on site" from a list of words."""
+    """Remove "hybrid", "onsite" and "on site", unless that would leave nothing."""
     kept: list[str] = []
     for index, word in enumerate(words):
         previous_is_on = index > 0 and words[index - 1] == "on"
-        if word in LOCATION_NOISE_WORDS or (word == "site" and previous_is_on):
-            if word == "site":
-                kept.pop()
-            continue
-        kept.append(word)
-    return kept
+        if word == "site" and previous_is_on:
+            kept.pop()
+        elif word not in LOCATION_NOISE_WORDS:
+            kept.append(word)
+    return kept or words
 
 
 def _location_tokens(part: str) -> set[str]:
