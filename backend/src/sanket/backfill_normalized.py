@@ -15,7 +15,17 @@ from sqlalchemy import Connection, Engine, Row, bindparam, select, update
 
 from sanket.db import engine
 from sanket.models import Posting
-from sanket.sources import greenhouse, himalayas, jobicy, lever, remoteok, remotive, weworkremotely
+from sanket.sources import (
+    greenhouse,
+    himalayas,
+    jobicy,
+    jobtech_se,
+    lever,
+    remoteok,
+    remotive,
+    usajobs,
+    weworkremotely,
+)
 from sanket.sources.base import NormalizedPosting
 from sanket.storage import NORMALIZED_FIELDS
 
@@ -50,6 +60,18 @@ CONVERTERS: dict[str, Converter] = {
     "weworkremotely": _item(weworkremotely.to_posting),
     "remoteok": _item(remoteok.to_posting),
     "remotive": _item(remotive.to_posting),
+    "jobtech_se": _item(jobtech_se.to_posting),
+    "usajobs": _item(usajobs.to_posting),
+}
+
+# Sources that cannot be re-derived from `raw`, with the reason. Every source built by
+# `ingest.build_sources` must be in CONVERTERS or here (a test enforces it), so a new source
+# cannot drift out of the backfill unnoticed. Their rows are counted as `unknown_source`.
+UNSUPPORTED_SOURCES: dict[str, str] = {
+    "ashby": (
+        "company is the board slug, which is neither in raw nor in source_id (the bare job id); "
+        "new rows always get their normalized fields at ingest"
+    ),
 }
 
 

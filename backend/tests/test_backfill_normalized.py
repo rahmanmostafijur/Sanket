@@ -3,12 +3,16 @@ from sqlalchemy import Engine, insert, select
 
 from sanket.backfill_normalized import (
     CONVERTERS,
+    UNSUPPORTED_SOURCES,
     BackfillSummary,
     backfill,
     parse_args,
 )
+from sanket.config import Settings
+from sanket.ingest import build_sources
 from sanket.models import Posting
 from sanket.sources import weworkremotely
+from sanket.sources.jobtech_se import redact_personal_data
 from sanket.storage import NORMALIZED_FIELDS
 from tests.source_helpers import load_bytes, load_json
 
@@ -36,6 +40,18 @@ def raw_samples() -> list[tuple[str, str, dict, str]]:
         ("weworkremotely", wwr_item["guid"], wwr_item, "Senior Python Developer"),
         ("remoteok", "9001", load_json("remoteok.json")[1], "Backend Dev"),
         ("remotive", "2001", load_json("remotive.json")["jobs"][0], "Data Analyst"),
+        (
+            "jobtech_se",
+            "31629347",
+            redact_personal_data(load_json("jobtech_se.json")["hits"][0]),
+            "Developer",
+        ),
+        (
+            "usajobs",
+            "900000001",
+            load_json("usajobs.json")["SearchResult"]["SearchResultItems"][0],
+            "IT Specialist (APPSW)",
+        ),
     ]
 
 
@@ -67,7 +83,7 @@ def test_dry_run_reports_changes_and_writes_nothing(clean_db) -> None:
 
     summary = backfill(clean_db, apply=False)
 
-    assert summary == BackfillSummary(scanned=7, changed=7, applied=False)
+    assert summary == BackfillSummary(scanned=9, changed=9, applied=False)
     for posting_id in ids.values():
         row = read_post(clean_db, posting_id)
         assert row.title is None
@@ -123,7 +139,7 @@ def test_apply_is_idempotent(clean_db) -> None:
 
     second = backfill(clean_db, apply=True)
 
-    assert second == BackfillSummary(scanned=7, changed=0, applied=True)
+    assert second == BackfillSummary(scanned=9, changed=0, applied=True)
 
 
 def test_rows_that_already_match_are_left_alone(clean_db) -> None:
@@ -182,3 +198,28 @@ def test_dry_run_and_apply_cannot_be_combined() -> None:
 def test_batch_size_must_be_positive() -> None:
     with pytest.raises(SystemExit):
         parse_args(["--batch-size", "0"])
+
+
+def test_every_registered_source_has_a_converter_or_a_documented_exemption() -> None:
+    """A new source must be added to CONVERTERS or exempted with a reason, never forgotten."""
+    names = {
+        source.name for source in build_sources(Settings.model_validate({"database_url": "x"}))
+    }
+
+    missing = names - set(CONVERTERS) - set(UNSUPPORTED_SOURCES)
+
+    assert not missing, f"sources without a backfill converter or exemption: {sorted(missing)}"
+    assert not set(CONVERTERS) & set(UNSUPPORTED_SOURCES)
+    assert all(reason.strip() for reason in UNSUPPORTED_SOURCES.values())
+
+
+def test_ashby_is_intentionally_unsupported_and_counted_as_unknown(clean_db) -> None:
+    ashby_item = load_json("ashby.json")["jobs"][0]
+    posting_id = add_legacy_row(clean_db, "ashby", ashby_item["id"], ashby_item)
+
+    summary = backfill(clean_db, apply=True)
+
+    assert "ashby" in UNSUPPORTED_SOURCES
+    assert "ashby" not in CONVERTERS
+    assert summary == BackfillSummary(scanned=1, changed=0, applied=True, unknown_source=1)
+    assert read_post(clean_db, posting_id).title is None
