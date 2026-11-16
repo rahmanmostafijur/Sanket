@@ -186,9 +186,15 @@ origin of its data.
 | [Himalayas](https://himalayas.app) | Public API (optional key) | Apply via `applicationLink`, credit Himalayas with a link, at most one run a day. Do not pass jobs on to other boards, aggregators or Google Jobs. Remove jobs once they expire. |
 | Greenhouse boards | Public job board API | One request per company per run. Content belongs to each employer; always link back. |
 | Lever boards | Public postings API | One request per company per run. Content belongs to each employer; always link back. |
+| Ashby boards | Public job board API | One request per company per run. Content belongs to each employer; always link back. |
+| [JobTech Sweden](https://jobsearch.api.jobtechdev.se) | Public JobSearch API | Official open data, "free to use and share regardless of purpose" (licence name not read). Bounded pages per run. Contact details are removed before storing. |
+| [USAJOBS](https://www.usajobs.gov) | Public API (free key) | Public data may be stored and used commercially. Credit USAJOBS and do not claim OPM endorsement. Skipped without `USAJOBS_API_KEY` and `USAJOBS_USER_AGENT_EMAIL`. |
 
-The Greenhouse and Lever companies are configured with the
-`GREENHOUSE_BOARDS` and `LEVER_COMPANIES` variables.
+The Greenhouse, Lever and Ashby companies are configured with the
+`GREENHOUSE_BOARDS`, `LEVER_COMPANIES` and `ASHBY_BOARDS` variables.
 
-Considered and not used: The Muse (API shut down), Adzuna (terms need a
-licence for aggregate analysis), Arbeitnow (terms forbid public display).
+Which sources are admitted, and why others were not, is set out in
+[docs/adr/0001-source-admission-policy.md](docs/adr/0001-source-admission-policy.md)
+and [docs/sources.md](docs/sources.md), which also lists the sources that were
+considered and not used, such as The Muse, Adzuna and Arbeitnow, with the reason
+for each.

@@ -20,6 +20,9 @@ credit, the source is named as the origin of its data.
 | Himalayas (`himalayas`) | `https://himalayas.app/jobs/api` | optional bearer key (`HIMALAYAS_API_KEY`) | about 60 requests a day, at most one run every 20 hours (the data refreshes every 24 hours) | Apply via `applicationLink`, credit Himalayas with a link, do not pass jobs on to other boards, aggregators or Google Jobs, remove jobs once they expire. | yes | active |
 | Greenhouse boards (`greenhouse`) | `https://boards-api.greenhouse.io/v1/boards/{board}/jobs` | none | 1 request per company per run, 200 a day | No published rate limit or third-party terms; the content belongs to each employer. Always link back to the posting's `absolute_url`. Companies: `GREENHOUSE_BOARDS`. | yes | active |
 | Lever boards (`lever`) | `https://api.lever.co/v0/postings/{company}` | none | 1 request per company per run, 200 a day | Lever's README says published postings are public and may be read by third parties. Content belongs to each employer; always link back to `hostedUrl`. Companies: `LEVER_COMPANIES`. | yes | active |
+| Ashby boards (`ashby`) | `https://api.ashbyhq.com/posting-api/job-board/{board}?includeCompensation=true` | none | 1 request per company per run, 200 a day. One response holds the whole board (several MB for a large one); no per-job requests. | Ashby's documented public posting API, admitted on the same basis as Greenhouse and Lever (ADR 0001). No third-party terms; the content belongs to each employer. Always link back to `jobUrl`. Unlisted jobs are dropped. Companies: `ASHBY_BOARDS`. | yes | active once `ASHBY_BOARDS` is set; with none configured it fetches nothing |
+| JobTech Sweden (`jobtech_se`) | `https://jobsearch.api.jobtechdev.se/search` (JobSearch API) | none | Newest first, at most `JOBTECH_MAX_PAGES` pages of 100 per run (default 5, API maximum 20), one request a second, at most one run an hour, `JOBTECH_MAX_PAGES` x 8 requests a day. | Official open data from the Swedish Public Employment Service (Arbetsformedlingen), published as "free to use and share regardless of purpose" (data.jobtechdev.se; the open data page on arbetsformedlingen.se). **The name of the licence was not read and no attribution rule was found**; each posting still links back to its Platsbanken page and the source is named. Named contacts, emails and phone numbers are removed from `raw` before storage. | yes | active. Not limited to tech jobs: `JOBTECH_QUERY` narrows it. |
+| USAJOBS (`usajobs`) | `https://data.usajobs.gov/api/Search` (`DatePosted=2`, `ResultsPerPage=500`, `WhoMayApply=public`, `Fields=Full`) | free API key (`USAJOBS_API_KEY`) and the email it was registered with (`USAJOBS_USER_AGENT_EMAIL`, sent as the User-Agent) | At most 5 pages of 500 per run, one request a second, at most one run an hour, 40 requests a day. | Terms of Service (developer.usajobs.gov): Public Data "may be copied, stored, reformatted, adapted, analyzed, published, redistributed, and used for lawful commercial or noncommercial purposes. Prior OPM approval is not required." Identifying USAJOBS as the source is encouraged and the retrieval date should be included (the posting's first and last seen times record it). Do not claim OPM endorsement. | yes | **skipped** without the key and email (no request is made); active when both are set |
 
 ### Notes
 
@@ -31,8 +34,25 @@ credit, the source is named as the origin of its data.
 - **Request budgets** are counted per source per UTC day in the
   `source_request` table, retries included. A source over budget before its
   first request is reported as `skipped`.
-- **Company lists** for the board sources (Greenhouse, Lever and, below,
-  Ashby) are curated by the project owner through environment variables.
+- **Company lists** for the board sources (Greenhouse, Lever and Ashby) are
+  curated by the project owner through environment variables.
+- **"Skipped" status.** A source reports `skipped` when it is not configured
+  (USAJOBS without credentials), ran less than its minimum interval ago, or
+  has used up its daily request budget. It is not a failure.
+- **USAJOBS is documentation-derived.** No API key was available when it was
+  built, so its test fixture is hand-written from the response shape in the
+  USAJOBS documentation, not a recording. Which fields the live API fills in,
+  and their exact format (for example whether `MajorDuties` is a list or a
+  string, or what salary strings look like), is unverified. Check the first
+  live run's output before relying on it.
+- **JobTech.** JobSearch was chosen because it is simple and verified. JobStream,
+  the bulk change feed from the same provider, is the alternative if a full
+  copy of the Swedish ads is ever needed; it is not built. The API's
+  timestamps have no offset, so they are read as Swedish time
+  (Europe/Stockholm) before being stored in UTC.
+- **Ashby.** The payload has no company name, so the board name stands in for
+  the company, as for Lever. The employer's compensation summary is stored as
+  the salary text unless the employer chose not to display it.
 
 ## Considered and skipped
 
