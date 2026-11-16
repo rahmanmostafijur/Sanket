@@ -1,10 +1,11 @@
 """Prompt text and posting formatting for extraction."""
 
+import re
 from dataclasses import dataclass
 from html.parser import HTMLParser
 
 # Bump whenever SYSTEM_PROMPT or the posting format changes; stored with every extraction.
-PROMPT_VERSION = 2
+PROMPT_VERSION = 3
 
 TRUNCATION_MARKER = "\n[description truncated]"
 
@@ -42,18 +43,33 @@ class PostingInput:
 
 
 class _TextExtractor(HTMLParser):
-    BLOCK_TAGS = frozenset({"p", "br", "li", "div", "h1", "h2", "h3", "h4", "tr", "ul", "ol"})
+    BLOCK_TAGS = frozenset(
+        {"p", "br", "li", "div", "h1", "h2", "h3", "h4", "tr", "td", "th", "ul", "ol"}
+    )
+    # Their contents are code, not posting text.
+    SKIPPED_TAGS = frozenset({"script", "style"})
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.parts: list[str] = []
+        self._skip_depth = 0
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in self.SKIPPED_TAGS:
+            self._skip_depth += 1
+        if tag in self.BLOCK_TAGS:
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag: str) -> None:
+        # A break on both sides keeps text that follows a block from fusing with it.
+        if tag in self.SKIPPED_TAGS:
+            self._skip_depth = max(0, self._skip_depth - 1)
         if tag in self.BLOCK_TAGS:
             self.parts.append("\n")
 
     def handle_data(self, data: str) -> None:
-        self.parts.append(data)
+        if self._skip_depth == 0:
+            self.parts.append(data)
 
 
 def html_to_text(value: str) -> str:
@@ -71,15 +87,27 @@ def truncate(text: str, max_chars: int) -> str:
     return text[:max_chars].rstrip() + TRUNCATION_MARKER
 
 
+WRAPPER_TAG_START = re.compile(r"<(?=\s*/?\s*posting\b)", re.IGNORECASE)
+
+
+def neutralise_wrapper_tags(text: str) -> str:
+    """Escape any `<posting>` or `</posting>` in posting content (entities are decoded by
+    html_to_text, so `&lt;/posting&gt;` would otherwise close the prompt wrapper early)."""
+    return WRAPPER_TAG_START.sub("&lt;", text)
+
+
 def build_posting_text(posting: PostingInput, max_description_chars: int) -> str:
     description = truncate(html_to_text(posting.description or ""), max_description_chars)
+    description = neutralise_wrapper_tags(description)
     fields = [
         ("Title", posting.title),
         ("Company", posting.company),
         ("Location", posting.location),
         ("Salary", posting.salary_text),
     ]
-    header = "\n".join(f"{name}: {value}" for name, value in fields if value)
+    header = "\n".join(
+        f"{name}: {neutralise_wrapper_tags(value)}" for name, value in fields if value
+    )
     return f"<posting>\n{header}\n\nDescription:\n{description}\n</posting>"
 
 
