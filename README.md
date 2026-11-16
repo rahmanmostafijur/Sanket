@@ -19,6 +19,7 @@ Sources (RemoteOK, Remotive, We Work Remotely, Jobicy, Himalayas,
   → PostgreSQL upsert
   → LLM extraction with schema validation
   → Canonical jobs (postings of the same job grouped by fingerprint)
+  → Index (full-text tsvector + pgvector embeddings)
   → [planned] Hybrid search (full-text + vector)
   → [planned] Matching and real-time feed
 ```
@@ -52,6 +53,7 @@ Sources (RemoteOK, Remotive, We Work Remotely, Jobicy, Himalayas,
 | Validation | Pydantic |
 | Database | PostgreSQL (Neon in production, Docker locally) |
 | ORM and migrations | SQLAlchemy 2.0, Alembic, psycopg 3 |
+| Search index | PostgreSQL full-text (tsvector), pgvector (HNSW) |
 | Scheduling | GitHub Actions (cron) |
 | Testing | pytest |
 
@@ -175,6 +177,21 @@ matching strategy and its limits are in
 [docs/adr/0002-job-matching-strategy.md](docs/adr/0002-job-matching-strategy.md);
 how to run it and read its summary is in
 [docs/canonicalisation.md](docs/canonicalisation.md).
+
+## Search index
+
+Each canonical job gets a weighted full-text vector (`job.search_vector`,
+GIN-indexed) and an embedding per model (`job_embedding`, 768-dimensional
+pgvector with an HNSW cosine index). `python -m sanket.indexing` builds both
+from the job's fields, the extraction of its representative posting and a
+bounded description excerpt. It is a dry run unless `--apply` is passed and is
+safe to repeat: a content hash means unchanged jobs are never embedded again,
+and jobs without postings are removed from the index. Embeddings are behind a
+provider-neutral `EmbeddingClient` (Gemini `gemini-embedding-001` for now), and
+rows for several model versions can coexist for a model migration. The design is
+in [docs/adr/0003-job-indexing.md](docs/adr/0003-job-indexing.md); running it
+and reading its summary is in [docs/indexing.md](docs/indexing.md). Search
+itself (filters, rank fusion, API) is not built yet.
 
 ## Database migrations
 
