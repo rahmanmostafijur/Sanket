@@ -1,4 +1,5 @@
 import json
+from collections.abc import Sequence
 
 from sanket.extraction import extract
 from sanket.extraction.llm import ChatMessage, LlmResponse
@@ -8,11 +9,13 @@ from tests.test_extraction_schema import valid_data
 
 
 class ScriptedClient:
-    """Returns the given responses in order and records every conversation it receives."""
+    """Returns the given responses in order and records every conversation it receives.
+
+    An Exception in the script is raised instead of returned, like a failing provider call."""
 
     model = "fake"
 
-    def __init__(self, responses: list[LlmResponse]) -> None:
+    def __init__(self, responses: Sequence[LlmResponse | Exception]) -> None:
         self._responses = list(responses)
         self.conversations: list[list[ChatMessage]] = []
 
@@ -22,7 +25,10 @@ class ScriptedClient:
 
     def generate(self, system_prompt, messages, response_schema) -> LlmResponse:
         self.conversations.append(list(messages))
-        return self._responses[len(self.conversations) - 1]
+        item = self._responses[len(self.conversations) - 1]
+        if isinstance(item, Exception):
+            raise item
+        return item
 
 
 def valid_response(input_tokens: int = 0, output_tokens: int = 0) -> LlmResponse:
@@ -36,6 +42,7 @@ def test_extract_succeeds_on_first_try_without_repair() -> None:
 
     assert result.ok
     assert result.error is None
+    assert result.data is not None
     assert result.data.work_mode == WorkMode.REMOTE
     assert result.calls == 1
     assert client.calls == 1
@@ -75,6 +82,7 @@ def test_extract_fails_after_all_repairs_fail() -> None:
     assert not result.ok
     assert result.data is None
     assert result.calls == extract.MAX_REPAIR_ATTEMPTS + 1
+    assert result.error is not None
     assert "failed validation after" in result.error
 
 
@@ -84,6 +92,7 @@ def test_extract_fails_when_every_response_is_empty() -> None:
     result = extract.extract(client, "any posting")
 
     assert not result.ok
+    assert result.error is not None
     assert extract.EMPTY_RESPONSE_ERROR in result.error
 
 

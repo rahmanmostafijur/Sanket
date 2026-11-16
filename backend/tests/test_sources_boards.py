@@ -175,6 +175,7 @@ def test_lever_maps_fields_and_builds_the_description_from_its_sections() -> Non
         "<h3>Requirements</h3><ul><li>Python</li><li>SQL</li></ul>\n"
         "<div>Perks and benefits</div>"
     )
+    assert posting.salary_text is not None
     assert posting.salary_text.startswith("100000-150000 USD")
     assert posting.published_at == datetime.fromtimestamp(PUBLISHED_EPOCH, tz=UTC)
 

@@ -11,6 +11,7 @@ from tests.factories import (
     add_posting,
     count_extractions,
     get_extraction,
+    require_extraction,
     set_content_hash,
 )
 from tests.test_extraction_schema import valid_data
@@ -35,7 +36,7 @@ def test_ok_result_is_stored_with_data_and_usage(clean_db) -> None:
 
     save(clean_db, posting_id, "h1", ok_result(input_tokens=11, output_tokens=7))
 
-    row = get_extraction(clean_db, posting_id)
+    row = require_extraction(clean_db, posting_id)
     assert row.status == STATUS_OK
     assert row.data["title"] == "Backend Engineer"
     assert row.content_hash == "h1"
@@ -49,7 +50,7 @@ def test_failed_result_stores_the_error_and_sql_null_data(clean_db) -> None:
 
     save(clean_db, posting_id, "h1", failed_result("bad json"))
 
-    row = get_extraction(clean_db, posting_id)
+    row = require_extraction(clean_db, posting_id)
     assert row.status == STATUS_FAILED
     assert row.last_error == "bad json"
     assert row.data_is_sql_null
@@ -92,7 +93,7 @@ def test_stale_result_does_not_replace_an_existing_row(clean_db) -> None:
 
     save(clean_db, posting_id, "h1", ok_result(title="Stale Writer"))
 
-    row = get_extraction(clean_db, posting_id)
+    row = require_extraction(clean_db, posting_id)
     assert row.content_hash == "h2"
     assert row.data["title"] == "Backend Engineer"
     assert row.attempts == 1
@@ -104,7 +105,7 @@ def test_failure_never_replaces_an_ok_result_for_the_same_hash(clean_db) -> None
 
     save(clean_db, posting_id, "h1", failed_result())
 
-    row = get_extraction(clean_db, posting_id)
+    row = require_extraction(clean_db, posting_id)
     assert row.status == STATUS_OK
     assert row.data["title"] == "Kept"
     assert row.last_error is None
@@ -118,7 +119,7 @@ def test_later_ok_result_replaces_an_earlier_ok_result_for_the_same_hash(clean_d
 
     save(clean_db, posting_id, "h1", ok_result(title="Second", input_tokens=2, output_tokens=3))
 
-    row = get_extraction(clean_db, posting_id)
+    row = require_extraction(clean_db, posting_id)
     assert row.data["title"] == "Second"
     assert (row.input_tokens, row.output_tokens) == (2, 3)
     assert row.attempts == 2
@@ -131,7 +132,7 @@ def test_ok_result_replaces_a_failure_for_the_same_hash(clean_db) -> None:
 
     save(clean_db, posting_id, "h1", ok_result())
 
-    row = get_extraction(clean_db, posting_id)
+    row = require_extraction(clean_db, posting_id)
     assert row.status == STATUS_OK
     assert row.data["title"] == "Backend Engineer"
     assert row.last_error is None
@@ -145,7 +146,7 @@ def test_repeated_failures_count_attempts_until_the_posting_is_given_up(clean_db
     for expected_attempts in range(1, CFG.max_attempts + 1):
         assert find_pending(CFG, 10, clean_db) == [posting_id]
         save(clean_db, posting_id, "h1", failed_result())
-        assert get_extraction(clean_db, posting_id).attempts == expected_attempts
+        assert require_extraction(clean_db, posting_id).attempts == expected_attempts
 
     assert find_pending(CFG, 10, clean_db) == []
 
@@ -157,7 +158,7 @@ def test_changed_content_restarts_the_attempt_count(clean_db) -> None:
 
     save(clean_db, posting_id, "h2", failed_result())
 
-    row = get_extraction(clean_db, posting_id)
+    row = require_extraction(clean_db, posting_id)
     assert row.content_hash == "h2"
     assert row.attempts == 1
 
@@ -169,7 +170,7 @@ def test_ok_result_for_new_content_replaces_the_ok_result_for_old_content(clean_
 
     save(clean_db, posting_id, "h2", ok_result(title="New"))
 
-    row = get_extraction(clean_db, posting_id)
+    row = require_extraction(clean_db, posting_id)
     assert row.data["title"] == "New"
     assert row.content_hash == "h2"
     assert row.attempts == 1
@@ -183,7 +184,7 @@ def test_failure_for_new_content_replaces_an_ok_result_for_old_content(clean_db)
 
     save(clean_db, posting_id, "h2", failed_result())
 
-    row = get_extraction(clean_db, posting_id)
+    row = require_extraction(clean_db, posting_id)
     assert row.status == STATUS_FAILED
     assert row.content_hash == "h2"
     assert row.data_is_sql_null
@@ -197,6 +198,6 @@ def test_each_schema_and_prompt_version_gets_its_own_row(clean_db) -> None:
     save(clean_db, posting_id, "h1", ok_result(title="v-next"), cfg=next_cfg)
 
     assert count_extractions(clean_db) == 2
-    assert get_extraction(clean_db, posting_id).data["title"] == "v-current"
-    next_row = get_extraction(clean_db, posting_id, prompt_version=next_cfg.prompt_version)
+    assert require_extraction(clean_db, posting_id).data["title"] == "v-current"
+    next_row = require_extraction(clean_db, posting_id, prompt_version=next_cfg.prompt_version)
     assert next_row.data["title"] == "v-next"

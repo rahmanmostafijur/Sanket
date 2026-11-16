@@ -41,7 +41,8 @@ def to_posting(item: dict) -> NormalizedPosting:
         source="remoteok",
         source_id=item["id"],
         url=item["url"],
-        title=_fix_encoding(item["position"]),
+        # A missing position gives None, which pydantic rejects so the item is skipped.
+        title=_fix_encoding(item["position"]),  # type: ignore[arg-type]
         raw=item,
         company=_fix_encoding(item.get("company")) or None,
         location=_fix_encoding(item.get("location")) or None,

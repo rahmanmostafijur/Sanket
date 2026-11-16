@@ -102,6 +102,17 @@ def get_extraction(
         return conn.execute(stmt).one_or_none()
 
 
+def require_extraction(
+    engine: Engine,
+    posting_id: int,
+    schema_version: int = SCHEMA_VERSION,
+    prompt_version: int = PROMPT_VERSION,
+) -> Row:
+    row = get_extraction(engine, posting_id, schema_version, prompt_version)
+    assert row is not None, f"no extraction stored for posting {posting_id}"
+    return row
+
+
 def count_extractions(engine: Engine) -> int:
     with engine.connect() as conn:
         return len(conn.execute(select(PostingExtraction.id)).all())

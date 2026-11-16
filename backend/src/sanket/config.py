@@ -60,4 +60,5 @@ class Settings(BaseSettings):
         return value
 
 
-settings = Settings()
+# database_url has no default and is read from the environment, which mypy cannot see.
+settings = Settings()  # type: ignore[call-arg]

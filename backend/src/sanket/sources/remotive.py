@@ -1,5 +1,6 @@
 import logging
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sanket.sources.base import FetchResult, NormalizedPosting, convert_items
 from sanket.sources.http import Fetcher
@@ -38,7 +39,7 @@ def fetch_remotive_jobs(http: Fetcher) -> list[dict]:
     return [_with_aliases(job) for job in data["jobs"]]
 
 
-def _with_aliases(job: object) -> object:
+def _with_aliases(job: Any) -> Any:
     """Add the shared company/position/location keys; a missing field stays None.
 
     Anything that is not a JSON object is returned as is, so `to_posting` rejects it and

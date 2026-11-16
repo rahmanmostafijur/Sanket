@@ -16,24 +16,13 @@ from tests.factories import (
     add_extraction,
     add_posting,
     count_extractions,
-    get_extraction,
+    require_extraction,
     set_content_hash,
 )
 from tests.test_llm import ScriptedClient, valid_response
 
 BAD = LlmResponse("not json")
 CALLS_PER_FAILED_POSTING = MAX_REPAIR_ATTEMPTS + 1
-
-
-class ScriptedOrFailingClient(ScriptedClient):
-    """ScriptedClient that raises any Exception in its script instead of returning it."""
-
-    def generate(self, system_prompt, messages, response_schema) -> LlmResponse:
-        self.conversations.append(list(messages))
-        item = self._responses[len(self.conversations) - 1]
-        if isinstance(item, Exception):
-            raise item
-        return item
 
 
 class RacingClient(ScriptedClient):
@@ -60,7 +49,7 @@ def test_extract_posting_stores_an_ok_result(clean_db) -> None:
     outcome = extract_posting(posting_id, client, CFG, clean_db)
 
     assert outcome is Outcome.OK
-    row = get_extraction(clean_db, posting_id)
+    row = require_extraction(clean_db, posting_id)
     assert row.status == STATUS_OK
     assert row.content_hash == "h1"
     assert row.model == CFG.model
@@ -132,7 +121,7 @@ def test_extract_posting_stores_a_failure_after_repairs_run_out(clean_db) -> Non
     outcome = extract_posting(posting_id, client, CFG, clean_db)
 
     assert outcome is Outcome.FAILED
-    row = get_extraction(clean_db, posting_id)
+    row = require_extraction(clean_db, posting_id)
     assert row.status == STATUS_FAILED
     assert "failed validation" in row.last_error
     assert row.data_is_sql_null
@@ -149,12 +138,12 @@ def test_posting_is_given_up_after_max_attempts_failed_runs(clean_db) -> None:
 
     assert outcomes == [Outcome.FAILED] * CFG.max_attempts
     assert after is Outcome.SKIPPED
-    assert get_extraction(clean_db, posting_id).attempts == CFG.max_attempts
+    assert require_extraction(clean_db, posting_id).attempts == CFG.max_attempts
 
 
 def test_provider_error_stores_nothing_and_keeps_the_posting_pending(clean_db) -> None:
     posting_id = add_posting(clean_db)
-    client = ScriptedOrFailingClient([quota_error()])
+    client = ScriptedClient([quota_error()])
 
     outcome = extract_posting(posting_id, client, CFG, clean_db)
 
@@ -176,7 +165,7 @@ def test_posting_changed_during_the_call_is_extracted_again_on_the_next_run(clea
     assert find_pending(CFG, 10, clean_db) == [posting_id]
     retry = ScriptedClient([valid_response()])
     assert extract_posting(posting_id, retry, CFG, clean_db) is Outcome.OK
-    assert get_extraction(clean_db, posting_id).content_hash == "h2"
+    assert require_extraction(clean_db, posting_id).content_hash == "h2"
     assert find_pending(CFG, 10, clean_db) == []
 
 
@@ -193,7 +182,7 @@ def test_ok_result_survives_a_concurrent_failing_worker(clean_db) -> None:
     outcome = extract_posting(posting_id, client, CFG, clean_db)
 
     assert outcome is Outcome.SKIPPED
-    row = get_extraction(clean_db, posting_id)
+    row = require_extraction(clean_db, posting_id)
     assert row.status == STATUS_OK
     assert row.last_error is None
     assert row.attempts == 1
@@ -217,8 +206,12 @@ def test_run_batch_reports_each_outcome(clean_db) -> None:
     add_posting(clean_db)  # processed last: provider error
     add_posting(clean_db)  # processed second: validation failure
     add_posting(clean_db)  # processed first: ok
-    script = [valid_response(), *[BAD] * CALLS_PER_FAILED_POSTING, quota_error()]
-    client = ScriptedOrFailingClient(script)
+    script: list[LlmResponse | Exception] = [
+        valid_response(),
+        *[BAD] * CALLS_PER_FAILED_POSTING,
+        quota_error(),
+    ]
+    client = ScriptedClient(script)
 
     counts = run_batch(client, CFG, 10, clean_db)
 
@@ -256,7 +249,7 @@ def test_run_batch_twice_does_not_extract_again(clean_db) -> None:
 def test_run_batch_stops_after_consecutive_provider_errors(clean_db) -> None:
     for _ in range(MAX_CONSECUTIVE_PROVIDER_ERRORS + 2):
         add_posting(clean_db)
-    client = ScriptedOrFailingClient([quota_error()] * (MAX_CONSECUTIVE_PROVIDER_ERRORS + 2))
+    client = ScriptedClient([quota_error()] * (MAX_CONSECUTIVE_PROVIDER_ERRORS + 2))
 
     counts = run_batch(client, CFG, 100, clean_db)
 
@@ -268,8 +261,14 @@ def test_run_batch_stops_after_consecutive_provider_errors(clean_db) -> None:
 def test_a_success_resets_the_consecutive_provider_error_count(clean_db) -> None:
     for _ in range(5):
         add_posting(clean_db)
-    script = [quota_error(), quota_error(), valid_response(), quota_error(), quota_error()]
-    client = ScriptedOrFailingClient(script)
+    script: list[LlmResponse | Exception] = [
+        quota_error(),
+        quota_error(),
+        valid_response(),
+        quota_error(),
+        quota_error(),
+    ]
+    client = ScriptedClient(script)
 
     counts = run_batch(client, CFG, 100, clean_db)
 

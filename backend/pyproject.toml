@@ -23,7 +23,7 @@ dependencies = [
 where = ["src"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.3", "ruff>=0.7"]
+dev = ["pytest>=8.3", "ruff>=0.16,<0.17", "mypy>=2.4,<3"]
 
 [tool.ruff]
 line-length = 100
@@ -31,3 +31,33 @@ target-version = "py311"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src", "tests"]
+mypy_path = ["src", "."]
+explicit_package_bases = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+# Strictness is opt-in per module: the rest of the code base is checked leniently, new modules
+# should start strict. To add one, list its dotted name (or a glob such as "sanket.new.*")
+# below and run `mypy`; fix what it reports before merging. (`strict = true` is not accepted in a
+# per-module section, so the strict flags are spelled out.)
+[[tool.mypy.overrides]]
+module = [
+    "sanket.config",
+    "sanket.db",
+    "sanket.extraction.prompt",
+    "sanket.extraction.schema",
+]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+disallow_untyped_calls = true
+disallow_any_generics = true
+disallow_subclassing_any = true
+check_untyped_defs = true
+no_implicit_reexport = true
+warn_return_any = true
