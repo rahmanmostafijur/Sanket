@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import httpx
 
@@ -13,6 +13,7 @@ from sanket.sources.greenhouse import GreenhouseSource
 from sanket.sources.himalayas import HimalayasSource
 from sanket.sources.http import BudgetExceededError, Fetcher, new_client
 from sanket.sources.jobicy import JobicySource
+from sanket.sources.jobtech_se import JobTechSource
 from sanket.sources.lever import LeverSource
 from sanket.sources.remoteok import RemoteOkSource
 from sanket.sources.remotive import RemotiveSource
@@ -55,6 +56,11 @@ def build_sources(config: Settings) -> list[Source]:
         GreenhouseSource(config.greenhouse_boards),
         LeverSource(config.lever_companies),
         AshbySource(config.ashby_boards),
+        JobTechSource(
+            config.jobtech_query,
+            config.jobtech_max_pages,
+            timedelta(days=config.jobtech_lookback_days),
+        ),
     ]
 
 

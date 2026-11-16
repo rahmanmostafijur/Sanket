@@ -2,7 +2,7 @@
 
 import html
 from collections.abc import Iterable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, tzinfo
 from email.utils import parsedate_to_datetime
 
 MILLISECONDS_PER_SECOND = 1000
@@ -40,6 +40,16 @@ def parse_iso_datetime(value: str | None) -> datetime | None:
     parsed = datetime.fromisoformat(value)
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=UTC)
+    return parsed
+
+
+def parse_local_datetime(value: str | None, zone: tzinfo) -> datetime | None:
+    """Parse an ISO-8601 timestamp; naive values are taken as wall-clock time in `zone`."""
+    if not value:
+        return None
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=zone)
     return parsed
 
 

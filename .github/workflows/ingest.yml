@@ -21,6 +21,7 @@ jobs:
       GREENHOUSE_BOARDS: ${{ vars.GREENHOUSE_BOARDS }}
       LEVER_COMPANIES: ${{ vars.LEVER_COMPANIES }}
       ASHBY_BOARDS: ${{ vars.ASHBY_BOARDS }}
+      JOBTECH_QUERY: ${{ vars.JOBTECH_QUERY }}
     defaults:
       run:
         working-directory: backend

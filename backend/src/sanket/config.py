@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     lever_companies: CommaList = []
     ashby_boards: CommaList = []
     himalayas_api_key: SecretStr | None = None
+    # JobTech Sweden: optional free-text query, pages of 100 ads per run (the API allows 20),
+    # and how far back to look for ads published since.
+    jobtech_query: str | None = None
+    jobtech_max_pages: int = Field(default=5, ge=1, le=20)
+    jobtech_lookback_days: int = Field(default=2, ge=1, le=30)
 
     @field_validator(
         "ingest_sources",
@@ -53,10 +58,10 @@ class Settings(BaseSettings):
     # used to improve Google's models, so Remote OK postings are not sent by default.
     extraction_excluded_sources: CommaList = ["remoteok"]
 
-    @field_validator("himalayas_api_key", "gemini_api_key", mode="before")
+    @field_validator("himalayas_api_key", "gemini_api_key", "jobtech_query", mode="before")
     @classmethod
-    def _blank_secret_is_none(cls, value: object) -> object:
-        # An unset GitHub Actions secret arrives as an empty string.
+    def _blank_is_none(cls, value: object) -> object:
+        # An unset GitHub Actions secret or variable arrives as an empty string.
         if isinstance(value, str) and not value.strip():
             return None
         return value

@@ -1,0 +1,969 @@
+{
+ "total": {
+  "value": 724
+ },
+ "hits": [
+  {
+   "relevance": 1.0,
+   "id": "31629347",
+   "external_id": null,
+   "original_id": null,
+   "label": [],
+   "webpage_url": "https://arbetsformedlingen.se/platsbanken/annonser/31629347",
+   "logo_url": null,
+   "headline": "Developer",
+   "application_deadline": "2026-11-27T23:59:59",
+   "number_of_vacancies": 1,
+   "description": {
+    "text": "Senior Robotics Engineer\nAbout the role\n We are seeking a seasoned Senior Robotics Engineer to strengthen a project centered on building, integrating and validating sophisticated robotic systems. You will operate across embedded software, machine vision, autonomous behavior and safety-critical funct...[trimmed]",
+    "text_formatted": "<p><strong>Senior Robotics Engineer</strong></p><p><strong>About the role</strong></p><p> We are seeking a seasoned Senior Robotics Engineer to strengthen a project centered on building, integrating and validating sophisticated robotic systems. You will operate across embedded software, machine visi...[trimmed]",
+    "company_information": null,
+    "needs": null,
+    "requirements": null,
+    "conditions": null
+   },
+   "employment_type": {
+    "concept_id": "sTu5_NBQ_udq",
+    "label": "Tidsbegränsad anställning",
+    "legacy_ams_taxonomy_id": null
+   },
+   "salary_type": {
+    "concept_id": "oG8G_9cW_nRf",
+    "label": "Fast månads- vecko- eller timlön",
+    "legacy_ams_taxonomy_id": "1"
+   },
+   "salary_description": null,
+   "duration": {
+    "concept_id": "gJRb_akA_95y",
+    "label": "6 månader – upp till 12 månader",
+    "legacy_ams_taxonomy_id": "0"
+   },
+   "working_hours_type": {
+    "concept_id": "6YE1_gAC_R2G",
+    "label": "Heltid",
+    "legacy_ams_taxonomy_id": "1"
+   },
+   "scope_of_work": {
+    "min": 100,
+    "max": 100
+   },
+   "access": null,
+   "employer": {
+    "phone_number": null,
+    "email": null,
+    "url": null,
+    "organization_number": "5593220733",
+    "name": "Rasulson Consulting AB",
+    "workplace": "Rasulson Consulting AB"
+   },
+   "application_details": {
+    "information": null,
+    "reference": null,
+    "email": "redacted@example.com",
+    "via_af": false,
+    "url": "https://app.teamtailor.com/companies/zbu-mmYIt10@eu/jobs/8586905/stages",
+    "other": null
+   },
+   "experience_required": true,
+   "access_to_own_car": false,
+   "driving_license_required": false,
+   "driving_license": null,
+   "occupation": {
+    "concept_id": "fg7B_yov_smw",
+    "label": "Systemutvecklare/Programmerare",
+    "legacy_ams_taxonomy_id": "2419"
+   },
+   "occupation_group": {
+    "concept_id": "DJh5_yyF_hEM",
+    "label": "Mjukvaru- och systemutvecklare m.fl.",
+    "legacy_ams_taxonomy_id": "2512"
+   },
+   "occupation_field": {
+    "concept_id": "apaJ_2ja_LuF",
+    "label": "Data/IT",
+    "legacy_ams_taxonomy_id": "3"
+   },
+   "workplace_model": {
+    "concept_id": "ZxwM_gtz_n61",
+    "label": "Arbete på plats"
+   },
+   "workplace_address": {
+    "municipality": "Stockholm",
+    "municipality_code": "0180",
+    "municipality_concept_id": "AvNB_uwa_6n6",
+    "region": "Stockholms län",
+    "region_code": "01",
+    "region_concept_id": "CifL_Rzy_Mku",
+    "country": "Sverige",
+    "country_code": "199",
+    "country_concept_id": "i46j_HmG_v64",
+    "street_address": null,
+    "postcode": null,
+    "city": null,
+    "coordinates": [
+     null,
+     null
+    ]
+   },
+   "workplace_addresses": [
+    {
+     "municipality": "Stockholm",
+     "municipality_code": "0180",
+     "municipality_concept_id": "AvNB_uwa_6n6",
+     "region": "Stockholms län",
+     "region_code": "01",
+     "region_concept_id": "CifL_Rzy_Mku",
+     "country": "Sverige",
+     "country_code": "199",
+     "country_concept_id": "i46j_HmG_v64",
+     "street_address": null,
+     "postcode": null,
+     "city": null,
+     "coordinates": [
+      null,
+      null
+     ]
+    }
+   ],
+   "must_have": {
+    "skills": [],
+    "languages": [
+     {
+      "weight": 10,
+      "concept_id": "NVxJ_hLg_TYS",
+      "label": "Engelska",
+      "legacy_ams_taxonomy_id": "283"
+     }
+    ],
+    "work_experiences": [],
+    "education": [],
+    "education_level": []
+   },
+   "nice_to_have": {
+    "skills": [],
+    "languages": [
+     {
+      "weight": 5,
+      "concept_id": "zSLA_vw2_FXN",
+      "label": "Svenska",
+      "legacy_ams_taxonomy_id": "502"
+     }
+    ],
+    "work_experiences": [
+     {
+      "weight": 5,
+      "concept_id": "fg7B_yov_smw",
+      "label": "Systemutvecklare/Programmerare",
+      "legacy_ams_taxonomy_id": "2419"
+     }
+    ],
+    "education": [],
+    "education_level": []
+   },
+   "application_contacts": [],
+   "publication_date": "2026-10-22T00:00:00",
+   "last_publication_date": "2026-11-27T23:59:59",
+   "removed": false,
+   "removed_date": null,
+   "source_type": "VIA_ANNONSERA",
+   "timestamp": 1792616090673
+  },
+  {
+   "relevance": 0.9763537710506788,
+   "id": "31702286",
+   "external_id": null,
+   "original_id": null,
+   "label": [],
+   "webpage_url": "https://arbetsformedlingen.se/platsbanken/annonser/31702286",
+   "logo_url": "https://arbetsformedlingen.se/rest/employer-logo-api/api/v1/organisation/5567269518/logotyper/logo.png",
+   "headline": "Software Developer",
+   "application_deadline": "2026-12-17T23:59:59",
+   "number_of_vacancies": 1,
+   "description": {
+    "text": "Vill du arbeta med avancerade övervaknings- och automationssystem som används på flygplatser världen över? Trivs du i en internationell miljö där du får kombinera mjukvaruutveckling, teknisk problemlösning och kundkontakt? Då kan detta vara möjligheten för dig! Ansök redan idag!\nI rollen som Softwar...[trimmed]",
+    "text_formatted": "<p>Vill du arbeta med avancerade övervaknings- och automationssystem som används på flygplatser världen över? Trivs du i en internationell miljö där du får kombinera mjukvaruutveckling, teknisk problemlösning och kundkontakt? Då kan detta vara möjligheten för dig! Ansök redan idag!</p><p>I rollen so...[trimmed]",
+    "company_information": null,
+    "needs": null,
+    "requirements": null,
+    "conditions": null
+   },
+   "employment_type": {
+    "concept_id": "PFZr_Syz_cUq",
+    "label": "Vanlig anställning",
+    "legacy_ams_taxonomy_id": "1"
+   },
+   "salary_type": {
+    "concept_id": "oG8G_9cW_nRf",
+    "label": "Fast månads- vecko- eller timlön",
+    "legacy_ams_taxonomy_id": "1"
+   },
+   "salary_description": null,
+   "duration": {
+    "concept_id": "a7uU_j21_mkL",
+    "label": "Tills vidare",
+    "legacy_ams_taxonomy_id": "1"
+   },
+   "working_hours_type": {
+    "concept_id": "6YE1_gAC_R2G",
+    "label": "Heltid",
+    "legacy_ams_taxonomy_id": "1"
+   },
+   "scope_of_work": {
+    "min": 100,
+    "max": 100
+   },
+   "access": null,
+   "employer": {
+    "phone_number": null,
+    "email": null,
+    "url": null,
+    "organization_number": "5567269518",
+    "name": "Jobway AB",
+    "workplace": "TKE Airport"
+   },
+   "application_details": {
+    "information": null,
+    "reference": null,
+    "email": null,
+    "via_af": false,
+    "url": "https://pnty-apply.ponty-system.se/jobway?id=5951&pnty_src=platsbanken",
+    "other": null
+   },
+   "experience_required": true,
+   "access_to_own_car": false,
+   "driving_license_required": false,
+   "driving_license": null,
+   "occupation": {
+    "concept_id": "rQds_YGd_quU",
+    "label": "Mjukvaruutvecklare",
+    "legacy_ams_taxonomy_id": "80"
+   },
+   "occupation_group": {
+    "concept_id": "DJh5_yyF_hEM",
+    "label": "Mjukvaru- och systemutvecklare m.fl.",
+    "legacy_ams_taxonomy_id": "2512"
+   },
+   "occupation_field": {
+    "concept_id": "apaJ_2ja_LuF",
+    "label": "Data/IT",
+    "legacy_ams_taxonomy_id": "3"
+   },
+   "workplace_model": {
+    "concept_id": null,
+    "label": null
+   },
+   "workplace_address": {
+    "municipality": "Trelleborg",
+    "municipality_code": "1287",
+    "municipality_concept_id": "STvk_dra_M1X",
+    "region": "Skåne län",
+    "region_code": "12",
+    "region_concept_id": "CaRE_1nn_cSU",
+    "country": "Sverige",
+    "country_code": "199",
+    "country_concept_id": "i46j_HmG_v64",
+    "street_address": " Mellanköpingevägen 1",
+    "postcode": "23134",
+    "city": "Trelleborg",
+    "coordinates": [
+     13.1978911704988,
+     55.371830255928
+    ]
+   },
+   "workplace_addresses": [
+    {
+     "municipality": "Trelleborg",
+     "municipality_code": "1287",
+     "municipality_concept_id": "STvk_dra_M1X",
+     "region": "Skåne län",
+     "region_code": "12",
+     "region_concept_id": "CaRE_1nn_cSU",
+     "country": "Sverige",
+     "country_code": "199",
+     "country_concept_id": "i46j_HmG_v64",
+     "street_address": " Mellanköpingevägen 1",
+     "postcode": "23134",
+     "city": "Trelleborg",
+     "coordinates": [
+      13.1978911704988,
+      55.371830255928
+     ]
+    }
+   ],
+   "must_have": {
+    "skills": [],
+    "languages": [],
+    "work_experiences": [],
+    "education": [],
+    "education_level": []
+   },
+   "nice_to_have": {
+    "skills": [],
+    "languages": [],
+    "work_experiences": [],
+    "education": [],
+    "education_level": []
+   },
+   "application_contacts": [
+    {
+     "name": "Test Contact",
+     "description": null,
+     "email": "redacted@example.com",
+     "telephone": "+46000000000",
+     "contact_type": "Rekryteringskonsult"
+    }
+   ],
+   "publication_date": "2026-11-09T09:13:31",
+   "last_publication_date": "2026-12-17T23:59:59",
+   "removed": false,
+   "removed_date": null,
+   "source_type": "VIA_JOBPOSTING",
+   "timestamp": 1794212011762
+  },
+  {
+   "relevance": 1.0,
+   "id": "hand-removed",
+   "external_id": null,
+   "original_id": null,
+   "label": [],
+   "webpage_url": "https://arbetsformedlingen.se/platsbanken/annonser/hand-removed",
+   "logo_url": null,
+   "headline": "Hand written hand-removed",
+   "application_deadline": "2026-11-27T23:59:59",
+   "number_of_vacancies": 1,
+   "description": {
+    "text": "Senior Robotics Engineer\nAbout the role\n We are seeking a seasoned Senior Robotics Engineer to strengthen a project centered on building, integrating and validating sophisticated robotic systems. You will operate across embedded software, machine vision, autonomous behavior and safety-critical funct...[trimmed]",
+    "text_formatted": "<p><strong>Senior Robotics Engineer</strong></p><p><strong>About the role</strong></p><p> We are seeking a seasoned Senior Robotics Engineer to strengthen a project centered on building, integrating and validating sophisticated robotic systems. You will operate across embedded software, machine visi...[trimmed]",
+    "company_information": null,
+    "needs": null,
+    "requirements": null,
+    "conditions": null
+   },
+   "employment_type": {
+    "concept_id": "sTu5_NBQ_udq",
+    "label": "Tidsbegränsad anställning",
+    "legacy_ams_taxonomy_id": null
+   },
+   "salary_type": {
+    "concept_id": "oG8G_9cW_nRf",
+    "label": "Fast månads- vecko- eller timlön",
+    "legacy_ams_taxonomy_id": "1"
+   },
+   "salary_description": null,
+   "duration": {
+    "concept_id": "gJRb_akA_95y",
+    "label": "6 månader – upp till 12 månader",
+    "legacy_ams_taxonomy_id": "0"
+   },
+   "working_hours_type": {
+    "concept_id": "6YE1_gAC_R2G",
+    "label": "Heltid",
+    "legacy_ams_taxonomy_id": "1"
+   },
+   "scope_of_work": {
+    "min": 100,
+    "max": 100
+   },
+   "access": null,
+   "employer": {
+    "phone_number": null,
+    "email": null,
+    "url": null,
+    "organization_number": "5593220733",
+    "name": "Rasulson Consulting AB",
+    "workplace": "Rasulson Consulting AB"
+   },
+   "application_details": {
+    "information": null,
+    "reference": null,
+    "email": "redacted@example.com",
+    "via_af": false,
+    "url": "https://app.teamtailor.com/companies/zbu-mmYIt10@eu/jobs/8586905/stages",
+    "other": null
+   },
+   "experience_required": true,
+   "access_to_own_car": false,
+   "driving_license_required": false,
+   "driving_license": null,
+   "occupation": {
+    "concept_id": "fg7B_yov_smw",
+    "label": "Systemutvecklare/Programmerare",
+    "legacy_ams_taxonomy_id": "2419"
+   },
+   "occupation_group": {
+    "concept_id": "DJh5_yyF_hEM",
+    "label": "Mjukvaru- och systemutvecklare m.fl.",
+    "legacy_ams_taxonomy_id": "2512"
+   },
+   "occupation_field": {
+    "concept_id": "apaJ_2ja_LuF",
+    "label": "Data/IT",
+    "legacy_ams_taxonomy_id": "3"
+   },
+   "workplace_model": {
+    "concept_id": "ZxwM_gtz_n61",
+    "label": "Arbete på plats"
+   },
+   "workplace_address": {
+    "municipality": "Stockholm",
+    "municipality_code": "0180",
+    "municipality_concept_id": "AvNB_uwa_6n6",
+    "region": "Stockholms län",
+    "region_code": "01",
+    "region_concept_id": "CifL_Rzy_Mku",
+    "country": "Sverige",
+    "country_code": "199",
+    "country_concept_id": "i46j_HmG_v64",
+    "street_address": null,
+    "postcode": null,
+    "city": null,
+    "coordinates": [
+     null,
+     null
+    ]
+   },
+   "workplace_addresses": [
+    {
+     "municipality": "Stockholm",
+     "municipality_code": "0180",
+     "municipality_concept_id": "AvNB_uwa_6n6",
+     "region": "Stockholms län",
+     "region_code": "01",
+     "region_concept_id": "CifL_Rzy_Mku",
+     "country": "Sverige",
+     "country_code": "199",
+     "country_concept_id": "i46j_HmG_v64",
+     "street_address": null,
+     "postcode": null,
+     "city": null,
+     "coordinates": [
+      null,
+      null
+     ]
+    }
+   ],
+   "must_have": {
+    "skills": [],
+    "languages": [
+     {
+      "weight": 10,
+      "concept_id": "NVxJ_hLg_TYS",
+      "label": "Engelska",
+      "legacy_ams_taxonomy_id": "283"
+     }
+    ],
+    "work_experiences": [],
+    "education": [],
+    "education_level": []
+   },
+   "nice_to_have": {
+    "skills": [],
+    "languages": [
+     {
+      "weight": 5,
+      "concept_id": "zSLA_vw2_FXN",
+      "label": "Svenska",
+      "legacy_ams_taxonomy_id": "502"
+     }
+    ],
+    "work_experiences": [
+     {
+      "weight": 5,
+      "concept_id": "fg7B_yov_smw",
+      "label": "Systemutvecklare/Programmerare",
+      "legacy_ams_taxonomy_id": "2419"
+     }
+    ],
+    "education": [],
+    "education_level": []
+   },
+   "application_contacts": [],
+   "publication_date": "2026-10-22T00:00:00",
+   "last_publication_date": "2026-11-27T23:59:59",
+   "removed": true,
+   "removed_date": "2026-11-12T10:00:00",
+   "source_type": "VIA_ANNONSERA",
+   "timestamp": 1792616090673
+  },
+  {
+   "relevance": 1.0,
+   "id": "hand-contacts",
+   "external_id": null,
+   "original_id": null,
+   "label": [],
+   "webpage_url": "https://arbetsformedlingen.se/platsbanken/annonser/hand-contacts",
+   "logo_url": null,
+   "headline": "Hand written hand-contacts",
+   "application_deadline": null,
+   "number_of_vacancies": 1,
+   "description": {
+    "text": "Senior Robotics Engineer\nAbout the role\n We are seeking a seasoned Senior Robotics Engineer to strengthen a project centered on building, integrating and validating sophisticated robotic systems. You will operate across embedded software, machine vision, autonomous behavior and safety-critical funct...[trimmed]",
+    "text_formatted": "<p><strong>Senior Robotics Engineer</strong></p><p><strong>About the role</strong></p><p> We are seeking a seasoned Senior Robotics Engineer to strengthen a project centered on building, integrating and validating sophisticated robotic systems. You will operate across embedded software, machine visi...[trimmed]",
+    "company_information": null,
+    "needs": null,
+    "requirements": null,
+    "conditions": null
+   },
+   "employment_type": {
+    "concept_id": "sTu5_NBQ_udq",
+    "label": "Tidsbegränsad anställning",
+    "legacy_ams_taxonomy_id": null
+   },
+   "salary_type": {
+    "concept_id": "oG8G_9cW_nRf",
+    "label": "Fast månads- vecko- eller timlön",
+    "legacy_ams_taxonomy_id": "1"
+   },
+   "salary_description": "35 000 - 45 000 kr per månad",
+   "duration": {
+    "concept_id": "gJRb_akA_95y",
+    "label": "6 månader – upp till 12 månader",
+    "legacy_ams_taxonomy_id": "0"
+   },
+   "working_hours_type": {
+    "concept_id": "6YE1_gAC_R2G",
+    "label": "Heltid",
+    "legacy_ams_taxonomy_id": "1"
+   },
+   "scope_of_work": {
+    "min": 100,
+    "max": 100
+   },
+   "access": null,
+   "employer": {
+    "phone_number": "+46000000001",
+    "email": "hr@example.com",
+    "url": "https://example.com",
+    "organization_number": "5560000000",
+    "name": "Example AB",
+    "workplace": "Example AB"
+   },
+   "application_details": {
+    "information": "Call Test Person on +46000000002",
+    "reference": "REF-1",
+    "email": "apply@example.com",
+    "via_af": false,
+    "url": "https://example.com/apply",
+    "other": "Ask for Test Person"
+   },
+   "experience_required": true,
+   "access_to_own_car": false,
+   "driving_license_required": false,
+   "driving_license": null,
+   "occupation": {
+    "concept_id": "fg7B_yov_smw",
+    "label": "Systemutvecklare/Programmerare",
+    "legacy_ams_taxonomy_id": "2419"
+   },
+   "occupation_group": {
+    "concept_id": "DJh5_yyF_hEM",
+    "label": "Mjukvaru- och systemutvecklare m.fl.",
+    "legacy_ams_taxonomy_id": "2512"
+   },
+   "occupation_field": {
+    "concept_id": "apaJ_2ja_LuF",
+    "label": "Data/IT",
+    "legacy_ams_taxonomy_id": "3"
+   },
+   "workplace_model": {
+    "concept_id": "ZxwM_gtz_n61",
+    "label": "Arbete på plats"
+   },
+   "workplace_address": {
+    "municipality": "Stockholm",
+    "municipality_code": "0180",
+    "municipality_concept_id": "AvNB_uwa_6n6",
+    "region": "Stockholms län",
+    "region_code": "01",
+    "region_concept_id": "CifL_Rzy_Mku",
+    "country": "Sverige",
+    "country_code": "199",
+    "country_concept_id": "i46j_HmG_v64",
+    "street_address": null,
+    "postcode": null,
+    "city": null,
+    "coordinates": [
+     null,
+     null
+    ]
+   },
+   "workplace_addresses": [
+    {
+     "municipality": "Stockholm",
+     "municipality_code": "0180",
+     "municipality_concept_id": "AvNB_uwa_6n6",
+     "region": "Stockholms län",
+     "region_code": "01",
+     "region_concept_id": "CifL_Rzy_Mku",
+     "country": "Sverige",
+     "country_code": "199",
+     "country_concept_id": "i46j_HmG_v64",
+     "street_address": null,
+     "postcode": null,
+     "city": null,
+     "coordinates": [
+      null,
+      null
+     ]
+    }
+   ],
+   "must_have": {
+    "skills": [],
+    "languages": [
+     {
+      "weight": 10,
+      "concept_id": "NVxJ_hLg_TYS",
+      "label": "Engelska",
+      "legacy_ams_taxonomy_id": "283"
+     }
+    ],
+    "work_experiences": [],
+    "education": [],
+    "education_level": []
+   },
+   "nice_to_have": {
+    "skills": [],
+    "languages": [
+     {
+      "weight": 5,
+      "concept_id": "zSLA_vw2_FXN",
+      "label": "Svenska",
+      "legacy_ams_taxonomy_id": "502"
+     }
+    ],
+    "work_experiences": [
+     {
+      "weight": 5,
+      "concept_id": "fg7B_yov_smw",
+      "label": "Systemutvecklare/Programmerare",
+      "legacy_ams_taxonomy_id": "2419"
+     }
+    ],
+    "education": [],
+    "education_level": []
+   },
+   "application_contacts": [
+    {
+     "name": "Test Person",
+     "description": "Recruiter",
+     "email": "person@example.com",
+     "telephone": "+46000000002",
+     "contact_type": "Rekryterare"
+    }
+   ],
+   "publication_date": "2026-07-01T12:00:00",
+   "last_publication_date": "2026-11-27T23:59:59",
+   "removed": false,
+   "removed_date": null,
+   "source_type": "VIA_ANNONSERA",
+   "timestamp": 1792616090673
+  },
+  {
+   "relevance": 1.0,
+   "id": "hand-no-url",
+   "external_id": null,
+   "original_id": null,
+   "label": [],
+   "logo_url": null,
+   "headline": "Hand written hand-no-url",
+   "application_deadline": "2026-11-27T23:59:59",
+   "number_of_vacancies": 1,
+   "description": {
+    "text": "Senior Robotics Engineer\nAbout the role\n We are seeking a seasoned Senior Robotics Engineer to strengthen a project centered on building, integrating and validating sophisticated robotic systems. You will operate across embedded software, machine vision, autonomous behavior and safety-critical funct...[trimmed]",
+    "text_formatted": "<p><strong>Senior Robotics Engineer</strong></p><p><strong>About the role</strong></p><p> We are seeking a seasoned Senior Robotics Engineer to strengthen a project centered on building, integrating and validating sophisticated robotic systems. You will operate across embedded software, machine visi...[trimmed]",
+    "company_information": null,
+    "needs": null,
+    "requirements": null,
+    "conditions": null
+   },
+   "employment_type": {
+    "concept_id": "sTu5_NBQ_udq",
+    "label": "Tidsbegränsad anställning",
+    "legacy_ams_taxonomy_id": null
+   },
+   "salary_type": {
+    "concept_id": "oG8G_9cW_nRf",
+    "label": "Fast månads- vecko- eller timlön",
+    "legacy_ams_taxonomy_id": "1"
+   },
+   "salary_description": null,
+   "duration": {
+    "concept_id": "gJRb_akA_95y",
+    "label": "6 månader – upp till 12 månader",
+    "legacy_ams_taxonomy_id": "0"
+   },
+   "working_hours_type": {
+    "concept_id": "6YE1_gAC_R2G",
+    "label": "Heltid",
+    "legacy_ams_taxonomy_id": "1"
+   },
+   "scope_of_work": {
+    "min": 100,
+    "max": 100
+   },
+   "access": null,
+   "employer": {
+    "phone_number": null,
+    "email": null,
+    "url": null,
+    "organization_number": "5593220733",
+    "name": "Rasulson Consulting AB",
+    "workplace": "Rasulson Consulting AB"
+   },
+   "application_details": {
+    "information": null,
+    "reference": null,
+    "email": "redacted@example.com",
+    "via_af": false,
+    "url": "https://app.teamtailor.com/companies/zbu-mmYIt10@eu/jobs/8586905/stages",
+    "other": null
+   },
+   "experience_required": true,
+   "access_to_own_car": false,
+   "driving_license_required": false,
+   "driving_license": null,
+   "occupation": {
+    "concept_id": "fg7B_yov_smw",
+    "label": "Systemutvecklare/Programmerare",
+    "legacy_ams_taxonomy_id": "2419"
+   },
+   "occupation_group": {
+    "concept_id": "DJh5_yyF_hEM",
+    "label": "Mjukvaru- och systemutvecklare m.fl.",
+    "legacy_ams_taxonomy_id": "2512"
+   },
+   "occupation_field": {
+    "concept_id": "apaJ_2ja_LuF",
+    "label": "Data/IT",
+    "legacy_ams_taxonomy_id": "3"
+   },
+   "workplace_model": {
+    "concept_id": "ZxwM_gtz_n61",
+    "label": "Arbete på plats"
+   },
+   "workplace_address": {
+    "municipality": "Stockholm",
+    "municipality_code": "0180",
+    "municipality_concept_id": "AvNB_uwa_6n6",
+    "region": "Stockholms län",
+    "region_code": "01",
+    "region_concept_id": "CifL_Rzy_Mku",
+    "country": "Sverige",
+    "country_code": "199",
+    "country_concept_id": "i46j_HmG_v64",
+    "street_address": null,
+    "postcode": null,
+    "city": null,
+    "coordinates": [
+     null,
+     null
+    ]
+   },
+   "workplace_addresses": [
+    {
+     "municipality": "Stockholm",
+     "municipality_code": "0180",
+     "municipality_concept_id": "AvNB_uwa_6n6",
+     "region": "Stockholms län",
+     "region_code": "01",
+     "region_concept_id": "CifL_Rzy_Mku",
+     "country": "Sverige",
+     "country_code": "199",
+     "country_concept_id": "i46j_HmG_v64",
+     "street_address": null,
+     "postcode": null,
+     "city": null,
+     "coordinates": [
+      null,
+      null
+     ]
+    }
+   ],
+   "must_have": {
+    "skills": [],
+    "languages": [
+     {
+      "weight": 10,
+      "concept_id": "NVxJ_hLg_TYS",
+      "label": "Engelska",
+      "legacy_ams_taxonomy_id": "283"
+     }
+    ],
+    "work_experiences": [],
+    "education": [],
+    "education_level": []
+   },
+   "nice_to_have": {
+    "skills": [],
+    "languages": [
+     {
+      "weight": 5,
+      "concept_id": "zSLA_vw2_FXN",
+      "label": "Svenska",
+      "legacy_ams_taxonomy_id": "502"
+     }
+    ],
+    "work_experiences": [
+     {
+      "weight": 5,
+      "concept_id": "fg7B_yov_smw",
+      "label": "Systemutvecklare/Programmerare",
+      "legacy_ams_taxonomy_id": "2419"
+     }
+    ],
+    "education": [],
+    "education_level": []
+   },
+   "application_contacts": [],
+   "publication_date": "2026-10-22T00:00:00",
+   "last_publication_date": "2026-11-27T23:59:59",
+   "removed": false,
+   "removed_date": null,
+   "source_type": "VIA_ANNONSERA",
+   "timestamp": 1792616090673
+  },
+  {
+   "relevance": 1.0,
+   "id": "hand-no-employer",
+   "external_id": null,
+   "original_id": null,
+   "label": [],
+   "webpage_url": "https://arbetsformedlingen.se/platsbanken/annonser/hand-no-employer",
+   "logo_url": null,
+   "headline": "Hand written hand-no-employer",
+   "application_deadline": "2026-11-27T23:59:59",
+   "number_of_vacancies": 1,
+   "description": {
+    "text": "Senior Robotics Engineer\nAbout the role\n We are seeking a seasoned Senior Robotics Engineer to strengthen a project centered on building, integrating and validating sophisticated robotic systems. You will operate across embedded software, machine vision, autonomous behavior and safety-critical funct...[trimmed]",
+    "text_formatted": "<p><strong>Senior Robotics Engineer</strong></p><p><strong>About the role</strong></p><p> We are seeking a seasoned Senior Robotics Engineer to strengthen a project centered on building, integrating and validating sophisticated robotic systems. You will operate across embedded software, machine visi...[trimmed]",
+    "company_information": null,
+    "needs": null,
+    "requirements": null,
+    "conditions": null
+   },
+   "employment_type": {
+    "concept_id": "sTu5_NBQ_udq",
+    "label": "Tidsbegränsad anställning",
+    "legacy_ams_taxonomy_id": null
+   },
+   "salary_type": {
+    "concept_id": "oG8G_9cW_nRf",
+    "label": "Fast månads- vecko- eller timlön",
+    "legacy_ams_taxonomy_id": "1"
+   },
+   "salary_description": null,
+   "duration": {
+    "concept_id": "gJRb_akA_95y",
+    "label": "6 månader – upp till 12 månader",
+    "legacy_ams_taxonomy_id": "0"
+   },
+   "working_hours_type": {
+    "concept_id": "6YE1_gAC_R2G",
+    "label": "Heltid",
+    "legacy_ams_taxonomy_id": "1"
+   },
+   "scope_of_work": {
+    "min": 100,
+    "max": 100
+   },
+   "access": null,
+   "employer": {
+    "name": null
+   },
+   "application_details": {
+    "information": null,
+    "reference": null,
+    "email": "redacted@example.com",
+    "via_af": false,
+    "url": "https://app.teamtailor.com/companies/zbu-mmYIt10@eu/jobs/8586905/stages",
+    "other": null
+   },
+   "experience_required": true,
+   "access_to_own_car": false,
+   "driving_license_required": false,
+   "driving_license": null,
+   "occupation": {
+    "concept_id": "fg7B_yov_smw",
+    "label": "Systemutvecklare/Programmerare",
+    "legacy_ams_taxonomy_id": "2419"
+   },
+   "occupation_group": {
+    "concept_id": "DJh5_yyF_hEM",
+    "label": "Mjukvaru- och systemutvecklare m.fl.",
+    "legacy_ams_taxonomy_id": "2512"
+   },
+   "occupation_field": {
+    "concept_id": "apaJ_2ja_LuF",
+    "label": "Data/IT",
+    "legacy_ams_taxonomy_id": "3"
+   },
+   "workplace_model": {
+    "concept_id": "ZxwM_gtz_n61",
+    "label": "Arbete på plats"
+   },
+   "workplace_address": null,
+   "workplace_addresses": [
+    {
+     "municipality": "Stockholm",
+     "municipality_code": "0180",
+     "municipality_concept_id": "AvNB_uwa_6n6",
+     "region": "Stockholms län",
+     "region_code": "01",
+     "region_concept_id": "CifL_Rzy_Mku",
+     "country": "Sverige",
+     "country_code": "199",
+     "country_concept_id": "i46j_HmG_v64",
+     "street_address": null,
+     "postcode": null,
+     "city": null,
+     "coordinates": [
+      null,
+      null
+     ]
+    }
+   ],
+   "must_have": {
+    "skills": [],
+    "languages": [
+     {
+      "weight": 10,
+      "concept_id": "NVxJ_hLg_TYS",
+      "label": "Engelska",
+      "legacy_ams_taxonomy_id": "283"
+     }
+    ],
+    "work_experiences": [],
+    "education": [],
+    "education_level": []
+   },
+   "nice_to_have": {
+    "skills": [],
+    "languages": [
+     {
+      "weight": 5,
+      "concept_id": "zSLA_vw2_FXN",
+      "label": "Svenska",
+      "legacy_ams_taxonomy_id": "502"
+     }
+    ],
+    "work_experiences": [
+     {
+      "weight": 5,
+      "concept_id": "fg7B_yov_smw",
+      "label": "Systemutvecklare/Programmerare",
+      "legacy_ams_taxonomy_id": "2419"
+     }
+    ],
+    "education": [],
+    "education_level": []
+   },
+   "application_contacts": [],
+   "publication_date": "2026-10-22T00:00:00",
+   "last_publication_date": "2026-11-27T23:59:59",
+   "removed": false,
+   "removed_date": null,
+   "source_type": "VIA_ANNONSERA",
+   "timestamp": 1792616090673
+  }
+ ]
+}

@@ -17,6 +17,7 @@ dependencies = [
     "google-genai>=1.0",
     "pydantic-extra-types>=2.11",
     "pycountry>=24.6",
+    "tzdata>=2024.1",
     ]
 
 [tool.setuptools.packages.find]
@@ -50,6 +51,7 @@ module = [
     "sanket.config",
     "sanket.db",
     "sanket.sources.ashby",
+    "sanket.sources.jobtech_se",
     "sanket.extraction.prompt",
     "sanket.extraction.schema",
 ]
