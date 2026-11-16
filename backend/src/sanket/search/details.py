@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import Engine, distinct, func, select, true
+from sqlalchemy.orm import aliased
 
 from sanket.db import engine
 from sanket.indexing.filters import latest_extraction_lateral
@@ -36,9 +37,10 @@ def load_details(job_ids: Sequence[int], db_engine: Engine = engine) -> dict[int
     if not job_ids:
         return {}
     extraction = latest_extraction_lateral()
+    member = aliased(Posting)
     listed_on = (
-        select(func.array_agg(distinct(Posting.source)))
-        .where(Posting.job_id == Job.id)
+        select(func.array_agg(distinct(member.source)))
+        .where(member.job_id == Job.id)
         .scalar_subquery()
     )
     stmt = (

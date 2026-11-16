@@ -15,7 +15,12 @@ from tests.index_helpers import (
     representative_posting_id,
     set_posting_count,
 )
-from tests.search_helpers import add_search_job, extraction_data, index_everything
+from tests.search_helpers import (
+    add_search_job,
+    extraction_data,
+    index_everything,
+    seed_filter_corpus,
+)
 
 
 def text_ids(engine: Engine, filters: SearchFilters, query: str = "engineer") -> set[int]:
@@ -25,53 +30,6 @@ def text_ids(engine: Engine, filters: SearchFilters, query: str = "engineer") ->
 def vector_ids(engine: Engine, client_query: list[float], filters: SearchFilters) -> set[int]:
     result = vector_candidates(client_query, SPEC, 50, db_engine=engine, filters=filters)
     return {c.job_id for c in result}
-
-
-def seed(engine: Engine) -> dict[str, int]:
-    jobs = {
-        "remote_senior": add_search_job(
-            engine,
-            title="Senior Engineer",
-            company="Acme",
-            location="Berlin, Germany",
-            extraction=extraction_data(skills=["Python", "Go"]),
-            published_at=datetime(2026, 11, 1, tzinfo=UTC),
-        ),
-        "hybrid_junior": add_search_job(
-            engine,
-            title="Junior Engineer",
-            company="Zeta Corp",
-            location="Stockholm, Sweden",
-            source="lever",
-            extraction=extraction_data(
-                seniority="junior",
-                work_mode="hybrid",
-                employment_type="part_time",
-                country="SE",
-                skills=["python", "Rust"],
-            ),
-            published_at=datetime(2026, 10, 1, tzinfo=UTC),
-        ),
-        "onsite_lead": add_search_job(
-            engine,
-            title="Lead Engineer",
-            company="100% Bakers_Inc",
-            location="Dhaka, Bangladesh",
-            source="remoteok",
-            extraction=extraction_data(
-                seniority="lead",
-                work_mode="onsite",
-                employment_type="contract",
-                country="BD",
-                skills=["Java"],
-            ),
-            published_at=datetime(2026, 9, 1, tzinfo=UTC),
-        ),
-        "no_extraction": add_search_job(
-            engine, title="Engineer Unknown", company="Mystery", location=None
-        ),
-    }
-    return jobs
 
 
 @pytest.mark.parametrize(
@@ -112,7 +70,7 @@ def seed(engine: Engine) -> dict[str, int]:
 def test_each_filter_narrows_both_candidate_queries(
     clean_db: Engine, filters: SearchFilters, expected: set[str]
 ) -> None:
-    jobs = seed(clean_db)
+    jobs = seed_filter_corpus(clean_db)
     client = index_everything(clean_db)
     wanted = {jobs[name] for name in expected}
 
