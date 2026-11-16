@@ -5,17 +5,18 @@ Revises: 6c2f0ab0e0d7
 Create Date: 2026-11-12 02:38:00.887353
 
 """
-from typing import Sequence, Union
 
-from alembic import op
+from collections.abc import Sequence
+
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = '409e2e5f3819'
-down_revision: Union[str, Sequence[str], None] = '6c2f0ab0e0d7'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+revision: str = "409e2e5f3819"
+down_revision: str | Sequence[str] | None = "6c2f0ab0e0d7"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 TABLE = "posting_extraction"
@@ -29,9 +30,15 @@ def _refuse_if_rows_would_break_constraints() -> None:
     """Existing rows become schema/prompt version 1. Stop rather than delete or rewrite
     rows if they would violate the new constraints; the operator decides what to keep."""
     conn = op.get_bind()
-    duplicates = conn.execute(
-        sa.text(f"SELECT posting_id FROM {TABLE} GROUP BY posting_id HAVING count(*) > 1 LIMIT 5")
-    ).scalars().all()
+    duplicates = (
+        conn.execute(
+            sa.text(
+                f"SELECT posting_id FROM {TABLE} GROUP BY posting_id HAVING count(*) > 1 LIMIT 5"
+            )
+        )
+        .scalars()
+        .all()
+    )
     if duplicates:
         raise RuntimeError(
             f"{TABLE} has several rows for posting ids {duplicates}; keep one row per posting "
@@ -52,15 +59,22 @@ def upgrade() -> None:
     _refuse_if_rows_would_break_constraints()
 
     # Existing rows were produced by the first schema and prompt, recorded as version 1.
-    op.add_column(TABLE, sa.Column("schema_version", sa.Integer(), server_default="1", nullable=False))
-    op.add_column(TABLE, sa.Column("prompt_version", sa.Integer(), server_default="1", nullable=False))
+    op.add_column(
+        TABLE, sa.Column("schema_version", sa.Integer(), server_default="1", nullable=False)
+    )
+    op.add_column(
+        TABLE, sa.Column("prompt_version", sa.Integer(), server_default="1", nullable=False)
+    )
     op.add_column(TABLE, sa.Column("attempts", sa.Integer(), server_default="1", nullable=False))
     op.add_column(TABLE, sa.Column("input_tokens", sa.Integer(), nullable=True))
     op.add_column(TABLE, sa.Column("output_tokens", sa.Integer(), nullable=True))
     op.add_column(
         TABLE,
         sa.Column(
-            "updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
     )
     # The defaults only backfill existing rows; new rows always set these explicitly.
