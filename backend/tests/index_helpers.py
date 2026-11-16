@@ -24,6 +24,7 @@ def add_indexable_job(
     with_extraction: bool = False,
     posting_count: int = 1,
     source: str = "greenhouse",
+    fingerprint: str | None = None,
 ) -> int:
     """A job with one representative posting (and optionally an ok extraction)."""
     posting_id = add_posting(
@@ -36,7 +37,7 @@ def add_indexable_job(
     )
     job_id = add_job(
         engine,
-        fingerprint=f"fp1:test-{next(_fingerprints)}",
+        fingerprint=fingerprint or f"fp1:test-{next(_fingerprints)}",
         representative_posting_id=posting_id,
         posting_count=posting_count,
     )

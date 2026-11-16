@@ -47,6 +47,7 @@ def add_search_job(
     published_at: datetime | None = None,
     url: str | None = None,
     posting_count: int = 1,
+    fingerprint: str | None = None,
 ) -> int:
     """A job whose representative posting has the given source, URL, date and extraction."""
     job_id = add_indexable_job(
@@ -57,6 +58,7 @@ def add_search_job(
         description=description,
         source=source,
         posting_count=posting_count,
+        fingerprint=fingerprint,
     )
     posting_id = representative_posting_id(engine, job_id)
     values: dict[str, Any] = {}
