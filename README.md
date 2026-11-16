@@ -18,6 +18,7 @@ Sources (RemoteOK, Remotive, We Work Remotely, Jobicy, Himalayas,
   → Change detection with a content hash
   → PostgreSQL upsert
   → LLM extraction with schema validation
+  → Canonical jobs (postings of the same job grouped by fingerprint)
   → [planned] Hybrid search (full-text + vector)
   → [planned] Matching and real-time feed
 ```
@@ -159,6 +160,21 @@ pending postings and runs in the scheduled workflow after ingestion.
 - **Data use.** On Gemini's free tier, Google may use API inputs to
   improve its models. Remote OK reserves AI training on its data, so its
   postings are excluded (`EXTRACTION_EXCLUDED_SOURCES`).
+
+## Canonical jobs
+
+The same job often appears in several sources, or is posted again. `job` is
+the canonical entity that groups those postings; raw data (`posting`) and
+derived data (`posting_extraction`) stay in their own tables. Each posting
+gets a deterministic fingerprint (`fp1:` plus a hash of its normalised
+company, title and location), and `python -m sanket.canonicalise` links
+postings to jobs and keeps each job's count, first and last seen time and
+representative posting up to date. It is a dry run unless `--apply` is
+passed, is safe to repeat, and also runs at the end of every ingest. The
+matching strategy and its limits are in
+[docs/adr/0002-job-matching-strategy.md](docs/adr/0002-job-matching-strategy.md);
+how to run it and read its summary is in
+[docs/canonicalisation.md](docs/canonicalisation.md).
 
 ## Database migrations
 
