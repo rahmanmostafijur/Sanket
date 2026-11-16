@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from ftfy import fix_encoding
 
-from sanket.sources.base import FetchResult, NormalizedPosting
+from sanket.sources.base import FetchResult, NormalizedPosting, convert_items
 from sanket.sources.http import Fetcher
 
 URL = "https://remoteok.com/api"
@@ -18,13 +18,15 @@ class RemoteOkSource:
     min_interval: timedelta | None = None
 
     def fetch(self, http: Fetcher) -> FetchResult:
-        return FetchResult([to_posting(item) for item in fetch_remoteok_jobs(http)])
+        postings, failed = convert_items(self.name, fetch_remoteok_jobs(http), to_posting)
+        return FetchResult(postings, failed=failed)
 
 
 def fetch_remoteok_jobs(http: Fetcher) -> list[dict]:
     data = http.get(URL).json()
-    # The first element is the API legal notice, not a job.
-    return [item for item in data if "id" in item]
+    # The first element is the API legal notice, not a job. Anything else that is not a
+    # JSON object cannot be a job either.
+    return [item for item in data if isinstance(item, dict) and "id" in item]
 
 
 def _fix_encoding(text: str | None) -> str | None:

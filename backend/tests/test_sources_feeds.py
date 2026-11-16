@@ -5,12 +5,14 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
+from sanket.ingest import STATUS_OK, run_source
 from sanket.sources.himalayas import HimalayasSource
 from sanket.sources.http import BudgetExceededError
 from sanket.sources.jobicy import JobicySource, fetch_jobicy_jobs
 from sanket.sources.remoteok import RemoteOkSource
 from sanket.sources.remotive import RemotiveSource
 from sanket.sources.weworkremotely import WeWorkRemotelySource
+from sanket.storage import SaveResult
 from tests.source_helpers import json_handler, load_bytes, load_json, make_fetcher
 
 PUBLISHED_EPOCH = 1_762_761_600
@@ -384,3 +386,91 @@ def test_remotive_makes_a_single_attempt_to_respect_its_daily_limit() -> None:
     assert source.max_attempts == 1
     assert source.max_requests_per_day == 4
     assert len(seen) == 1
+
+
+# --- Bad items are skipped, not fatal ---------------------------------------------------
+
+
+def run_with_stub_save(source, payload):
+    """Run the source the way ingest does, with the database write replaced by a stub."""
+    saved: list[dict] = []
+
+    def save(rows: list[dict]) -> SaveResult:
+        saved.extend(rows)
+        return SaveResult(new=len(rows))
+
+    summary = run_source(source, make_fetcher(json_handler(payload)), None, PUBLISHED, save=save)
+    return summary, saved
+
+
+def remoteok_job(job_id: str, **overrides) -> dict:
+    job = {
+        "id": job_id,
+        "url": f"https://remoteok.com/remote-jobs/{job_id}",
+        "position": f"Job {job_id}",
+        "date": "2026-11-10T09:00:00+00:00",
+    }
+    return {**job, **overrides}
+
+
+def test_remoteok_skips_bad_items_and_the_source_run_succeeds() -> None:
+    payload = [
+        {"legal": "terms"},
+        remoteok_job("1"),
+        {"id": "2", "url": "https://remoteok.com/remote-jobs/2"},  # no position
+        None,
+        "not an object",
+        remoteok_job("3"),
+        remoteok_job("4", date="not a date"),
+        remoteok_job("5"),
+    ]
+
+    summary, saved = run_with_stub_save(RemoteOkSource(), payload)
+
+    assert summary.status == STATUS_OK
+    assert [row["source_id"] for row in saved] == ["1", "3", "5"]
+    assert (summary.fetched, summary.failed) == (3, 2)
+
+
+def remotive_job(job_id: int, **overrides) -> dict:
+    job = {
+        "id": job_id,
+        "url": f"https://remotive.com/remote-jobs/{job_id}",
+        "title": f"Job {job_id}",
+        "company_name": "Beta Corp",
+        "candidate_required_location": "Worldwide",
+    }
+    return {**job, **overrides}
+
+
+def test_remotive_skips_bad_items_and_the_source_run_succeeds() -> None:
+    no_title = {k: v for k, v in remotive_job(2).items() if k != "title"}
+    no_url = {k: v for k, v in remotive_job(3).items() if k != "url"}
+    payload = {
+        "job-count": 6,
+        "jobs": [
+            remotive_job(1),
+            no_title,
+            no_url,
+            None,
+            remotive_job(4, publication_date="not a date"),
+            remotive_job(5),
+        ],
+    }
+
+    summary, saved = run_with_stub_save(RemotiveSource(), payload)
+
+    assert summary.status == STATUS_OK
+    assert [row["source_id"] for row in saved] == ["1", "5"]
+    assert (summary.fetched, summary.failed) == (2, 4)
+
+
+def test_remotive_keeps_jobs_that_lack_optional_company_and_location() -> None:
+    job = {"id": 7, "url": "https://remotive.com/remote-jobs/7", "title": "Bare Job"}
+
+    summary, saved = run_with_stub_save(RemotiveSource(), {"jobs": [job]})
+
+    assert summary.status == STATUS_OK
+    assert [(row["source_id"], row["company"], row["location"]) for row in saved] == [
+        ("7", None, None)
+    ]

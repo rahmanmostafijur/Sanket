@@ -1,7 +1,7 @@
 import logging
 from datetime import UTC, datetime, timedelta
 
-from sanket.sources.base import FetchResult, NormalizedPosting
+from sanket.sources.base import FetchResult, NormalizedPosting, convert_items
 from sanket.sources.http import Fetcher
 
 URL = "https://remotive.com/api/remote-jobs"
@@ -23,7 +23,8 @@ class RemotiveSource:
     min_interval: timedelta | None = None
 
     def fetch(self, http: Fetcher) -> FetchResult:
-        return FetchResult([to_posting(item) for item in fetch_remotive_jobs(http)])
+        postings, failed = convert_items(self.name, fetch_remotive_jobs(http), to_posting)
+        return FetchResult(postings, failed=failed)
 
 
 def fetch_remotive_jobs(http: Fetcher) -> list[dict]:
@@ -34,15 +35,23 @@ def fetch_remotive_jobs(http: Fetcher) -> list[dict]:
         len(data["jobs"]),
         data.get("job-count"),
     )
-    return [
-        {
-            **job,
-            "company": job["company_name"],
-            "position": job["title"],
-            "location": job["candidate_required_location"],
-        }
-        for job in data["jobs"]
-    ]
+    return [_with_aliases(job) for job in data["jobs"]]
+
+
+def _with_aliases(job: object) -> object:
+    """Add the shared company/position/location keys; a missing field stays None.
+
+    Anything that is not a JSON object is returned as is, so `to_posting` rejects it and
+    it is skipped like any other malformed item.
+    """
+    if not isinstance(job, dict):
+        return job
+    return {
+        **job,
+        "company": job.get("company_name"),
+        "position": job.get("title"),
+        "location": job.get("candidate_required_location"),
+    }
 
 
 def _parse_published_at(value: str | None) -> datetime | None:
