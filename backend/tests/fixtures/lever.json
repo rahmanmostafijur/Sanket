@@ -1,0 +1,30 @@
+[
+  {
+    "id": "aaaa-1111",
+    "text": "Staff Engineer",
+    "hostedUrl": "https://jobs.lever.co/acme/aaaa-1111",
+    "categories": {"location": "Remote - US", "team": "Platform"},
+    "description": "<div>Intro paragraph</div>",
+    "lists": [{"text": "Requirements", "content": "<li>Python</li><li>SQL</li>"}],
+    "additional": "<div>Perks and benefits</div>",
+    "salaryRange": {"min": 100000, "max": 150000, "currency": "USD", "interval": "per-year-salary"},
+    "createdAt": 1762761600000
+  },
+  {
+    "id": "bbbb-2222",
+    "text": "Bare Posting",
+    "hostedUrl": "https://jobs.lever.co/acme/bbbb-2222"
+  },
+  {
+    "id": "cccc-3333",
+    "text": "Posting without a url"
+  },
+  {
+    "id": "dddd-4444",
+    "text": "Posting with a null category map",
+    "hostedUrl": "https://jobs.lever.co/acme/dddd-4444",
+    "categories": null,
+    "lists": null,
+    "salaryRange": null
+  }
+]
