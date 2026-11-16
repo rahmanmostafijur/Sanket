@@ -18,6 +18,7 @@ dependencies = [
     "pydantic-extra-types>=2.11",
     "pycountry>=24.6",
     "tzdata>=2024.1",
+    "pgvector>=0.4",
     ]
 
 [tool.setuptools.packages.find]
@@ -56,6 +57,8 @@ module = [
     "sanket.sources.usajobs",
     "sanket.extraction.prompt",
     "sanket.extraction.schema",
+    "sanket.indexing.*",
+    "sanket.embeddings.*",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

@@ -66,6 +66,25 @@ class Settings(BaseSettings):
     # used to improve Google's models, so Remote OK postings are not sent by default.
     extraction_excluded_sources: CommaList = ["remoteok"]
 
+    # Indexing and embeddings (see docs/adr/0003-job-indexing.md). The vector column is fixed
+    # at 768 dimensions by migration; EMBEDDING_DIMENSIONS must match it, which the indexing
+    # CLI checks at startup. Free-tier embedding quotas are small: keep the pacing and the
+    # batch size conservative and check the limits shown for the key in Google AI Studio.
+    embedding_model: str = "gemini-embedding-001"
+    # Our own label for a (model, settings) combination. Bump it to embed every job again
+    # next to the existing vectors, for example after changing the document format.
+    embedding_model_version: str = Field(default="1", min_length=1)
+    embedding_dimensions: int = Field(default=768, ge=1)
+    embedding_requests_per_minute: int = Field(default=30, ge=1)
+    embedding_batch_size: int = Field(default=20, ge=1, le=100)
+    # Jobs that need work (new or changed) handled per indexing run.
+    indexing_batch_limit: int = Field(default=500, ge=1)
+    # Description excerpt in the search document. The embedding model reads at most 2048 tokens
+    # and Bengali or Swedish text takes more tokens per character than English, so keep it modest.
+    indexing_max_description_chars: int = Field(default=3000, ge=200)
+    # pgvector hnsw.ef_search: candidates examined per vector query (recall against speed).
+    hnsw_ef_search: int = Field(default=100, ge=1, le=1000)
+
     @field_validator(
         "himalayas_api_key",
         "gemini_api_key",
