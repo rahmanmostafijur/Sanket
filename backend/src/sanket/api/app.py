@@ -43,6 +43,7 @@ from sanket.feed.limits import StreamLimiter
 from sanket.feed.subscription import RedisFactory
 from sanket.observability.metrics import ApiMetrics
 from sanket.observability.tracing import setup_tracing
+from sanket.observability.worker_metrics import worker_collector_for
 from sanket.queue.base import TaskQueue
 from sanket.queue.connection import task_queue_from_settings
 from sanket.ratelimit.factory import limiter_from_settings
@@ -81,7 +82,7 @@ def _metrics(config: Settings, queue: TaskQueue | None) -> ApiMetrics | None:
     if config.metrics_token is None and config.is_production:
         logger.info("metrics are off: set METRICS_TOKEN to serve /metrics in production")
         return None
-    return ApiMetrics(queue)
+    return ApiMetrics(queue, worker_collector=worker_collector_for(queue, config))
 
 
 def _metrics_token(config: Settings) -> str | None:

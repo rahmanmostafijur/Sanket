@@ -4,7 +4,9 @@ Labels are bounded: the route is the matched path template (`/profiles/{profile_
 raw path, and unmatched paths share the label `unmatched`, so scanners cannot create series.
 Queue numbers (waiting, scheduled, running, oldest age, dead letters) are read from the task
 queue when Prometheus scrapes, cached for a few seconds, and reported as unavailable when
-Redis cannot be reached.
+Redis cannot be reached. What the worker process does (liveness, task counters) is read from
+Redis by `sanket.observability.worker_metrics`, which is registered next to it when the queue is
+backed by Redis.
 """
 
 import logging
@@ -77,7 +79,12 @@ class QueueCollector(Collector):
 
 
 class ApiMetrics:
-    def __init__(self, queue: TaskQueue | None = None, clock: Clock = time.monotonic) -> None:
+    def __init__(
+        self,
+        queue: TaskQueue | None = None,
+        clock: Clock = time.monotonic,
+        worker_collector: Collector | None = None,
+    ) -> None:
         self.registry = CollectorRegistry()
         self.requests = Counter(
             "sanket_http_requests_total",
@@ -93,6 +100,8 @@ class ApiMetrics:
             registry=self.registry,
         )
         self.registry.register(QueueCollector(queue, clock))
+        if worker_collector is not None:
+            self.registry.register(worker_collector)
 
     def observe(self, method: str, route: str, status: int, seconds: float) -> None:
         self.requests.labels(method, route, str(status)).inc()
