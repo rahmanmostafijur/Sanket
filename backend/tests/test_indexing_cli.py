@@ -1,8 +1,20 @@
+import logging
+from collections.abc import Callable
+from typing import Any
+
 import pytest
+from pydantic import SecretStr
+from sqlalchemy import Engine
 
 from sanket.config import settings
+from sanket.embeddings.fake import FakeEmbeddingClient
 from sanket.indexing import __main__ as cli
-from sanket.indexing.service import IndexSummary
+from sanket.indexing.service import IndexSummary, index_pending
+from sanket.matching.triggers import index_observer
+from sanket.queue.base import EnqueueResult
+from sanket.queue.memory import InMemoryTaskQueue
+from sanket.queue.tasks import TASK_MATCH_JOB
+from tests.index_helpers import SPEC, add_indexable_job
 
 
 def test_default_is_a_dry_run() -> None:
@@ -30,8 +42,8 @@ def test_limit_must_be_positive() -> None:
 def test_dry_run_needs_no_api_key_and_passes_no_client(monkeypatch: pytest.MonkeyPatch) -> None:
     seen: dict = {}
 
-    def fake_index(cfg, client, *, limit, apply):
-        seen.update(client=client, limit=limit, apply=apply)
+    def fake_index(cfg, client, *, limit, apply, on_changes):
+        seen.update(client=client, limit=limit, apply=apply, on_changes=on_changes)
         return IndexSummary()
 
     monkeypatch.setattr(cli, "check_dimensions", lambda dimensions, db_engine: None)
@@ -40,7 +52,7 @@ def test_dry_run_needs_no_api_key_and_passes_no_client(monkeypatch: pytest.Monke
 
     cli.main([])
 
-    assert seen == {"client": None, "limit": None, "apply": False}
+    assert seen == {"client": None, "limit": None, "apply": False, "on_changes": None}
 
 
 def test_apply_without_an_api_key_exits(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -74,3 +86,79 @@ def test_summary_line_lists_every_counter() -> None:
         "failed=0",
     ):
         assert key in line
+
+
+# --- queueing matching after an applied run -----------------------------------------------
+
+
+def _wire_apply(
+    monkeypatch: pytest.MonkeyPatch, engine: Engine, observer: Callable | None
+) -> list[IndexSummary]:
+    """Run `main --apply` against the test database with the fake embedding client."""
+    summaries: list[IndexSummary] = []
+
+    def real_index(cfg, client, *, limit, apply, on_changes=None):
+        summary = index_pending(
+            cfg, client, limit=limit, apply=apply, db_engine=engine, on_changes=on_changes
+        )
+        summaries.append(summary)
+        return summary
+
+    monkeypatch.setattr(cli, "check_dimensions", lambda dimensions, db_engine: None)
+    monkeypatch.setattr(cli, "index_pending", real_index)
+    monkeypatch.setattr(cli, "GeminiEmbeddingClient", lambda *a, **k: _fake_client(k, a))
+    monkeypatch.setattr(cli, "index_observer_from_settings", lambda config: observer)
+    monkeypatch.setattr(settings, "gemini_api_key", SecretStr("not-a-real-key"))
+    monkeypatch.setattr(settings, "embedding_model", SPEC.model_name)
+    monkeypatch.setattr(settings, "embedding_model_version", SPEC.model_version)
+    monkeypatch.setattr(settings, "embedding_dimensions", SPEC.dimensions)
+    return summaries
+
+
+def _fake_client(kwargs: dict, args: tuple) -> FakeEmbeddingClient:
+    return FakeEmbeddingClient(model_name=SPEC.model_name, model_version=SPEC.model_version)
+
+
+def test_an_applied_run_queues_matching_for_the_jobs_it_embedded(
+    clean_db: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job_id = add_indexable_job(clean_db)
+    queue = InMemoryTaskQueue()
+    _wire_apply(monkeypatch, clean_db, index_observer(settings, queue))
+
+    cli.main(["--apply"])
+
+    [task] = queue.enqueued
+    assert task.task_name == TASK_MATCH_JOB and task.payload["job_id"] == job_id
+
+
+def test_a_failing_queue_changes_neither_the_exit_code_nor_the_summary_line(
+    clean_db: Engine, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    add_indexable_job(clean_db)
+
+    class DownQueue(InMemoryTaskQueue):
+        def enqueue(self, *args: Any, **kwargs: Any) -> EnqueueResult:
+            raise ConnectionError("redis down")
+
+    summaries = _wire_apply(monkeypatch, clean_db, index_observer(settings, DownQueue()))
+
+    with caplog.at_level(logging.INFO):
+        cli.main(["--apply"])  # must not raise SystemExit
+
+    [summary] = summaries
+    assert summary.embedded == 1 and summary.failed == 0
+    lines = [r.getMessage() for r in caplog.records if r.getMessage().startswith("indexing mode")]
+    assert lines == [summary.line(settings.embedding_model)]
+    assert "Queueing matching tasks failed" in caplog.text
+
+
+def test_a_dry_run_never_builds_an_observer(monkeypatch: pytest.MonkeyPatch) -> None:
+    def explode(config: Any) -> None:
+        raise AssertionError("no queue for a dry run")
+
+    monkeypatch.setattr(cli, "check_dimensions", lambda dimensions, db_engine: None)
+    monkeypatch.setattr(cli, "index_observer_from_settings", explode)
+    monkeypatch.setattr(cli, "index_pending", lambda *a, **k: IndexSummary())
+
+    cli.main([])

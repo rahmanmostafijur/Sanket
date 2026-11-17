@@ -4,6 +4,10 @@ Run with `python -m sanket.indexing`. The default is a dry run that only counts 
 change and needs no API key; pass --apply to write. It handles at most --limit jobs that
 need work (default INDEXING_BATCH_LIMIT) and is safe to repeat and interrupt: jobs whose
 searchable content did not change are never embedded again.
+
+An applied run also queues matching (docs/matching.md) for the jobs it embedded or removed,
+when MATCH_ENQUEUE_AFTER_INDEXING is on and REDIS_URL is set. A queue that fails is logged and
+does not change the run's result.
 """
 
 import argparse
@@ -16,6 +20,7 @@ from sanket.db import engine
 from sanket.embeddings.gemini import GeminiEmbeddingClient
 from sanket.indexing.config import check_dimensions, config_from_settings
 from sanket.indexing.service import index_pending
+from sanket.matching.triggers import index_observer_from_settings
 
 
 def _positive_int(value: str) -> int:
@@ -54,7 +59,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             model_version=cfg.spec.model_version,
             requests_per_minute=settings.embedding_requests_per_minute,
         )
-    summary = index_pending(cfg, client, limit=args.limit, apply=args.apply)
+    observer = index_observer_from_settings(settings) if args.apply else None
+    summary = index_pending(cfg, client, limit=args.limit, apply=args.apply, on_changes=observer)
     logger.info(summary.line(cfg.spec.model_name))
     if not args.apply:
         logger.info("dry run: nothing was written; pass --apply to write")
