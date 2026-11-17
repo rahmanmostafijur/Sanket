@@ -506,9 +506,11 @@ d99f02b docs: link the live feed guide from the README overview
 df9a3ab test(e2e): add the pipeline end-to-end test with recorded payloads and fakes
 ```
 
-#### `fix/predeploy-hardening` (7 commits on `feat/m9-integration`)
+#### `fix/predeploy-hardening` (9 commits on `feat/m9-integration`)
 
 ```
+3d9d33e docs: record the pre-deploy hardening in STATUS and refresh the known limits
+ef66242 chore(scripts): list the pre-deploy branch in the status collector
 51c6152 docs: add ADR 0011 on worker visibility, a worker-is-down runbook section and the new settings
 dfdb7ba build: health-check the worker by its heartbeat, add worker alerts and dashboard panels
 7b88c1f feat(api): export worker liveness and task counters on /metrics
