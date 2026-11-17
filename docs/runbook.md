@@ -107,13 +107,38 @@ python -m sanket.extraction.runner
 
 It extracts at most `EXTRACTION_BATCH_LIMIT` pending postings per run with the
 configured model (needs `GEMINI_API_KEY`), skips `EXTRACTION_EXCLUDED_SOURCES`,
-and stops after repeated provider errors. Watch the cost: a first run over a
+and stops after three provider errors in a row. Watch the cost: a first run over a
 large backlog is many provider calls; keep the batch limit and the requests per
 minute at the free-tier values until you have checked the quota, and repeat the
 command (the scheduled workflow also runs it) until nothing is pending.
 
+Exit status: a provider error (quota, outage, bad key) stores nothing, so that
+posting stays pending and the next run retries it. The command exits non-zero
+only when the run stopped early (three provider errors in a row) or when
+`provider_error` is more than `EXTRACTION_MAX_PROVIDER_ERROR_RATIO` of the
+postings it attempted, that is `ok + failed + provider_error` (`skipped` made
+no call and is not counted). The default is `0.2`. Below the limit the run
+exits 0 and logs a warning such as `1 of 50 attempted postings hit a provider
+error (ratio 0.02, limit 0.20); they stay pending for the next run`. A red
+run therefore means the provider is really failing, not that one request hit
+a transient 503.
+
+Tuning `EXTRACTION_MAX_PROVIDER_ERROR_RATIO` (0 to 1, in `.env` or as an
+environment variable of the step that runs the command):
+
+- Lower it for a stricter run; `0` fails on any provider error, as the command
+  used to. Raise it to tolerate a flakier provider; `1` fails only on the
+  early stop.
+- The ratio is taken over what was attempted, so a small batch is more
+  sensitive: with 3 postings left, one error is 0.33 and fails at the default.
+  That is expected at the tail of a backlog; check the cause in the log, and
+  the next run retries the posting.
+- It does not change the early stop, which is fixed at three in a row.
+
 Verify: the `extraction summary` line shows `ok` growing and few `provider_error`
-or `failed` outcomes.
+or `failed` outcomes. On a red run, read the log line that explains the exit
+(`stopped after 3 provider errors in a row` or `N of M attempted postings hit a
+provider error`) and fix the cause (quota, key, outage) before running again.
 
 Rollback: extraction rows are additive and versioned; a bad batch is fixed by a
 new schema or prompt version, not by deleting rows. Stop the scheduled step to
