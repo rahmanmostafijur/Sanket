@@ -510,7 +510,9 @@ def test_a_global_dependency_guards_every_route(clean_db: Engine) -> None:
     def deny() -> None:
         raise HTTPException(status_code=401, detail="no")
 
-    config = Settings(database_url="postgresql+psycopg://u:p@127.0.0.1:5433/x_test")
+    config = Settings(
+        database_url="postgresql+psycopg://u:p@127.0.0.1:5433/x_test", auth_dev_bypass=True
+    )
     app = create_app(config, clean_db, None, dependencies=[Depends(deny)])
 
     assert TestClient(app).get("/search", params={"q": "python"}).status_code == 401
@@ -519,6 +521,7 @@ def test_a_global_dependency_guards_every_route(clean_db: Engine) -> None:
 def test_a_client_for_another_model_is_refused_at_startup(clean_db: Engine) -> None:
     config = Settings(
         database_url="postgresql+psycopg://u:p@127.0.0.1:5433/x_test",
+        auth_dev_bypass=True,
         embedding_model=SPEC.model_name,
         embedding_model_version=SPEC.model_version,
     )
@@ -531,7 +534,9 @@ def test_without_a_key_the_app_starts_with_embeddings_disabled(
     clean_db: Engine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     config = Settings(
-        database_url="postgresql+psycopg://u:p@127.0.0.1:5433/x_test", gemini_api_key=None
+        database_url="postgresql+psycopg://u:p@127.0.0.1:5433/x_test",
+        auth_dev_bypass=True,
+        gemini_api_key=None,
     )
     job_id = add_search_job(clean_db, title="Python Developer")
     index_everything(clean_db)

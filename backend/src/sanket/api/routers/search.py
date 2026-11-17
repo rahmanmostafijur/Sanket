@@ -4,11 +4,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from sanket.api.deps import ApiContext, get_context
+from sanket.api.deps import ApiContext, get_context, require_search_access
 from sanket.api.schemas import SearchParams, SearchResponse, response_from_page
 from sanket.search.service import search
 
-router = APIRouter(tags=["search"])
+router = APIRouter(tags=["search"], dependencies=[Depends(require_search_access)])
 
 
 @router.get(

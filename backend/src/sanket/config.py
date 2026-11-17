@@ -159,6 +159,28 @@ class Settings(BaseSettings):
     api_host: str = "127.0.0.1"
     api_port: int = Field(default=8000, ge=1, le=65535)
 
+    # Authentication (docs/adr/0008-authentication.md). Callers send `Authorization: Bearer`
+    # with a JWT (signed with AUTH_JWT_SECRET, or by a provider whose keys are at
+    # AUTH_JWKS_URL) or one of the static AUTH_API_KEYS (`owner=key,owner2=key2`). The token
+    # subject (AUTH_OWNER_CLAIM) is the owner id. AUTH_DEV_BYPASS lets requests without a
+    # credential act as DEFAULT_OWNER_ID; it only works with ENVIRONMENT=development.
+    auth_dev_bypass: bool = False
+    auth_jwt_secret: SecretStr | None = None
+    auth_jwks_url: str | None = None
+    auth_issuer: str | None = None
+    auth_audience: str | None = None
+    auth_leeway_seconds: int = Field(default=30, ge=0, le=300)
+    auth_owner_claim: str = Field(default="sub", min_length=1, max_length=50)
+    auth_required_scope: str | None = None
+    auth_api_keys: SecretStr | None = None
+    # Signs the short-lived tokens that let a browser EventSource (which cannot send headers)
+    # open the match stream. Unset disables them.
+    auth_stream_token_secret: SecretStr | None = None
+    auth_stream_token_ttl_seconds: int = Field(default=60, ge=10, le=600)
+    # GET /search costs an embedding call per query. It requires authentication unless this
+    # is true, in which case it is open (and rate limited by client address).
+    search_public: bool = False
+
     @field_validator(
         "himalayas_api_key",
         "gemini_api_key",
@@ -166,6 +188,13 @@ class Settings(BaseSettings):
         "usajobs_api_key",
         "usajobs_user_agent_email",
         "redis_url",
+        "auth_jwt_secret",
+        "auth_jwks_url",
+        "auth_issuer",
+        "auth_audience",
+        "auth_required_scope",
+        "auth_api_keys",
+        "auth_stream_token_secret",
         mode="before",
     )
     @classmethod

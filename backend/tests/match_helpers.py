@@ -142,7 +142,7 @@ def profile_client(
         embedding_model_version=SPEC.model_version,
         embedding_dimensions=SPEC.dimensions,
         default_owner_id=owner,
-        **settings,
+        **{"auth_dev_bypass": True, **settings},
     )
     return TestClient(
         create_app(config, engine, provider or FakeEmbeddingClient(), task_queue=queue)

@@ -141,6 +141,6 @@ def api_client(
         embedding_model=SPEC.model_name,
         embedding_model_version=SPEC.model_version,
         embedding_dimensions=SPEC.dimensions,
-        **settings,
+        **{"auth_dev_bypass": True, **settings},
     )
     return TestClient(create_app(config, engine, embedding_client))

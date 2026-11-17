@@ -6,8 +6,9 @@ to build the real one from the settings (or none, without a key); pass None to d
 embeddings explicitly. `task_queue` works the same way (the Redis queue when REDIS_URL is set,
 else none); the profile endpoints queue their embedding work on it.
 
-Authentication is not built yet. `dependencies` is applied to every route, which is where an
-auth dependency goes when it exists (`create_app(dependencies=[Depends(require_user)])`).
+Authentication is built from the settings (`sanket.auth`, docs/adr/0008-authentication.md);
+`dependencies` is applied to every API route on top of it. The settings are checked first
+(`sanket.runtime_checks.check_api`), so a misconfigured API does not start.
 """
 
 import logging
@@ -19,14 +20,18 @@ from fastapi.params import Depends
 from sqlalchemy import Engine
 
 from sanket.api.deps import ApiContext
+from sanket.api.routers import auth as auth_router
 from sanket.api.routers import profiles as profiles_router
 from sanket.api.routers import search as search_router
+from sanket.auth.authenticator import authenticator_from_settings
+from sanket.auth.stream_token import StreamTokens
 from sanket.config import Settings
 from sanket.config import settings as default_settings
 from sanket.db import engine as default_engine
 from sanket.embeddings.client import EmbeddingClient, spec_of
 from sanket.queue.base import TaskQueue
 from sanket.queue.connection import task_queue_from_settings
+from sanket.runtime_checks import check_api
 from sanket.search.cache import QueryEmbeddingCache
 from sanket.search.client import query_embedding_client
 from sanket.search.retrieval import search_config_from_settings
@@ -44,6 +49,14 @@ USE_SETTINGS: Final = _UseSettings()
 logger = logging.getLogger(__name__)
 
 
+def _stream_tokens(config: Settings) -> StreamTokens | None:
+    if config.auth_stream_token_secret is None:
+        return None
+    return StreamTokens(
+        config.auth_stream_token_secret.get_secret_value(), config.auth_stream_token_ttl_seconds
+    )
+
+
 def create_app(
     settings: Settings | None = None,
     db_engine: Engine | None = None,
@@ -52,6 +65,7 @@ def create_app(
     dependencies: Sequence[Depends] = (),
 ) -> FastAPI:
     config = settings or default_settings
+    check_api(config)
     search_config = search_config_from_settings(config)
     client = (
         query_embedding_client(config)
@@ -63,7 +77,7 @@ def create_app(
             f"the embedding client produces {spec_of(client)} but the index is searched with "
             f"{search_config.spec}"
         )
-    app = FastAPI(title=API_TITLE, version=API_VERSION, dependencies=list(dependencies))
+    app = FastAPI(title=API_TITLE, version=API_VERSION)
     context = ApiContext(
         db_engine=db_engine or default_engine,
         search_config=search_config,
@@ -74,8 +88,13 @@ def create_app(
         ),
         default_owner_id=config.default_owner_id,
         max_profiles_per_owner=config.max_profiles_per_owner,
+        authenticator=authenticator_from_settings(config),
+        stream_tokens=_stream_tokens(config),
+        search_public=config.search_public,
     )
     app.state.context = context
-    app.include_router(search_router.router)
-    app.include_router(profiles_router.router)
+    guard = list(dependencies)
+    app.include_router(search_router.router, dependencies=guard)
+    app.include_router(profiles_router.router, dependencies=guard)
+    app.include_router(auth_router.router, dependencies=guard)
     return app
