@@ -154,10 +154,12 @@ Getting started). Every writing command is a dry run unless `--apply` is passed.
 | Queue worker (also publishes new matches to the feed) | `python -m sanket.worker [--burst]` | `REDIS_URL`, `GEMINI_API_KEY` |
 | Matching, again | `python -m sanket.matching embed-profiles\|rematch [--apply] [--inline]` | PostgreSQL; `--inline` needs no Redis |
 | Dead-lettered tasks | `python -m sanket.queue.dlq list\|requeue\|purge` | `REDIS_URL` |
-| Smoke check of a running API | `python -m sanket.smoke [--base-url URL]` | the API running locally |
+| Smoke check of a running API | `python -m sanket.smoke [--base-url URL] [--token T]` | the API running locally; a token unless `AUTH_DEV_BYPASS=true` |
 
-A first local run, once the tables exist (`alembic upgrade head`) and Redis is up
-(`docker compose up -d`):
+A first local run, once the tables exist (`alembic upgrade head`) and the database and Redis
+are up (`docker compose up -d db redis`). The API refuses to start without authentication:
+for local work keep `ENVIRONMENT=development` and `AUTH_DEV_BYPASS=true` in `.env` (as
+`.env.example` has them), which lets requests without a credential act as `DEFAULT_OWNER_ID`.
 
 ```bash
 python -m sanket.ingest                    # postings, then canonical jobs
@@ -165,21 +167,27 @@ python -m sanket.extraction.runner         # structured fields (needs GEMINI_API
 python -m sanket.indexing --apply          # full-text vectors and embeddings
 python -m sanket.api &                     # http://127.0.0.1:8000/docs
 python -m sanket.worker                    # in a second terminal: embeds and matches profiles, publishes new matches
-python -m sanket.smoke                     # search, create a profile, list its matches, open its stream
+python -m sanket.smoke                     # healthz, readyz, search, a profile and its stream
 ```
 
 `python -m sanket.smoke` creates one profile named `smoke-...` and deletes it again, so
-use it against a development database only. It reports endpoints that do not exist yet as
-`skipped` instead of failing. The whole chain is also covered by an end-to-end test with
+use it against a development database only. Against an API that needs credentials give it
+a token (`--token`, or the `SMOKE_TOKEN` variable; an API key from `AUTH_API_KEYS` works):
+it then opens the stream with a stream token like a browser, and without a token the checks
+that need one are reported as `skipped`, as are endpoints that do not exist. The whole chain is also covered by an end-to-end test with
 recorded payloads and fakes (`backend/tests/e2e`), including the live feed on a fake Redis,
 which runs with the normal `pytest`.
 `scripts/collect_status.py` regenerates the mechanical parts of
 [docs/STATUS.md](docs/STATUS.md).
 
-The live feed is described in [Live match feed](#live-match-feed) below and in
-[docs/feed.md](docs/feed.md).
+The whole stack in containers (migrate once, then api and worker, with health checks):
+`docker compose up -d --build api worker`, with the settings in `.env`.
 
-<!-- TODO-ORCH: link the deployment and operations docs here (phase 8) -->
+The live feed is described in [Live match feed](#live-match-feed) below and in
+[docs/feed.md](docs/feed.md). Deployment, settings and secrets are in
+[docs/deploy.md](docs/deploy.md); releasing, rollback, the queue, alerts and secret rotation
+are in [docs/runbook.md](docs/runbook.md); the current state of every phase, the owner-only
+steps and the known risks are in [docs/STATUS.md](docs/STATUS.md).
 
 ## LLM extraction (M2)
 
