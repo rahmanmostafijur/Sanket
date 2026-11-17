@@ -7,6 +7,9 @@ from fastapi import Depends, Request
 from sqlalchemy import Engine
 
 from sanket.embeddings.client import EmbeddingClient
+from sanket.feed.config import FeedConfig
+from sanket.feed.limits import StreamLimiter
+from sanket.feed.subscription import RedisFactory
 from sanket.queue.base import TaskQueue
 from sanket.search.cache import QueryEmbeddingCache
 from sanket.search.retrieval import SearchConfig
@@ -24,6 +27,11 @@ class ApiContext:
     # Who every request acts as until authentication exists (see `get_owner_id`).
     default_owner_id: str
     max_profiles_per_owner: int
+    feed_config: FeedConfig
+    feed_limiter: StreamLimiter
+    # Opens a Redis client for one stream; None when Redis is not configured (streams then
+    # poll the database).
+    feed_redis: RedisFactory | None
 
 
 def get_context(request: Request) -> ApiContext:
