@@ -139,6 +139,44 @@ on any skipped test. `mypy` is lenient by default; modules listed in the
 `[[tool.mypy.overrides]]` section of `backend/pyproject.toml` are checked
 strictly, and new modules should be added there.
 
+## Backend overview and quickstart
+
+What runs, and the command for each part (all from `backend/`, with `.env` set up as in
+Getting started). Every writing command is a dry run unless `--apply` is passed.
+
+| Part | Command | Needs |
+|---|---|---|
+| Ingestion (then canonicalisation) | `python -m sanket.ingest` | PostgreSQL |
+| LLM extraction | `python -m sanket.extraction.runner` | `GEMINI_API_KEY` |
+| Canonical jobs | `python -m sanket.canonicalise [--apply]` | PostgreSQL |
+| Search index | `python -m sanket.indexing [--apply]` | `GEMINI_API_KEY` to apply |
+| API (`/search`, `/profiles`, docs at `/docs`) | `python -m sanket.api` | PostgreSQL |
+| Queue worker | `python -m sanket.worker [--burst]` | `REDIS_URL`, `GEMINI_API_KEY` |
+| Matching, again | `python -m sanket.matching embed-profiles\|rematch [--apply] [--inline]` | PostgreSQL; `--inline` needs no Redis |
+| Dead-lettered tasks | `python -m sanket.queue.dlq list\|requeue\|purge` | `REDIS_URL` |
+| Smoke check of a running API | `python -m sanket.smoke [--base-url URL]` | the API running locally |
+
+A first local run, once the tables exist (`alembic upgrade head`) and Redis is up
+(`docker compose up -d`):
+
+```bash
+python -m sanket.ingest                    # postings, then canonical jobs
+python -m sanket.extraction.runner         # structured fields (needs GEMINI_API_KEY)
+python -m sanket.indexing --apply          # full-text vectors and embeddings
+python -m sanket.api &                     # http://127.0.0.1:8000/docs
+python -m sanket.worker                    # in a second terminal: embeds and matches profiles
+python -m sanket.smoke                     # search, create a profile, list its matches
+```
+
+`python -m sanket.smoke` creates one profile named `smoke-...` and deletes it again, so
+use it against a development database only. It reports endpoints that do not exist yet as
+`skipped` instead of failing. The whole chain is also covered by an end-to-end test with
+recorded payloads and fakes (`backend/tests/e2e`), which runs with the normal `pytest`.
+`scripts/collect_status.py` regenerates the mechanical parts of
+[docs/STATUS.md](docs/STATUS.md).
+
+<!-- TODO-ORCH: link the live feed guide and the deployment and operations docs here (phases 7 and 8) -->
+
 ## LLM extraction (M2)
 
 `python -m sanket.extraction.runner` extracts structured fields from
