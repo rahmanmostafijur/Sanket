@@ -93,20 +93,19 @@ services:
       redis:
         condition: service_healthy
 
-  # Embeds profiles and matches jobs from the task queue (docs/matching.md).
+  # Embeds profiles and matches jobs from the task queue (docs/matching.md). The worker writes
+  # a heartbeat key in Redis; the health check passes only while this worker's key is fresh
+  # (docs/adr/0011-worker-visibility.md), so a hung worker or one cut off from Redis turns
+  # `unhealthy`. The check reads the key named WORKER_NAME, else the container's host name.
   worker:
     <<: *app
     command: ["worker"]
     healthcheck:
-      test:
-        - CMD
-        - python
-        - -c
-        - "import os, redis; redis.Redis.from_url(os.environ['REDIS_URL'], socket_timeout=3).ping()"
+      test: ["CMD", "python", "-m", "sanket.worker", "--check"]
       interval: 15s
-      timeout: 5s
+      timeout: 10s
       retries: 3
-      start_period: 15s
+      start_period: 30s
     depends_on:
       migrate:
         condition: service_completed_successfully

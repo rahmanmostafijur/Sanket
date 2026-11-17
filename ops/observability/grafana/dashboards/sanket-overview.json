@@ -289,6 +289,100 @@
           "legendFormat": "up"
         }
       ]
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Live workers",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 6,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sanket_worker_up",
+          "legendFormat": "workers"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Worker heartbeat age",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 32,
+        "w": 6,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sanket_worker_last_heartbeat_age_seconds",
+          "legendFormat": "{{worker}}"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Task outcomes per second",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (task) (rate(sanket_worker_jobs_processed_total[5m]))",
+          "legendFormat": "processed {{task}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (task) (rate(sanket_worker_jobs_retried_total[5m]))",
+          "legendFormat": "retried {{task}}"
+        },
+        {
+          "refId": "C",
+          "expr": "sum by (task) (rate(sanket_worker_jobs_failed_total[5m]))",
+          "legendFormat": "failed {{task}}"
+        }
+      ]
     }
   ],
   "templating": {

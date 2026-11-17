@@ -1,4 +1,4 @@
-# Alert rules for the Sanket API and task queue. Thresholds are starting points. The runbook
+# Alert rules for the Sanket API, task queue and worker. Thresholds are starting points. The runbook
 # (docs/runbook.md, "Alerts") says what to do for each.
 groups:
   - name: sanket-api
@@ -78,3 +78,40 @@ groups:
         annotations:
           summary: "Tasks are sitting in the dead-letter store"
           description: "Inspect and requeue or purge them (docs/runbook.md, queue and DLQ handling)."
+
+      - alert: SanketDeadLettersGrowing
+        expr: delta(sanket_queue_dead_letters[15m]) > 0
+        labels: {severity: ticket}
+        annotations:
+          summary: "More tasks were dead-lettered in the last 15 minutes"
+          description: "Look at the cause first (provider, key, Redis); see docs/runbook.md."
+
+  - name: sanket-worker
+    rules:
+      # sanket_worker_up counts workers with a fresh heartbeat (ADR 0011). A missing worker does
+      # not make the API unready: queued tasks wait in Redis, so this alert is what tells you.
+      - alert: SanketWorkerDown
+        expr: sanket_worker_up == 0 and (sanket_queue_waiting + sanket_queue_scheduled) > 0
+        for: 5m
+        labels: {severity: page}
+        annotations:
+          summary: "No live worker for 5 minutes while tasks are queued"
+          description: "Tasks wait in Redis and are not lost. See docs/runbook.md, worker is down."
+
+      - alert: SanketWorkerGone
+        expr: sanket_worker_up == 0
+        for: 30m
+        labels: {severity: ticket}
+        annotations:
+          summary: "No live worker for 30 minutes, even with an empty queue"
+          description: "New profiles and jobs will not be embedded or matched until one starts."
+
+      - alert: SanketWorkerFailing
+        expr: |
+          sum(increase(sanket_worker_jobs_failed_total[15m])) > 0
+            and sum(increase(sanket_worker_jobs_processed_total[15m])) == 0
+        for: 15m
+        labels: {severity: ticket}
+        annotations:
+          summary: "Tasks only fail: none completed in 15 minutes"
+          description: "A dependency is probably down (embedding key, database). Read the worker log."
