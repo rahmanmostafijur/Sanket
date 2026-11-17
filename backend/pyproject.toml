@@ -52,6 +52,9 @@ target-version = "py311"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Test modules import their helpers as `tests.*`; tests/ is not a package, so put backend/ on
+# sys.path explicitly instead of relying on `python -m pytest` adding the working directory.
+pythonpath = ["."]
 
 [tool.mypy]
 python_version = "3.12"
