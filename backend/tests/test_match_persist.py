@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
-from sqlalchemy import Engine
+from sqlalchemy import Engine, update
 
 from sanket.matching.persist import (
     Evaluation,
@@ -116,8 +116,8 @@ def test_active_and_another_scorer_version_updates_in_place() -> None:
 
 
 def test_active_with_only_other_hashes_updates_just_the_hashes() -> None:
-    for changed in ({"job_hash": "jh2"}, {"profile_hash": "ph2"}):
-        plan = plan_write(stored(notified_at=NOTIFIED), evaluation(**changed))
+    for changed in (evaluation(job_hash="jh2"), evaluation(profile_hash="ph2")):
+        plan = plan_write(stored(notified_at=NOTIFIED), changed)
 
         assert plan is not None
         assert plan.kind is WriteKind.HASHES
@@ -483,9 +483,7 @@ def test_mark_notified_fills_only_null_timestamps(clean_db: Engine) -> None:
     m2 = insert_match(engine, job_id, p2)
     long_ago = datetime(2026, 1, 1, tzinfo=UTC)
     with engine.begin() as conn:
-        conn.execute(
-            JobMatch.__table__.update().where(JobMatch.id == m1).values(notified_at=long_ago)
-        )
+        conn.execute(update(JobMatch).where(JobMatch.id == m1).values(notified_at=long_ago))
 
     with engine.begin() as conn:
         mark_notified(conn, [m1, m2])
