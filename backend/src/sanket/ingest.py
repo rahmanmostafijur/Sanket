@@ -9,6 +9,7 @@ from sqlalchemy import Engine
 from sanket.canonical.service import canonicalise
 from sanket.config import Settings, settings
 from sanket.db import engine
+from sanket.observability.logs import configure_logging
 from sanket.sources.ashby import AshbySource
 from sanket.sources.base import Source, SourceNotConfiguredError
 from sanket.sources.budget import DbRequestBudget, utc_now
@@ -152,7 +153,7 @@ def canonicalise_postings_after_ingest(enabled: bool, db_engine: Engine = engine
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    configure_logging()
     sources = select_sources(build_sources(settings), settings.ingest_sources)
     budget = DbRequestBudget({source.name: source.max_requests_per_day for source in sources})
     with new_client() as client:

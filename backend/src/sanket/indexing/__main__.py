@@ -21,6 +21,7 @@ from sanket.embeddings.gemini import GeminiEmbeddingClient
 from sanket.indexing.config import check_dimensions, config_from_settings
 from sanket.indexing.service import index_pending
 from sanket.matching.triggers import index_observer_from_settings
+from sanket.observability.logs import configure_logging
 
 
 def _positive_int(value: str) -> int:
@@ -41,7 +42,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: Sequence[str] | None = None) -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    configure_logging()
     logger = logging.getLogger(__name__)
     args = parse_args(argv)
     cfg = config_from_settings(settings)

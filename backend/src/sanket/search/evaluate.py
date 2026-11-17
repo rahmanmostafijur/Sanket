@@ -25,6 +25,7 @@ from sanket.indexing.config import check_dimensions
 from sanket.indexing.filters import SearchFilters
 from sanket.indexing.queries import fulltext_candidates
 from sanket.models import Job
+from sanket.observability.logs import configure_logging
 from sanket.search.cache import QueryEmbeddingCache
 from sanket.search.client import query_embedding_client
 from sanket.search.labels import LabelError, LabelledQuery, load_labels
@@ -199,7 +200,7 @@ def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s %(message)s")
+    configure_logging(level="WARNING")
     args = parse_args(argv)
     if args.find:
         _print_found(find_job_refs(args.find, engine))

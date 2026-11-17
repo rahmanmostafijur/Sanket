@@ -6,11 +6,11 @@ set of attempts (use it after fixing the cause), `purge` deletes them.
 """
 
 import argparse
-import logging
 import sys
 from collections.abc import Callable, Sequence
 
 from sanket.config import settings
+from sanket.observability.logs import configure_logging
 from sanket.queue.base import DeadLetter, DeadLetterStore
 from sanket.queue.connection import task_queue_from_settings
 
@@ -85,7 +85,7 @@ def run(
 
 
 def main(argv: Sequence[str] | None = None) -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    configure_logging()
     args = parse_args(argv)
     queue = task_queue_from_settings(settings)
     if queue is None:

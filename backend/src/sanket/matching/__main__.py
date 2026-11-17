@@ -35,6 +35,7 @@ from sanket.matching.work import (
     job_work,
     profile_work,
 )
+from sanket.observability.logs import configure_logging
 from sanket.queue.base import EnqueueResult, TaskContext, TaskQueue
 from sanket.queue.connection import task_queue_from_settings
 from sanket.queue.memory import InMemoryTaskQueue
@@ -214,7 +215,7 @@ def execute(args: argparse.Namespace, ctx: CliContext) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    configure_logging()
     args = parse_args(argv)
     needs_queue = args.apply and not args.inline
     needs_embedder = args.apply and args.inline and args.command == EMBED

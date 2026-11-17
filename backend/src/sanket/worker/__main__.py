@@ -6,10 +6,10 @@ development. It needs REDIS_URL; GEMINI_API_KEY is needed for the profile embedd
 """
 
 import argparse
-import logging
 from collections.abc import Sequence
 
 from sanket.config import settings
+from sanket.observability.logs import configure_logging
 from sanket.runtime_checks import check_worker
 from sanket.worker.run import run_worker
 
@@ -28,7 +28,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: Sequence[str] | None = None) -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    configure_logging()
     args = parse_args(argv)
     check_worker(settings)
     run_worker(settings, burst=args.burst, simple=args.simple)

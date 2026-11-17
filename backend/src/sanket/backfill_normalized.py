@@ -15,6 +15,7 @@ from sqlalchemy import Connection, Engine, Row, bindparam, select, update
 
 from sanket.db import engine
 from sanket.models import Posting
+from sanket.observability.logs import configure_logging
 from sanket.sources import (
     greenhouse,
     himalayas,
@@ -168,7 +169,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: Sequence[str] | None = None) -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    configure_logging()
     args = parse_args(argv)
     summary = backfill(engine, apply=args.apply, batch_size=args.batch_size)
     logger.info(summary.line())

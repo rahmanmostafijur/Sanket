@@ -13,6 +13,7 @@ from collections.abc import Sequence
 
 from sanket.canonical.service import DEFAULT_BATCH_SIZE, canonicalise
 from sanket.db import engine
+from sanket.observability.logs import configure_logging
 
 
 def _positive_int(value: str) -> int:
@@ -32,7 +33,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: Sequence[str] | None = None) -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    configure_logging()
     logger = logging.getLogger(__name__)
     args = parse_args(argv)
     summary = canonicalise(engine, batch_size=args.batch_size, apply=args.apply)

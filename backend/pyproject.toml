@@ -79,6 +79,7 @@ module = [
     "sanket.worker.*",
     "sanket.runtime_checks",
     "sanket.auth.*",
+    "sanket.observability.*",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

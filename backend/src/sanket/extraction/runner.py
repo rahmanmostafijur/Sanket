@@ -39,6 +39,7 @@ from sanket.extraction.llm import GeminiClient, LlmClient, LlmError
 from sanket.extraction.prompt import PROMPT_VERSION, PostingInput, build_posting_text
 from sanket.extraction.schema import SCHEMA_VERSION
 from sanket.models import Posting, PostingExtraction
+from sanket.observability.logs import configure_logging
 
 STATUS_OK = "ok"
 STATUS_FAILED = "failed"
@@ -253,7 +254,7 @@ def run_batch(
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    configure_logging()
     if settings.gemini_api_key is None:
         raise SystemExit("GEMINI_API_KEY is not set")
     cfg = config_from_settings(settings)

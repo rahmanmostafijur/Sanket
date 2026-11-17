@@ -159,6 +159,11 @@ class Settings(BaseSettings):
     api_host: str = "127.0.0.1"
     api_port: int = Field(default=8000, ge=1, le=65535)
 
+    # Logging (docs/adr/0010-observability.md): one JSON object per line in production and
+    # containers, plain text in development unless LOG_FORMAT says otherwise.
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+    log_format: Literal["json", "text"] | None = None
+
     # Authentication (docs/adr/0008-authentication.md). Callers send `Authorization: Bearer`
     # with a JWT (signed with AUTH_JWT_SECRET, or by a provider whose keys are at
     # AUTH_JWKS_URL) or one of the static AUTH_API_KEYS (`owner=key,owner2=key2`). The token
@@ -203,6 +208,12 @@ class Settings(BaseSettings):
         if isinstance(value, str) and not value.strip():
             return None
         return value
+
+    @property
+    def effective_log_format(self) -> Literal["json", "text"]:
+        if self.log_format is not None:
+            return self.log_format
+        return "text" if self.environment == "development" else "json"
 
     @property
     def is_production(self) -> bool:
