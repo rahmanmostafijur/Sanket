@@ -8,7 +8,10 @@ lossless:
    client is sent that id so a reconnect always has a cursor),
 3. replay the persisted active matches after it, in id order, in batches,
 4. read the buffer: each event is a pointer, the row is loaded from the database and sent,
-   unless replay already sent that id.
+   unless replay already sent that id. When nothing has happened for a heartbeat interval the
+   database is asked again for matches after the highest id sent (a catch-up), because Redis
+   pub/sub does not redeliver a message that was lost; only if that finds nothing is a ping
+   sent.
 
 Without Redis (not configured, or down when the stream opens) step 1 is skipped and step 3
 repeats every `db_poll_seconds`. Events are at-least-once: the same id may arrive twice (a
@@ -100,8 +103,9 @@ async def _replay(req: StreamRequest, after_id: int) -> AsyncIterator[tuple[int,
 
 async def _render_events(
     req: StreamRequest, events: Sequence[MatchEvent], skip: set[int]
-) -> list[str]:
-    """Frames for live events: the rows as they are now, minus ids already sent by replay."""
+) -> list[tuple[int, str]]:
+    """(id, frame) for live events: the rows as they are now, minus ids the database already
+    delivered (replay, catch-up)."""
     reactivated: dict[int, bool] = {}
     for event in events:
         if event.profile_id == req.profile_id and event.match_id not in skip:
@@ -113,7 +117,7 @@ async def _render_events(
     items = await run_in_threadpool(
         get_active_matches, req.profile_id, list(reactivated), req.db_engine
     )
-    return [_frame(item, reactivated[item.id], req.render) for item in items]
+    return [(item.id, _frame(item, reactivated[item.id], req.render)) for item in items]
 
 
 def _why(sub: Subscription) -> str:
@@ -123,9 +127,13 @@ def _why(sub: Subscription) -> str:
 async def _live(
     req: StreamRequest, sub: Subscription, cursor: int, timer: _Timer
 ) -> AsyncGenerator[str, None]:
-    replayed: set[int] = set()
+    # Ids the database delivered; a live event for one of them is a repeat. `high` is the
+    # highest id sent so far, the point a catch-up continues from.
+    from_db: set[int] = set()
+    high = cursor
     async for item_id, frame in _replay(req, cursor):
-        replayed.add(item_id)
+        from_db.add(item_id)
+        high = max(high, item_id)
         timer.wrote()
         yield frame
     while not timer.expired():
@@ -133,11 +141,23 @@ async def _live(
             logger.info("Feed stream of profile %d closed: %s", req.profile_id, _why(sub))
             return
         events = await sub.take(req.cfg.replay_batch_size, timer.idle_budget())
-        frames = await _render_events(req, events, replayed)
-        for frame in frames:
+        live = await _render_events(req, events, from_db)
+        for item_id, frame in live:
+            high = max(high, item_id)
             timer.wrote()
             yield frame
-        if not frames and timer.heartbeat_due():
+        if live or not timer.heartbeat_due():
+            continue
+        # Idle for a whole heartbeat: ask the database for what a lost message may have hidden
+        # (Redis pub/sub does not redeliver), and ping only if there was nothing.
+        caught_up = False
+        async for item_id, frame in _replay(req, high):
+            caught_up = True
+            from_db.add(item_id)
+            high = item_id
+            timer.wrote()
+            yield frame
+        if not caught_up:
             timer.wrote()
             yield comment_frame(PING)
 

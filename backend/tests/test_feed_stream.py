@@ -490,3 +490,27 @@ def test_cleanup_survives_a_level_triggered_cancellation_like_the_servers(
         return limiter.open_streams, side.closed
 
     assert run(scenario) == (0, True)
+
+
+def test_a_match_whose_announcement_was_lost_is_found_by_the_idle_catch_up(
+    clean_db: Engine,
+) -> None:
+    profile, _ = seed(clean_db, 1)
+    side = FakeRedisSide()
+
+    async def scenario() -> tuple[list[str], int]:
+        request = make_request(
+            clean_db, profile, redis_factory=side.factory, heartbeat_seconds=0.05
+        )
+        stream = open_stream(request)
+        await frames(stream, 2)
+        lost = add_match(clean_db, profile, new_job(clean_db))  # committed, never published
+        got = await frames(stream, 2)  # the catch-up sends it, then nothing is left: a ping
+        side.publish(lost, profile)  # a late announcement of the same match is a repeat
+        got += await frames(stream, 1)
+        await stream.aclose()
+        return got, lost
+
+    got, lost = run(scenario)
+    assert ids_of(got) == [lost]
+    assert got[1] == ": ping\n\n" and got[2] == ": ping\n\n"
