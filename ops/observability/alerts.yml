@@ -1,0 +1,80 @@
+# Alert rules for the Sanket API and task queue. Thresholds are starting points. The runbook
+# (docs/runbook.md, "Alerts") says what to do for each.
+groups:
+  - name: sanket-api
+    rules:
+      - alert: SanketApiDown
+        expr: up{job="sanket-api"} == 0
+        for: 2m
+        labels: {severity: page}
+        annotations:
+          summary: "The Sanket API cannot be scraped"
+          description: "Prometheus has not reached {{ $labels.instance }} for 2 minutes."
+
+      - alert: SanketApiHighErrorRate
+        expr: |
+          sum(rate(sanket_http_requests_total{status=~"5.."}[5m]))
+            / clamp_min(sum(rate(sanket_http_requests_total[5m])), 1e-9) > 0.05
+        for: 10m
+        labels: {severity: page}
+        annotations:
+          summary: "More than 5% of API requests fail with 5xx"
+          description: "5xx ratio over the last 5 minutes: {{ $value | humanizePercentage }}."
+
+      - alert: SanketApiSlow
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(sanket_http_request_duration_seconds_bucket{route!~".*/stream"}[5m]))
+          ) > 2
+        for: 10m
+        labels: {severity: ticket}
+        annotations:
+          summary: "p95 API latency is above 2 seconds"
+
+      - alert: SanketRateLimiting
+        expr: sum(rate(sanket_http_requests_total{status="429"}[5m])) > 1
+        for: 15m
+        labels: {severity: ticket}
+        annotations:
+          summary: "Callers are being rate limited steadily"
+          description: "Check the access log for one noisy owner or address before raising limits."
+
+      - alert: SanketAuthFailureSpike
+        expr: sum(rate(sanket_http_requests_total{status="401"}[5m])) > 2
+        for: 10m
+        labels: {severity: ticket}
+        annotations:
+          summary: "Many requests are failing authentication"
+
+  - name: sanket-queue
+    rules:
+      - alert: SanketQueueUnreadable
+        expr: sanket_queue_up == 0
+        for: 5m
+        labels: {severity: page}
+        annotations:
+          summary: "The API cannot read the task queue (Redis unreachable)"
+
+      - alert: SanketQueueBacklog
+        expr: sanket_queue_waiting > 500
+        for: 15m
+        labels: {severity: ticket}
+        annotations:
+          summary: "More than 500 tasks have been waiting for 15 minutes"
+          description: "The worker may be down or slower than the intake."
+
+      - alert: SanketQueueStalled
+        expr: sanket_queue_oldest_waiting_age_seconds > 900
+        for: 10m
+        labels: {severity: page}
+        annotations:
+          summary: "The oldest waiting task is over 15 minutes old"
+          description: "Is a worker running? Check its logs and `python -m sanket.queue.dlq list`."
+
+      - alert: SanketDeadLetters
+        expr: sanket_queue_dead_letters > 0
+        for: 30m
+        labels: {severity: ticket}
+        annotations:
+          summary: "Tasks are sitting in the dead-letter store"
+          description: "Inspect and requeue or purge them (docs/runbook.md, queue and DLQ handling)."

@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: sanket
+    folder: Sanket
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards
