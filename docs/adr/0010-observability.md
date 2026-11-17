@@ -94,5 +94,9 @@ collector config); they are examples to adapt, and nothing is deployed from here
   target and aggregates by `sum`.
 - Redaction is pattern based and cannot catch a secret with no recognisable
   shape written as bare text; keep not logging values.
+- Checked against the real packages (opentelemetry 1.x, FastAPI instrumentation): HTTP
+  spans work. The SQLAlchemy instrumentation package did not yet support SQLAlchemy 2.1
+  when this was written (it logs an error and instruments nothing), so database spans
+  appear only once a release that supports it is installed; nothing else is affected.
 - Request ids are not propagated into queued tasks; correlating a profile save
   with its embedding task is done by the profile id in the logs.
