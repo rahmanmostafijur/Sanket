@@ -80,6 +80,7 @@ module = [
     "sanket.embeddings.*",
     "sanket.search.*",
     "sanket.api.*",
+    "sanket.smoke",
     "sanket.queue.*",
     "sanket.profiles.*",
     "sanket.matching.*",
