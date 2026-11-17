@@ -20,6 +20,8 @@ from fastapi.params import Depends
 from sqlalchemy import Engine
 
 from sanket.api.deps import ApiContext
+from sanket.api.errors import install_error_handlers
+from sanket.api.middleware import RequestContextMiddleware
 from sanket.api.routers import auth as auth_router
 from sanket.api.routers import profiles as profiles_router
 from sanket.api.routers import search as search_router
@@ -78,6 +80,8 @@ def create_app(
             f"{search_config.spec}"
         )
     app = FastAPI(title=API_TITLE, version=API_VERSION)
+    install_error_handlers(app)
+    app.add_middleware(RequestContextMiddleware)
     context = ApiContext(
         db_engine=db_engine or default_engine,
         search_config=search_config,

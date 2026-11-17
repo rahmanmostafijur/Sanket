@@ -440,7 +440,7 @@ def test_invalid_requests_are_rejected_with_422(clean_db: Engine, params: dict[s
     response = client.get("/search", params=params)
 
     assert response.status_code == 422
-    assert response.json()["detail"]
+    assert response.json()["error"]["details"]
 
 
 def test_the_query_is_trimmed_and_echoed_trimmed(clean_db: Engine) -> None:

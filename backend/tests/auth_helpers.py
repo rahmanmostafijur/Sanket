@@ -44,3 +44,6 @@ def auth_client(engine: Engine, **overrides: Any) -> TestClient:
     """A client for an app that needs real credentials (a JWT signed with SECRET by default)."""
     config = settings(**overrides)
     return TestClient(create_app(config, engine, FakeEmbeddingClient()))
+
+
+ALICE_HEADERS = bearer(token(sub="alice"))

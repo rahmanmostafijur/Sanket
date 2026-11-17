@@ -11,12 +11,20 @@ from sanket.api import create_app
 from sanket.api.deps import get_owner_id
 from sanket.auth.stream_token import StreamTokens, feed_path
 from sanket.embeddings.fake import FakeEmbeddingClient
-from tests.auth_helpers import API_KEY, STREAM_SECRET, auth_client, bearer, settings, token
+from tests.auth_helpers import (
+    ALICE_HEADERS,
+    API_KEY,
+    STREAM_SECRET,
+    auth_client,
+    bearer,
+    settings,
+    token,
+)
 from tests.match_helpers import add_profile
 from tests.search_helpers import add_search_job, extraction_data
 from tests.test_api_profiles import BODY, seed_matches
 
-ALICE = bearer(token(sub="alice"))
+ALICE = ALICE_HEADERS
 BOB = bearer(token(sub="bob"))
 
 
