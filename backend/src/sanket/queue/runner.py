@@ -5,6 +5,9 @@ readable and does not depend on our code layout. `execute_task` turns every prob
 task itself (unknown name, payload that is not a JSON object, a handler raising
 `PermanentTaskError`) into a permanent failure: the job goes to the dead-letter store at once
 and the worker carries on. Any other exception is transient and retried with backoff.
+
+Every run also adds to the task counters in Redis (`sanket.queue.stats`), which the API exports.
+A failure to count is logged and never fails the task.
 """
 
 import json
@@ -16,6 +19,7 @@ from typing import Any
 from rq import get_current_job
 
 from sanket.queue.base import PermanentTaskError, TaskContext, TaskRegistry
+from sanket.queue.stats import Outcome, record_outcome, task_label
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +83,19 @@ def _short(error: BaseException) -> str:
     return f"{type(error).__name__}: {error}"[:MAX_LOGGED_ERROR_CHARS]
 
 
+def _count(task_name: str, outcome: Outcome) -> None:
+    """Add one to the counter of this run's outcome. Outside an RQ job there is nothing to
+    count against, and a Redis failure must not turn a finished task into a failed one."""
+    job = get_current_job()
+    if job is None:
+        return
+    known = _active_registry.names() if _active_registry is not None else ()
+    try:
+        record_outcome(job.connection, job.origin, task_label(task_name, known), outcome)
+    except Exception as error:  # noqa: BLE001 - counting is best effort
+        logger.warning("could not count a %s task: %s", outcome.value, type(error).__name__)
+
+
 def execute_task(task_name: str, payload_json: str) -> None:
     context = _context(task_name)
     try:
@@ -96,16 +113,19 @@ def execute_task(task_name: str, payload_json: str) -> None:
             _short(error),
         )
         _give_up()
+        _count(task_name, Outcome.FAILED)
         raise
     except Exception as error:
-        outcome = "dead-lettered" if context.is_final_attempt else "will be retried"
+        final = context.is_final_attempt
         logger.error(
             "Task %s (key %s) failed on attempt %d of %d and %s: %s",
             task_name,
             context.key,
             context.attempt,
             context.max_attempts,
-            outcome,
+            "dead-lettered" if final else "will be retried",
             _short(error),
         )
+        _count(task_name, Outcome.FAILED if final else Outcome.RETRIED)
         raise
+    _count(task_name, Outcome.PROCESSED)
