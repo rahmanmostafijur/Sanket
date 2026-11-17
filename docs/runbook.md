@@ -164,7 +164,44 @@ Handling:
    and `python -m sanket.matching rematch --all-profiles --apply`.
 
 Queue depth that does not drain means no worker is running or it is slower than
-the intake: check `docker compose ps worker`, its logs, and Redis memory.
+the intake: see "The worker is down" below, and check Redis memory.
+
+## The worker is down
+
+The API does not notice a missing worker on its own: `/healthz` and `/readyz` stay green
+by design (ADR 0011), queued tasks wait in Redis, and profiles and jobs simply stop being
+embedded and matched. A running worker refreshes a heartbeat key in Redis every 10 seconds,
+and it expires after 45.
+
+How to see it:
+
+- `sanket_worker_up` on `/metrics` is 0 (1 per live worker), and the `SanketWorkerDown` alert
+  fires after 5 minutes if tasks are waiting. `sanket_worker_last_heartbeat_age_seconds`
+  shows how stale each live worker is; `sanket_queue_waiting`, `_scheduled` and
+  `sanket_queue_oldest_waiting_age_seconds` show what is piling up.
+- `docker compose ps worker` shows `unhealthy` (the health check is
+  `python -m sanket.worker --check`) or `exited` or restarting. To ask the same question by
+  hand: `docker compose exec worker python -m sanket.worker --check` prints why and exits 1.
+- `docker compose logs --tail 100 worker`: look for `worker starting`, a configuration
+  error (`GEMINI_API_KEY`, `REDIS_URL`) or `cannot reach Redis` at the top, and `Task ... failed`
+  lines further down.
+
+What to do:
+
+1. Find the cause in the log. A crash loop with a configuration error is fixed in `.env` or
+   the secret store; `cannot reach Redis` is Redis (`docker compose ps redis`).
+2. `docker compose up -d worker` (or `restart worker`) starts or replaces it. If it is
+   `unhealthy` but its log is quiet, restart it: the heartbeat shows that the process is alive
+   and reaches Redis, so a silent hang is a task stuck in a call the timeout cannot break.
+3. After it starts, within a minute `sanket_worker_up` is 1 and the container is `healthy`.
+   The backlog drains by itself.
+
+Queued work survives the outage. Tasks wait in Redis (append-only persistence keeps them
+across a Redis restart), and retries and delayed tasks only move into the queue while a worker
+runs, so they resume when one does. A task that was running when the worker was killed is
+retried (handlers are idempotent). Only if Redis itself was wiped is work lost; rebuild it
+from the database as in Queue and dead letters, step 4. Dead letters do not come back by
+themselves: check `python -m sanket.queue.dlq list` after an outage that had provider errors.
 
 ## Alerts
 
@@ -182,6 +219,10 @@ a request carries its `request_id`, and an error response shows the same id.
 | `SanketQueueBacklog` | over 500 tasks waiting | worker down or slow; scale workers or fix the provider; see Queue |
 | `SanketQueueStalled` | oldest waiting task over 15 minutes | no worker is consuming; start it and read its log |
 | `SanketDeadLetters` | tasks are dead-lettered | handle as in Queue and dead letters |
+| `SanketDeadLettersGrowing` | more tasks were dead-lettered in the last 15 minutes | the cause is probably live (provider, key, Redis): read the worker log before requeueing |
+| `SanketWorkerDown` | no live worker for 5 minutes while tasks are waiting or scheduled | see "The worker is down" below |
+| `SanketWorkerGone` | no live worker for 30 minutes, queue empty or not | same; nothing is embedded or matched until one runs |
+| `SanketWorkerFailing` | tasks fail and none completes for 15 minutes | a dependency is down (embedding key, database, provider): read the worker log, fix it, then requeue the dead letters |
 
 `/readyz` flapping after idle time on Neon is a cold start; see deploy.md.
 

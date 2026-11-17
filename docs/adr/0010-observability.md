@@ -100,3 +100,11 @@ collector config); they are examples to adapt, and nothing is deployed from here
   appear only once a release that supports it is installed; nothing else is affected.
 - Request ids are not propagated into queued tasks; correlating a profile save
   with its embedding task is done by the profile id in the logs.
+
+## Amendment, 2026-11-17: worker metrics
+
+Decision 5 left worker-process metrics out. [ADR 0011](0011-worker-visibility.md) adds them
+without an HTTP server in the worker: the worker writes a heartbeat key and task counters in
+Redis, and the API's `/metrics` exports `sanket_worker_up`,
+`sanket_worker_last_heartbeat_age_seconds` and `sanket_worker_jobs_*_total` at scrape time.
+`/healthz` and `/readyz` still ignore the worker. The worker has no tracing.

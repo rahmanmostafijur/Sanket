@@ -61,6 +61,10 @@ Redis it says so without printing the URL. A task that fails is retried up to
 `QUEUE_MAX_ATTEMPTS` times with backoff; one that cannot succeed (bad payload, input
 the provider rejects, no `GEMINI_API_KEY`) goes to the dead-letter store at once.
 
+While it runs the worker keeps a heartbeat key in Redis, and `python -m sanket.worker --check`
+exits 0 only while that heartbeat is fresh (the compose health check). The API's `/metrics`
+shows live workers and processed, failed and retried tasks ([ADR 0011](adr/0011-worker-visibility.md)).
+
 ```bash
 python -m sanket.queue.dlq list                 # dead-lettered tasks, with the error
 python -m sanket.queue.dlq requeue --all        # try them again with a full set of attempts

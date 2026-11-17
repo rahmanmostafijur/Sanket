@@ -20,6 +20,7 @@ exercised locally with Docker Compose against throwaway containers only.
                                                   embeds profiles, matches jobs
 
  Prometheus ──scrapes──► api /metrics        Grafana ◄── Prometheus
+              (queue gauges, worker heartbeat and task counters, read from Redis)
  OpenTelemetry collector ◄── api (optional OTLP traces)
 ```
 
@@ -70,7 +71,10 @@ curl http://127.0.0.1:8000/readyz
 Services: `db` (pgvector Postgres) and `redis`; `migrate` runs once and the `api`
 and `worker` wait for it (`service_completed_successfully`) and for Redis
 (`service_healthy`). The api has the image health check and `/readyz` also
-verifies the schema (`READYZ_CHECK_MIGRATIONS=true`); the worker pings Redis.
+verifies the schema (`READYZ_CHECK_MIGRATIONS=true`). The worker's health check is
+`python -m sanket.worker --check`, which passes only while this worker's heartbeat
+key in Redis is fresh (ADR 0011), so a hung worker shows as `unhealthy` in
+`docker compose ps`; compose does not restart an unhealthy container by itself.
 Application containers drop all capabilities, run with a read-only root
 filesystem and `no-new-privileges`. Published ports are bound to `127.0.0.1`.
 
@@ -155,6 +159,23 @@ the development bypass:
 | `METRICS_ENABLED` / `METRICS_TOKEN` **S** | `true` / unset | token required when set; no token means 404 in production |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_ENABLED`, `OTEL_SERVICE_NAME`, `OTEL_SAMPLE_RATIO` | unset / `false` / `sanket-api` / `1.0` | tracing, needs the `otel` extra |
 
+**Worker visibility** (ADR 0011). A running worker refreshes a heartbeat key in Redis;
+the API's `/metrics` and the worker's health check read it:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `WORKER_NAME` | host name | name of this worker's heartbeat key (the container id in Docker); two workers must not share one |
+| `WORKER_HEARTBEAT_INTERVAL_SECONDS` | `10` | seconds between beats, above 0 and at most 300 |
+| `WORKER_HEARTBEAT_TTL_SECONDS` | `45` | seconds after which a key without a new beat expires; 3 to 3600 and at least 3 times the interval, else the settings do not load |
+
+The API exports `sanket_worker_up` (workers with a fresh heartbeat),
+`sanket_worker_last_heartbeat_age_seconds{worker}` and the counters
+`sanket_worker_jobs_processed_total`, `_failed_total` and `_retried_total` by `queue` and
+`task`; the queue depth is the existing `sanket_queue_waiting`. They are left out when Redis
+cannot be read or is not configured. `/healthz` and `/readyz` do not depend on the worker:
+a missing worker does not make the API unready, and the `SanketWorkerDown` alert is how
+you find out.
+
 **Ingestion, extraction, indexing, search, queue, matching.** Unchanged by this
 phase and documented where they are defined: `.env.example` (every variable with
 its default and meaning), [sources.md](sources.md), [indexing.md](indexing.md),
@@ -196,7 +217,8 @@ Before the first start and before every release:
 - [ ] One credential type is configured (`AUTH_JWT_SECRET`, `AUTH_JWKS_URL` or
       `AUTH_API_KEYS`), plus `AUTH_STREAM_TOKEN_SECRET` if browsers open streams.
 - [ ] `METRICS_TOKEN` is set (without it `/metrics` answers 404 in production).
-- [ ] `GEMINI_API_KEY` and `REDIS_URL` are set on the worker.
+- [ ] `GEMINI_API_KEY` and `REDIS_URL` are set on the worker, and `sanket_worker_up` is 1
+      after it starts.
 
 How to verify on the deployed stack: `docker compose exec api printenv ENVIRONMENT`
 prints `production`, and `docker compose exec api printenv AUTH_DEV_BYPASS` prints
@@ -240,5 +262,5 @@ checks.
 ## What is not covered
 
 TLS termination and the reverse proxy, DNS, a VPS or other host, backups beyond
-Neon's own, log shipping, and the worker's metrics are outside this repository's
+Neon's own, log shipping, and tracing of the worker are outside this repository's
 configuration. Choose them when the first deployment is planned.
