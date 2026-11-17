@@ -27,8 +27,8 @@ end of the phase.
 | 8 | `feat/m8-hardening` | settings, auth, logging, rate limiting, health endpoints, Dockerfiles, full compose, observability, CI image builds, deploy docs and runbook | <!-- TODO-ORCH: count --> | in progress, to be completed by the orchestrator <!-- TODO-ORCH: state after review and gate --> |
 | 9 | `feat/m9-integration` | 9a (this branch): end-to-end pipeline test, smoke check, STATUS draft, status collector, README quickstart. 9b: feed and auth stages of the e2e test, compose up, final numbers | see below | 9a done on this branch; 9b in progress, to be completed by the orchestrator <!-- TODO-ORCH: 9b --> |
 
-Phase 9a added 3 test modules (end-to-end, smoke, status collector) on top of the 1286 tests
-of phase 6. <!-- TODO-ORCH: replace with the count after the rebase onto phases 7 and 8 -->
+Phase 9a added 64 tests (10 end-to-end, 24 smoke, 30 status collector) on top of the 1286 tests
+of phase 6, 1350 in all. <!-- TODO-ORCH: replace with the count after the rebase onto phases 7 and 8 -->
 
 ### What exists, end to end
 
@@ -123,10 +123,10 @@ database. CI runs the first four and has no Redis (the tests use fakeredis).
 | 6 | 1286 passed | migration `c8199e1b7ec9`; re-run on 2026-11-17 at the start of phase 9a: 1286 passed |
 | 7 | <!-- TODO-ORCH --> | |
 | 8 | <!-- TODO-ORCH --> | |
-| 9 | <!-- TODO-ORCH --> | 9a gate: see the last line below |
+| 9 | <!-- TODO-ORCH: final count --> | 9a (branch on phase 6): 1350 passed, 0 skipped, ruff, format, mypy and `alembic check` clean |
 
 <!-- AUTO:pytest -->
-Last gate run: `not recorded yet`
+Last gate run: `1350 passed in 114s (phase 9a, on phase 6)`
 <!-- /AUTO:pytest -->
 
 ## Steps only the owner can do, in order
@@ -316,16 +316,20 @@ befd29b docs: add ADR 0005 on the task queue library
 bf6e5ed feat(matching): read matches by id and find a profile's latest match id
 ```
 
-#### `feat/m8-hardening` (2 commits on `feat/m6-matcher`)
+#### `feat/m8-hardening` (4 commits on `feat/m6-matcher`)
 
 ```
+1e51ca3 feat(api): answer every error with one envelope, add request ids and an access log
+782fa3a feat(logging): write redacted JSON or text logs with a request id from every entry point
 aabba3b feat(api): authenticate with bearer JWTs or API keys, scope every owner route and add stream tokens
 7d3e310 feat(config): add an environment setting, keep database URLs secret and check worker settings at start
 ```
 
-#### `feat/m9-integration` (3 commits on `feat/m6-matcher`)
+#### `feat/m9-integration` (5 commits on `feat/m6-matcher`)
 
 ```
+aa4ccb1 docs: add the STATUS draft with per-phase status, ADRs, bugs, owner steps and risks
+840816d docs: add a backend overview and quickstart to the README
 bfa70a9 chore(scripts): add collect_status to regenerate the mechanical parts of STATUS.md
 e9abed3 feat(smoke): add a smoke check for a running API
 665f79a test(e2e): add the pipeline end-to-end test with recorded payloads and fakes
