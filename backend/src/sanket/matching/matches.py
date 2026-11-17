@@ -7,11 +7,12 @@ already saw it is not shown it again; its current score and status are read when
 fetched by profile (without `after_id`). The live feed uses the same ids as event ids.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Engine, select
+from sqlalchemy import Engine, func, select
 
 from sanket.db import engine
 from sanket.models import JobMatch, MatchStatus
@@ -57,9 +58,43 @@ def list_matches(
     stmt = stmt.order_by(JobMatch.id).limit(limit + 1)
     with db_engine.connect() as conn:
         rows = list(conn.execute(stmt))
-    page = rows[:limit]
-    details = load_details([row.job_id for row in page], db_engine)
-    items = [
+    items = _items(rows[:limit], db_engine)
+    return MatchPage(items, items[-1].id if items else None, has_more=len(rows) > limit)
+
+
+def get_active_matches(
+    profile_id: int, match_ids: Sequence[int], db_engine: Engine = engine
+) -> list[MatchItem]:
+    """The active matches of `profile_id` among `match_ids`, ascending by id.
+
+    Ids of other profiles, of withdrawn matches and of rows that do not exist are left out.
+    """
+    if not match_ids:
+        return []
+    stmt = (
+        select(JobMatch)
+        .where(
+            JobMatch.profile_id == profile_id,
+            JobMatch.id.in_(match_ids),
+            JobMatch.status == MatchStatus.ACTIVE,
+        )
+        .order_by(JobMatch.id)
+    )
+    with db_engine.connect() as conn:
+        rows = list(conn.execute(stmt))
+    return _items(rows, db_engine)
+
+
+def latest_match_id(profile_id: int, db_engine: Engine = engine) -> int:
+    """The highest match id of the profile (withdrawn ones included), 0 when it has none."""
+    stmt = select(func.max(JobMatch.id)).where(JobMatch.profile_id == profile_id)
+    with db_engine.connect() as conn:
+        return int(conn.execute(stmt).scalar() or 0)
+
+
+def _items(rows: Sequence[Any], db_engine: Engine) -> list[MatchItem]:
+    details = load_details([row.job_id for row in rows], db_engine)
+    return [
         MatchItem(
             id=row.id,
             job_id=row.job_id,
@@ -70,6 +105,5 @@ def list_matches(
             updated_at=row.updated_at,
             job=details.get(row.job_id),
         )
-        for row in page
+        for row in rows
     ]
-    return MatchPage(items, items[-1].id if items else None, has_more=len(rows) > limit)
