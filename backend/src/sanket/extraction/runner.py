@@ -262,6 +262,38 @@ def run_batch(
     return BatchResult(counts, stopped_early)
 
 
+def attempted_postings(counts: Mapping[Outcome, int]) -> int:
+    """Postings the provider was asked about; a skipped posting made no call."""
+    return sum(n for outcome, n in counts.items() if outcome is not Outcome.SKIPPED)
+
+
+def provider_error_ratio(counts: Mapping[Outcome, int]) -> float:
+    attempted = attempted_postings(counts)
+    return counts.get(Outcome.PROVIDER_ERROR, 0) / attempted if attempted else 0.0
+
+
+def batch_failure(result: BatchResult, max_ratio: float) -> str | None:
+    """Why the run must exit non-zero, or None when it can succeed.
+
+    One transient provider error among many postings is not a failure (the posting stays
+    pending and is retried next run). A real outage, quota problem or bad key is: it stops
+    the batch early or makes up more than `max_ratio` of the attempts.
+    """
+    errors = result.counts.get(Outcome.PROVIDER_ERROR, 0)
+    if result.stopped_early:
+        return (
+            f"stopped after {MAX_CONSECUTIVE_PROVIDER_ERRORS} provider errors in a row "
+            f"({errors} in total)"
+        )
+    ratio = provider_error_ratio(result.counts)
+    if ratio > max_ratio:
+        return (
+            f"{errors} of {attempted_postings(result.counts)} attempted postings hit a "
+            f"provider error (ratio {ratio:.2f}, limit {max_ratio:.2f})"
+        )
+    return None
+
+
 def main() -> None:
     configure_logging()
     if settings.gemini_api_key is None:
@@ -270,16 +302,28 @@ def main() -> None:
     client = GeminiClient(
         settings.gemini_api_key, cfg.model, requests_per_minute=settings.gemini_requests_per_minute
     )
-    counts = run_batch(client, cfg, settings.extraction_batch_limit).counts
+    result = run_batch(client, cfg, settings.extraction_batch_limit)
     logger.info(
         "extraction summary model=%s schema_version=%d prompt_version=%d %s",
         cfg.model,
         cfg.schema_version,
         cfg.prompt_version,
-        " ".join(f"{outcome.value}={counts.get(outcome, 0)}" for outcome in Outcome),
+        " ".join(f"{outcome.value}={result.counts.get(outcome, 0)}" for outcome in Outcome),
     )
-    if counts[Outcome.PROVIDER_ERROR]:
-        raise SystemExit(f"{counts[Outcome.PROVIDER_ERROR]} provider errors")
+    max_ratio = settings.extraction_max_provider_error_ratio
+    failure = batch_failure(result, max_ratio)
+    if failure:
+        raise SystemExit(failure)
+    errors = result.counts.get(Outcome.PROVIDER_ERROR, 0)
+    if errors:
+        logger.warning(
+            "%d of %d attempted postings hit a provider error (ratio %.2f, limit %.2f); "
+            "they stay pending for the next run",
+            errors,
+            attempted_postings(result.counts),
+            provider_error_ratio(result.counts),
+            max_ratio,
+        )
 
 
 if __name__ == "__main__":
