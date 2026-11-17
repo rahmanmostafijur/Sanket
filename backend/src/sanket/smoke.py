@@ -9,7 +9,9 @@ Endpoints that do not exist (yet) are detected from a 404, 405 or 501 and report
 `skipped: not available`, never as a failure: the same script works before and after the
 health endpoints, the live feed or authentication are deployed. When authentication is
 required and no token was given, the affected checks are skipped as well. A token (--token or
-SMOKE_TOKEN) is sent as a bearer token and is never printed.
+SMOKE_TOKEN) is sent as a bearer token and is never printed. The stream is opened with a stream
+token (`POST /auth/stream-token`, then `?stream_token=`) when the server issues them, as a
+browser's EventSource must, and with the bearer header otherwise.
 
 The profile check writes one profile named `smoke-<random>` and deletes it at the end, so only
 point it at a development database. A base URL that is not local is refused unless
@@ -87,10 +89,20 @@ def skipped(name: str, reason: str) -> CheckResult:
     return CheckResult(name, Status.SKIPPED, f"skipped: {reason}")
 
 
-def call(client: httpx.Client, method: str, path: str, **kwargs: Any) -> Reply:
-    """One request. A transport error is returned in `error`; a non-JSON body is `None`."""
+def call(
+    client: httpx.Client, method: str, path: str, *, anonymous: bool = False, **kwargs: Any
+) -> Reply:
+    """One request. A transport error is returned in `error`; a non-JSON body is `None`.
+
+    `anonymous` leaves out the client's Authorization header, for a request that carries its
+    own credential (a stream token in the query string).
+    """
     try:
-        with client.stream(method, path, **kwargs) as response:
+        request = client.build_request(method, path, **kwargs)
+        if anonymous:
+            request.headers.pop("authorization", None)
+        response = client.send(request, stream=True)
+        try:
             content_type = response.headers.get("content-type", "")
             if content_type.startswith("text/event-stream"):
                 return Reply(method, path, response.status_code, None, content_type)
@@ -100,6 +112,8 @@ def call(client: httpx.Client, method: str, path: str, **kwargs: Any) -> Reply:
             except ValueError:
                 body = None
             return Reply(method, path, response.status_code, body, content_type)
+        finally:
+            response.close()
     except httpx.HTTPError as error:
         return Reply(method, path, error=type(error).__name__)
 
@@ -218,17 +232,34 @@ def check_matches(client: httpx.Client, profile_id: int, has_token: bool) -> Che
     return passed(name, f"{reply.label} -> 200 with {len(body['items'])} matches")
 
 
+def _open_stream(client: httpx.Client, profile_id: int) -> tuple[Reply, str]:
+    """Open the stream the way a browser would when the server issues stream tokens (mint one
+    with the bearer credential, then send only the token in the query string), else with the
+    bearer header. Returns the answer and how it was authenticated."""
+    path = f"/profiles/{profile_id}/matches/stream"
+    accept = {"Accept": "text/event-stream"}
+    minted = call(client, "POST", "/auth/stream-token", json={"profile_id": profile_id})
+    body = minted.body
+    if minted.status == 200 and isinstance(body, dict) and isinstance(body.get("token"), str):
+        parameter = body.get("query_parameter")
+        key = parameter if isinstance(parameter, str) else "stream_token"
+        opened = call(
+            client, "GET", path, params={key: body["token"]}, headers=accept, anonymous=True
+        )
+        return opened, "stream token"
+    return call(client, "GET", path, headers=accept), "bearer header"
+
+
 def check_stream(client: httpx.Client, profile_id: int, has_token: bool) -> CheckResult:
     """The live feed answers with an event stream. Only the headers are read."""
     name = "match stream"
-    path = f"/profiles/{profile_id}/matches/stream"
-    reply = call(client, "GET", path, headers={"Accept": "text/event-stream"})
+    reply, how = _open_stream(client, profile_id)
     problem = unavailable(name, reply, has_token)
     if problem is not None:
         return problem
     if reply.status != 200 or not reply.content_type.startswith("text/event-stream"):
-        return failed(name, f"{reply.label} -> {reply.status} {reply.content_type!r}")
-    return passed(name, f"{reply.label} -> 200 text/event-stream")
+        return failed(name, f"{reply.label} -> {reply.status} {reply.content_type!r} ({how})")
+    return passed(name, f"{reply.label} -> 200 text/event-stream ({how})")
 
 
 def check_cleanup(client: httpx.Client, profile_id: int, has_token: bool) -> CheckResult:

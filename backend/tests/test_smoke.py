@@ -34,10 +34,14 @@ class FakeApi:
         missing: tuple[str, ...] = (),
         overrides: dict[str, Handler] | None = None,
         require_token: str | None = None,
+        stream_token: str | None = None,
     ) -> None:
         self.missing = missing
         self.overrides = overrides or {}
         self.require_token = require_token
+        # When set, the API issues this stream token and opens streams only for it.
+        self.stream_token = stream_token
+        self.accepted_stream_token = stream_token
         self.requests: list[httpx.Request] = []
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
@@ -46,13 +50,39 @@ class FakeApi:
         if any(route.endswith(path) for path in self.missing):
             return json_response(404, {"detail": "Not Found"})
         wanted = f"Bearer {self.require_token}"
-        if self.require_token is not None and request.headers.get("authorization") != wanted:
+        token_ok = (
+            self.accepted_stream_token is not None
+            and request.url.path.endswith("/matches/stream")
+            and request.url.params.get("stream_token") == self.accepted_stream_token
+        )
+        if (
+            self.require_token is not None
+            and not token_ok
+            and request.headers.get("authorization") != wanted
+        ):
             return json_response(401, {"detail": "unauthorised"})
+        if route == f"GET /profiles/{PROFILE_ID}/matches/stream" and self.stream_token:
+            return self.stream_with_token(request)
         if route in self.overrides:
             return self.overrides[route](request)
         return self.default(request, route)
 
+    def stream_with_token(self, request: httpx.Request) -> httpx.Response:
+        if request.url.params.get("stream_token") != self.accepted_stream_token:
+            return json_response(401, {"error": {"code": "unauthenticated"}})
+        return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=b"")
+
     def default(self, request: httpx.Request, route: str) -> httpx.Response:
+        if route == "POST /auth/stream-token" and self.stream_token:
+            return json_response(
+                200,
+                {
+                    "token": self.stream_token,
+                    "path": f"/profiles/{PROFILE_ID}/matches/stream",
+                    "query_parameter": "stream_token",
+                    "expires_in": 60,
+                },
+            )
         if route == "GET /healthz" or route == "GET /readyz" or route == "GET /docs":
             return json_response(200, {"status": "ok"})
         if route == "GET /search":
@@ -206,7 +236,11 @@ def test_the_smoke_profile_is_unique_per_run_and_clearly_marked() -> None:
     run(api)
     run(api)
 
-    names = [json.loads(r.content)["name"] for r in api.requests if r.method == "POST"]
+    names = [
+        json.loads(r.content)["name"]
+        for r in api.requests
+        if r.method == "POST" and r.url.path == "/profiles"
+    ]
     assert len(set(names)) == 2
     assert all(name.startswith("smoke-") for name in names)
 
@@ -320,3 +354,51 @@ def test_main_uses_the_base_url_from_the_environment(monkeypatch: pytest.MonkeyP
     smoke.main([], transport=httpx.MockTransport(api))
 
     assert api.requests[0].url.port == 9999
+
+
+def test_with_stream_tokens_the_stream_is_opened_with_the_token_and_without_the_bearer_header() -> (
+    None
+):
+    api = FakeApi(require_token=SECRET, stream_token="stream-token-value")
+
+    results = run(api, token=SECRET)
+
+    assert set(statuses(results).values()) == {Status.PASS}
+    assert "stream token" in results["match stream"].detail
+    opened = [r for r in api.requests if r.url.path.endswith("/matches/stream")]
+    assert len(opened) == 1
+    assert "authorization" not in opened[0].headers
+    assert opened[0].url.params["stream_token"] == "stream-token-value"
+    minted = [r for r in api.requests if r.url.path == "/auth/stream-token"]
+    assert minted[0].headers["authorization"] == f"Bearer {SECRET}"
+    assert json.loads(minted[0].content) == {"profile_id": PROFILE_ID}
+
+
+def test_without_stream_tokens_the_stream_is_opened_with_the_bearer_header() -> None:
+    api = FakeApi(require_token=SECRET, missing=("/auth/stream-token",))
+
+    results = run(api, token=SECRET)
+
+    assert results["match stream"].status is Status.PASS
+    assert "bearer header" in results["match stream"].detail
+    opened = [r for r in api.requests if r.url.path.endswith("/matches/stream")]
+    assert opened[0].headers["authorization"] == f"Bearer {SECRET}"
+
+
+def test_a_stream_token_the_server_refuses_fails_the_stream_check() -> None:
+    api = FakeApi(stream_token="stream-token-value")
+    api.accepted_stream_token = "another-value"  # the mint endpoint and the stream disagree
+
+    results = run(api, token=SECRET)
+
+    assert results["match stream"].status is Status.FAIL
+    assert "rejected" in results["match stream"].detail
+
+
+def test_the_stream_token_is_never_printed(capsys: pytest.CaptureFixture[str]) -> None:
+    api = FakeApi(require_token=SECRET, stream_token="stream-token-value")
+
+    smoke.main(["--token", SECRET], transport=httpx.MockTransport(api))
+
+    out = capsys.readouterr().out
+    assert "stream-token-value" not in out and SECRET not in out
