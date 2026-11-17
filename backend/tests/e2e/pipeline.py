@@ -1,7 +1,7 @@
 """Small, composable steps of the whole backend pipeline, for the end-to-end tests.
 
 Everything runs in this process against the test database, with recorded payloads and fakes:
-no network, no Redis, no real LLM or embedding provider. The steps mirror the production
+no network, no real Redis, no real LLM or embedding provider. The steps mirror the production
 chain (ingest, canonicalise, extract, index, match) and call the same functions the commands
 and the worker call; only the I/O at the edges is replaced:
 
@@ -9,29 +9,32 @@ and the worker call; only the I/O at the edges is replaced:
 - LLM: `KeyedExtractionClient`, a `ScriptedClient` that answers by posting title.
 - Embeddings: `FakeEmbeddingClient`.
 - Queue: `InMemoryTaskQueue`, drained with the real task registry (`drain_queue`).
-- Notifier: `RecordingNotifier`, which counts as "delivered" like the default `NoopNotifier`.
+- Notifier: `RecordingNotifier`, which counts as "delivered" like the default `NoopNotifier`
+  (the live feed stack uses the real `RedisMatchNotifier` on fakeredis instead).
 
 A test composes the steps it needs around a `Stack`, which carries the shared fakes.
 
-EXTENSION POINTS (the final integration appends stages here instead of rewriting the tests):
+LIVE FEED: `build_feed_stack` builds the stack with the real `RedisMatchNotifier` publishing to
+a fake Redis (`Stack.redis`), and `api_app` gives the app whose streams subscribe to it. The
+stage itself is in `tests/e2e/test_feed_e2e.py`, with the ASGI stream client in `sse.py`.
 
-- Live feed delivery (SSE, phase 7). `Stack.notifier` is the `MatchNotifier` handed to the
-  matching tasks. Build the stack with the real notifier (`build_stack(engine, notifier=...)`)
-  and add steps that subscribe to a profile's stream and read events before and after
-  `run_pipeline`. The persisted match ids are the event ids: compare them with `matches_of`.
-- Authenticated requests (phase 8). `api_client` forwards `dependencies` (FastAPI dependencies
-  applied to every route) and any `Settings` overrides to `create_app`; pass the auth
-  dependency and the auth settings there, and add the credentials as default headers of the
-  returned client. Profile calls must then be made as two different users to assert scoping.
+EXTENSION POINT (authenticated requests, phase 8, not built yet). `api_app` and `api_client`
+forward `dependencies` (FastAPI dependencies applied to every route) and any `Settings`
+overrides to `create_app`; pass the auth dependency and the auth settings there, and send the
+credentials as headers (`TestClient(headers=...)`, or the `headers` argument of `sse.open_sse`).
+Profile calls must then be made as two different users to assert scoping; until then
+`api_client(stack, default_owner_id="someone")` is how a second owner is simulated. Add the new
+stage as a new test module next to `test_feed_e2e.py` and reuse `run_pipeline` unchanged.
 """
 
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any
 
 import httpx
+from fastapi import FastAPI
 from fastapi.params import Depends
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, delete, func, select
@@ -53,6 +56,8 @@ from sanket.queue.memory import InMemoryTaskQueue
 from sanket.sources.base import Source
 from sanket.storage import save_postings
 from tests.e2e.data import EXTRACTIONS
+from tests.feed_helpers import PREFIX as FEED_PREFIX
+from tests.feed_helpers import FakeRedisSide
 from tests.index_helpers import CFG as INDEX_CFG
 from tests.index_helpers import SPEC
 from tests.match_helpers import RecordingNotifier
@@ -64,6 +69,8 @@ OWNER = "e2e-owner"
 # fit. These thresholds let the profile's hard filters decide, which is what the tests assert.
 # The window is wide so the recorded (fixed) dates never age out of "recent jobs".
 MATCH_CFG = MatchConfig(spec=SPEC, min_cosine=-1.0, min_score=0.0, recent_job_days=36500)
+# Short, so an open stream shows it is idle (and waiting for Redis) within a blink.
+HEARTBEAT_SECONDS = 0.05
 EXTRACTION_CFG = ExtractionConfig(model="scripted", max_description_chars=2000, max_attempts=3)
 
 
@@ -99,9 +106,15 @@ class Stack:
     notifier: RecordingNotifier | MatchNotifier
     llm: KeyedExtractionClient
     settings: Settings
+    # The fake Redis the notifier publishes to and the streams subscribe to (feed stacks only).
+    redis: FakeRedisSide | None = None
 
 
-def build_stack(engine: Engine, notifier: RecordingNotifier | MatchNotifier | None = None) -> Stack:
+def build_stack(
+    engine: Engine,
+    notifier: RecordingNotifier | MatchNotifier | None = None,
+    **settings: Any,
+) -> Stack:
     config = Settings.model_validate(
         {
             "database_url": engine.url.render_as_string(hide_password=False),
@@ -109,6 +122,7 @@ def build_stack(engine: Engine, notifier: RecordingNotifier | MatchNotifier | No
             "embedding_model_version": SPEC.model_version,
             "embedding_dimensions": SPEC.dimensions,
             "default_owner_id": OWNER,
+            **settings,
         }
     )
     return Stack(
@@ -119,6 +133,20 @@ def build_stack(engine: Engine, notifier: RecordingNotifier | MatchNotifier | No
         llm=KeyedExtractionClient(EXTRACTIONS),
         settings=config,
     )
+
+
+def build_feed_stack(engine: Engine) -> Stack:
+    """A stack whose notifier is the real `RedisMatchNotifier` on a fake Redis, and whose app
+    streams from that same Redis. Intervals are tiny so nothing waits."""
+    redis = FakeRedisSide()
+    stack = build_stack(
+        engine,
+        notifier=redis.notifier,
+        feed_channel_prefix=FEED_PREFIX,
+        feed_heartbeat_seconds=HEARTBEAT_SECONDS,
+        feed_db_poll_seconds=0.02,
+    )
+    return replace(stack, redis=redis)
 
 
 # -- the pipeline, one stage at a time ----------------------------------------------------------
@@ -198,18 +226,21 @@ def run_pipeline(stack: Stack, feeds: Sequence[tuple[Source, Mapping[str, object
 # -- the API ------------------------------------------------------------------------------------
 
 
-def api_client(stack: Stack, dependencies: Sequence[Depends] = (), **settings: Any) -> TestClient:
-    """A client for the app wired to the stack (extension point for authenticated requests)."""
+def api_app(stack: Stack, dependencies: Sequence[Depends] = (), **settings: Any) -> FastAPI:
+    """The app wired to the stack (extension point for authenticated requests)."""
     config = stack.settings.model_copy(update=settings)
-    return TestClient(
-        create_app(
-            config,
-            stack.engine,
-            stack.embedder,
-            task_queue=stack.queue,
-            dependencies=dependencies,
-        )
+    return create_app(
+        config,
+        stack.engine,
+        stack.embedder,
+        task_queue=stack.queue,
+        dependencies=dependencies,
+        feed_redis=stack.redis.factory if stack.redis else None,
     )
+
+
+def api_client(stack: Stack, dependencies: Sequence[Depends] = (), **settings: Any) -> TestClient:
+    return TestClient(api_app(stack, dependencies, **settings))
 
 
 def search(client: TestClient, q: str, **params: Any) -> dict[str, Any]:
