@@ -74,6 +74,7 @@ module = [
     "sanket.queue.*",
     "sanket.profiles.*",
     "sanket.matching.*",
+    "sanket.worker.*",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
