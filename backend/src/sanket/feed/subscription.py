@@ -12,6 +12,7 @@ import contextlib
 import logging
 from collections.abc import Callable
 
+import anyio
 from redis.asyncio import Redis as AsyncRedis
 from redis.asyncio.client import PubSub
 from redis.exceptions import RedisError
@@ -23,6 +24,8 @@ logger = logging.getLogger(__name__)
 RedisFactory = Callable[[], AsyncRedis]
 # How long one wait for a message lasts; a message wakes it at once.
 PUMP_WAIT_SECONDS = 1.0
+# Closing a connection must not hang a stream that is already over.
+CLOSE_TIMEOUT_SECONDS = 5.0
 
 
 class Subscription:
@@ -69,12 +72,18 @@ class Subscription:
         return events
 
     async def close(self) -> None:
-        """Stop the task and release the connection; safe to call more than once."""
-        if self._task is not None:
-            self._task.cancel()
-            await asyncio.gather(self._task, return_exceptions=True)
-            self._task = None
-        await _close(self._pubsub, self._client)
+        """Stop the task and release the connection; safe to call more than once.
+
+        Shielded: a stream usually ends because the server cancelled it (the client left), and
+        a cancellation by an anyio scope cancels again at every await, which would abandon the
+        cleanup half way and leak the connection.
+        """
+        with anyio.CancelScope(shield=True):
+            if self._task is not None:
+                self._task.cancel()
+                await asyncio.gather(self._task, return_exceptions=True)
+                self._task = None
+            await _close(self._pubsub, self._client)
 
     async def _pump(self) -> None:
         try:
@@ -112,8 +121,10 @@ class Subscription:
 
 
 async def _close(pubsub: PubSub, client: AsyncRedis) -> None:
-    for closer in (pubsub.aclose, client.aclose):
-        try:
-            await closer()
-        except (RedisError, OSError):
-            logger.debug("Closing a feed connection failed", exc_info=True)
+    """Close both, a failure of one not skipping the other; shielded and bounded in time."""
+    with anyio.CancelScope(shield=True), anyio.move_on_after(CLOSE_TIMEOUT_SECONDS):
+        for closer in (pubsub.aclose, client.aclose):
+            try:
+                await closer()
+            except (RedisError, OSError):
+                logger.debug("Closing a feed connection failed", exc_info=True)

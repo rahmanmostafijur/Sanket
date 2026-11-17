@@ -7,6 +7,7 @@ from collections.abc import Callable
 from itertools import count
 from typing import Any
 
+import anyio
 import pytest
 from sqlalchemy import Engine, create_engine, update
 
@@ -462,3 +463,30 @@ def test_a_database_error_ends_the_stream_cleanly_and_frees_the_slot(
     assert limiter.open_streams == 0
     assert "database error" in caplog.text
     unreachable.dispose()
+
+
+def test_cleanup_survives_a_level_triggered_cancellation_like_the_servers(
+    clean_db: Engine,
+) -> None:
+    """Starlette cancels a response with an anyio scope, which cancels again at every await in
+    the scope: the cleanup must be shielded or the Redis connection leaks."""
+    profile, _ = seed(clean_db, 0)
+    side = FakeRedisSide()
+    limiter = StreamLimiter(max_streams=5, max_per_profile=5)
+
+    async def scenario() -> tuple[int, bool]:
+        stream = open_stream(make_request(clean_db, profile, redis_factory=side.factory), limiter)
+        sent: list[str] = []
+
+        async def consume() -> None:
+            async for frame in stream:
+                sent.append(frame)
+
+        async with anyio.create_task_group() as group:
+            group.start_soon(consume)
+            while len(sent) < 2:
+                await anyio.sleep(0.01)
+            group.cancel_scope.cancel()
+        return limiter.open_streams, side.closed
+
+    assert run(scenario) == (0, True)
