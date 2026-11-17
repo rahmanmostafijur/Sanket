@@ -37,6 +37,7 @@ BRANCH_ORDER = (
     "feat/m7-sse",
     "feat/m8-hardening",
     "feat/m9-integration",
+    "fix/predeploy-hardening",
 )
 BASE_BRANCH = "main"
 TODO_MARKER = "<!-- TODO-ORCH: one-line summary -->"
