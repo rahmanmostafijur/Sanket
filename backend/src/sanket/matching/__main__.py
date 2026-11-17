@@ -24,6 +24,7 @@ from sqlalchemy import Engine
 from sanket.config import Settings, settings
 from sanket.db import engine
 from sanket.embeddings.client import EmbeddingClient
+from sanket.feed.notifier import notifier_from_settings
 from sanket.matching.config import config_from_settings
 from sanket.matching.notify import MatchNotifier, NoopNotifier
 from sanket.matching.tasks import MatchTaskDeps, build_registry, gemini_client_from_settings
@@ -224,6 +225,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         embedder=gemini_client_from_settings(settings) if needs_embedder else None,
         db_engine=engine,
         now=datetime.now(UTC),
+        notifier=notifier_from_settings(settings),
     )
     raise SystemExit(execute(args, ctx))
 

@@ -28,6 +28,7 @@ from sanket.config import Settings, settings
 from sanket.db import engine
 from sanket.embeddings.client import EmbeddingClient, EmbeddingError, spec_of
 from sanket.embeddings.gemini import GeminiEmbeddingClient
+from sanket.feed.notifier import notifier_from_settings
 from sanket.matching.config import MatchConfig, config_from_settings
 from sanket.matching.notify import MatchNotifier, NoopNotifier
 from sanket.matching.service import match_job, match_profile
@@ -163,13 +164,17 @@ def registry_from_settings(
     notifier: MatchNotifier | None = None,
     db_engine: Engine = engine,
 ) -> TaskRegistry:
-    """The production registry; every dependency can be replaced for tests."""
+    """The production registry; every dependency can be replaced for tests.
+
+    Without a notifier, new matches are published to Redis when REDIS_URL is set (the live feed)
+    and announced to nobody otherwise.
+    """
     return build_registry(
         MatchTaskDeps(
             cfg=config_from_settings(config),
             embedder=embedder if embedder is not None else gemini_client_from_settings(config),
             queue=queue,
-            notifier=notifier if notifier is not None else NoopNotifier(),
+            notifier=notifier if notifier is not None else notifier_from_settings(config),
             db_engine=db_engine,
         )
     )
