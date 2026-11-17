@@ -17,5 +17,23 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+  # The task queue (RQ) and, in the next phase, the live match feed. Append-only persistence
+  # keeps queued tasks across a restart. Bound to localhost like the database.
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
 volumes:
   postgres_data:
+  redis_data:
