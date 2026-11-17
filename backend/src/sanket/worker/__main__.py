@@ -10,7 +10,7 @@ from collections.abc import Sequence
 
 from sanket.config import settings
 from sanket.observability.logs import configure_logging
-from sanket.runtime_checks import check_worker
+from sanket.runtime_checks import ConfigError, check_worker
 from sanket.worker.run import run_worker
 
 
@@ -30,7 +30,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def main(argv: Sequence[str] | None = None) -> None:
     configure_logging()
     args = parse_args(argv)
-    check_worker(settings)
+    try:
+        check_worker(settings)
+    except ConfigError as error:
+        raise SystemExit(f"{error}") from None
     run_worker(settings, burst=args.burst, simple=args.simple)
 
 

@@ -1,3 +1,29 @@
+x-app-env: &app-env
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+  REDIS_URL: redis://redis:6379/0
+  API_HOST: 0.0.0.0
+  API_PORT: "8000"
+
+x-app: &app
+  build:
+    context: ./backend
+    args:
+      WITH_OTEL: ${WITH_OTEL:-false}
+  image: sanket-backend:${SANKET_IMAGE_TAG:-local}
+  env_file:
+    - path: .env
+      required: false
+  environment: *app-env
+  restart: unless-stopped
+  # The application process must not be able to write to its own filesystem.
+  read_only: true
+  tmpfs:
+    - /tmp
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+
 services:
   db:
     image: pgvector/pgvector:pg17
@@ -6,7 +32,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "127.0.0.1:5433:5432"
+      - "127.0.0.1:${DB_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -24,7 +50,7 @@ services:
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "127.0.0.1:6379:6379"
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     restart: unless-stopped
@@ -34,6 +60,125 @@ services:
       timeout: 3s
       retries: 5
 
+  # ---- application processes (build: backend/Dockerfile) -------------------------------
+  # The settings come from .env, as for local runs. The connection URLs are the exception: they
+  # are rebuilt here so the containers reach the db and redis services by name. A password with
+  # URL-special characters (@ : / %) must be percent-encoded in POSTGRES_PASSWORD for that.
+  # Start the stack with:  docker compose up -d --build api worker
+  # Without a .env nothing is read from it: set the variables in the shell instead.
+
+  # Applies the migrations once and exits; the api and the worker wait for it.
+  migrate:
+    <<: *app
+    command: ["migrate"]
+    restart: "no"
+    healthcheck:
+      disable: true
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    <<: *app
+    command: ["api"]
+    ports:
+      - "127.0.0.1:${API_HOST_PORT:-8000}:8000"
+    environment:
+      <<: *app-env
+      READYZ_CHECK_MIGRATIONS: "true"
+    # The image's own HEALTHCHECK probes /healthz.
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  # Embeds profiles and matches jobs from the task queue (docs/matching.md).
+  worker:
+    <<: *app
+    command: ["worker"]
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import os, redis; redis.Redis.from_url(os.environ['REDIS_URL'], socket_timeout=3).ping()"
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  # One-shot jobs: `docker compose --profile jobs run --rm ingest`. Any other command of the
+  # image works the same way, for example `docker compose run --rm worker dlq list`.
+  ingest:
+    <<: *app
+    profiles: ["jobs"]
+    command: ["ingest"]
+    restart: "no"
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  # ---- observability (docker compose --profile observability up -d) -----------------------
+  # Needs METRICS_TOKEN in .env and the same value in ops/observability/secrets/metrics_token
+  # (docs/deploy.md). Ports are bound to localhost.
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    profiles: ["observability"]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./ops/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./ops/observability/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    secrets:
+      - metrics_token
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    profiles: ["observability"]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./ops/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./ops/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  # Receives traces from the api when OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+  # (build the image with WITH_OTEL=true).
+  otel-collector:
+    image: otel/opentelemetry-collector:0.116.1
+    profiles: ["observability"]
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./ops/observability/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    restart: unless-stopped
+
+secrets:
+  metrics_token:
+    file: ./ops/observability/secrets/metrics_token
+
 volumes:
   postgres_data:
   redis_data:
+  prometheus_data:
+  grafana_data:
