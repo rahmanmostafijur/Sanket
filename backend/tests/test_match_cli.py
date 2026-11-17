@@ -24,6 +24,7 @@ from sanket.queue.tasks import (
 )
 from tests.index_helpers import SPEC, set_posting_count
 from tests.match_helpers import (
+    RecordingNotifier,
     ScriptedQueryClient,
     add_profile,
     index_all,
@@ -411,3 +412,16 @@ def test_main_builds_its_context_from_the_settings_and_exits_with_the_code(
 def test_job_work_helper_is_empty_without_jobs(clean_db: Engine) -> None:
     with clean_db.connect() as conn:
         assert job_work(conn, SPEC) == []
+
+
+def test_an_inline_run_announces_new_matches_to_the_notifier_of_the_context(
+    clean_db: Engine,
+) -> None:
+    job_id = seed_job(clean_db, title="Backend Engineer")
+    index_all(clean_db)
+    add_profile(clean_db, summary=SUMMARY)
+    notifier = RecordingNotifier()
+
+    run(["rematch", "--all-jobs", "--apply", "--inline"], clean_db, notifier=notifier)
+
+    assert [record.job_id for record in notifier.records] == [job_id]

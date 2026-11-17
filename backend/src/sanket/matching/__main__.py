@@ -16,7 +16,7 @@ non-zero when anything failed or could not be queued.
 import argparse
 import logging
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import Engine
@@ -25,6 +25,7 @@ from sanket.config import Settings, settings
 from sanket.db import engine
 from sanket.embeddings.client import EmbeddingClient
 from sanket.matching.config import config_from_settings
+from sanket.matching.notify import MatchNotifier, NoopNotifier
 from sanket.matching.tasks import MatchTaskDeps, build_registry, gemini_client_from_settings
 from sanket.matching.work import (
     WorkItem,
@@ -105,6 +106,7 @@ class CliContext:
     embedder: EmbeddingClient | None
     db_engine: Engine
     now: datetime
+    notifier: MatchNotifier = field(default_factory=NoopNotifier)
 
 
 @dataclass(frozen=True)
@@ -167,6 +169,7 @@ def _run_inline(items: Sequence[WorkItem], ctx: CliContext) -> Outcome:
             cfg=config_from_settings(ctx.config),
             embedder=ctx.embedder,
             queue=chained,
+            notifier=ctx.notifier,
             db_engine=ctx.db_engine,
         )
     )
