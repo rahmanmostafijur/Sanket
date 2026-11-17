@@ -164,6 +164,17 @@ class Settings(BaseSettings):
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     log_format: Literal["json", "text"] | None = None
 
+    # Rate limiting (docs/adr/0009-rate-limiting.md): requests per window for each caller (the
+    # owner when authenticated, else the client address). Redis-backed when REDIS_URL is set,
+    # per process otherwise. Search is dearer (an embedding call) and has its own limit.
+    # TRUSTED_PROXY_HOPS is how many reverse proxies append to X-Forwarded-For in front of the
+    # API (0: use the connection address, which is the only safe value without a proxy).
+    rate_limit_enabled: bool = True
+    rate_limit_window_seconds: int = Field(default=60, ge=1, le=3600)
+    rate_limit_default_requests: int = Field(default=120, ge=1)
+    rate_limit_search_requests: int = Field(default=30, ge=1)
+    trusted_proxy_hops: int = Field(default=0, ge=0, le=5)
+
     # Authentication (docs/adr/0008-authentication.md). Callers send `Authorization: Bearer`
     # with a JWT (signed with AUTH_JWT_SECRET, or by a provider whose keys are at
     # AUTH_JWKS_URL) or one of the static AUTH_API_KEYS (`owner=key,owner2=key2`). The token

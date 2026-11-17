@@ -21,6 +21,7 @@ from sqlalchemy import Engine
 
 from sanket.api.deps import ApiContext
 from sanket.api.errors import install_error_handlers
+from sanket.api.limits import RateLimit
 from sanket.api.middleware import RequestContextMiddleware
 from sanket.api.routers import auth as auth_router
 from sanket.api.routers import profiles as profiles_router
@@ -33,6 +34,9 @@ from sanket.db import engine as default_engine
 from sanket.embeddings.client import EmbeddingClient, spec_of
 from sanket.queue.base import TaskQueue
 from sanket.queue.connection import task_queue_from_settings
+from sanket.ratelimit.factory import limiter_from_settings
+from sanket.ratelimit.limiter import RateLimiter
+from sanket.ratelimit.policy import limits_from_settings
 from sanket.runtime_checks import check_api
 from sanket.search.cache import QueryEmbeddingCache
 from sanket.search.client import query_embedding_client
@@ -64,6 +68,7 @@ def create_app(
     db_engine: Engine | None = None,
     embedding_client: EmbeddingClient | None | _UseSettings = USE_SETTINGS,
     task_queue: TaskQueue | None | _UseSettings = USE_SETTINGS,
+    rate_limiter: RateLimiter | None | _UseSettings = USE_SETTINGS,
     dependencies: Sequence[Depends] = (),
 ) -> FastAPI:
     config = settings or default_settings
@@ -95,10 +100,17 @@ def create_app(
         authenticator=authenticator_from_settings(config),
         stream_tokens=_stream_tokens(config),
         search_public=config.search_public,
+        limiter=(
+            limiter_from_settings(config)
+            if isinstance(rate_limiter, _UseSettings)
+            else rate_limiter
+        ),
+        rate_limits=limits_from_settings(config),
     )
     app.state.context = context
     guard = list(dependencies)
-    app.include_router(search_router.router, dependencies=guard)
-    app.include_router(profiles_router.router, dependencies=guard)
-    app.include_router(auth_router.router, dependencies=guard)
+    standard = [Depends(RateLimit("default")), *guard]
+    app.include_router(search_router.router, dependencies=[Depends(RateLimit("search")), *guard])
+    app.include_router(profiles_router.router, dependencies=standard)
+    app.include_router(auth_router.router, dependencies=standard)
     return app

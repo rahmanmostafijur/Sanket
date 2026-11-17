@@ -80,6 +80,7 @@ module = [
     "sanket.runtime_checks",
     "sanket.auth.*",
     "sanket.observability.*",
+    "sanket.ratelimit.*",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
