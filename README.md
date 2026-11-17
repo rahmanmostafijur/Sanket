@@ -55,10 +55,11 @@ Sources (RemoteOK, Remotive, We Work Remotely, Jobicy, Himalayas,
 | ORM and migrations | SQLAlchemy 2.0, Alembic, psycopg 3 |
 | Search index | PostgreSQL full-text (tsvector), pgvector (HNSW) |
 | API | FastAPI, uvicorn |
+| Task queue | RQ on Redis (fakeredis in tests) |
 | Scheduling | GitHub Actions (cron) |
 | Testing | pytest |
 
-**Planned:** Redis workers, React + TypeScript,
+**Planned:** React + TypeScript,
 OpenTelemetry, Prometheus, Grafana.
 
 ## Status
@@ -69,7 +70,9 @@ OpenTelemetry, Prometheus, Grafana.
   descriptions and validated against a schema. *(in progress)*
 - [x] **Hybrid search.** Filterable full-text and vector retrieval fused by rank,
   behind `GET /search`, with an evaluation harness. Search quality is not tuned yet.
-- [ ] Matching and real-time feed
+- [x] **Profiles and matching.** Saved profiles are embedded and scored against jobs
+  from both sides on a task queue. Thresholds are not tuned yet.
+- [ ] Real-time match feed
 - [ ] Self-hosted deployment with CI/CD and observability
 
 ## Getting started
@@ -208,6 +211,25 @@ source and carries the credit line the source asks for. The design is in
 recall, precision, MRR and nDCG against a labelled query file; see
 [docs/search-evaluation.md](docs/search-evaluation.md). About 100 labelled pairs
 are needed before any tuning.
+
+## Profiles and matching
+
+A profile (`POST /profiles`) says what someone looks for: desired titles, required and
+preferred skills, seniority, work mode, employment type, countries and a summary.
+Saving it queues its embedding; a worker (`python -m sanket.worker`) embeds it behind a
+hash gate and matches it against recent jobs, and every applied indexing run queues
+matching for the jobs it changed. A job passes the profile's hard filters (a job
+whose value is unknown passes and is annotated), then its score blends the embedding
+similarity, skill overlap and title words. Matches are stored with an explanation,
+are idempotent, and are withdrawn rather than deleted when a job stops fitting;
+`GET /profiles/{id}/matches` pages through them. New matches are announced to a
+`MatchNotifier` hook after the commit (the live feed of the next phase implements it).
+`python -m sanket.matching embed-profiles` and `rematch` queue or run the work again,
+including without Redis (`--inline`). The design is in
+[docs/adr/0006-profiles-and-matching.md](docs/adr/0006-profiles-and-matching.md), the
+queue in [docs/adr/0005-task-queue.md](docs/adr/0005-task-queue.md), and running and
+tuning it in [docs/matching.md](docs/matching.md). Scoring defaults are reasoned
+starting points, not tuned values.
 
 ## Database migrations
 
