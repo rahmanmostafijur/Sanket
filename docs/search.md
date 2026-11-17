@@ -12,8 +12,11 @@ From `backend/`:
 python -m sanket.api        # serves on API_HOST:API_PORT, default 127.0.0.1:8000
 ```
 
-It binds to loopback unless you change `API_HOST`; there is no authentication
-yet, so do not expose it. Interactive documentation is at `/docs` and the
+It binds to loopback unless you change `API_HOST`. Requests need
+`Authorization: Bearer <JWT or API key>` unless `SEARCH_PUBLIC=true` (for local work
+`AUTH_DEV_BYPASS=true`, see [adr/0008-authentication.md](adr/0008-authentication.md)), and
+are rate limited ([adr/0009-rate-limiting.md](adr/0009-rate-limiting.md)). Errors use the
+envelope `{"error": {"code", "message", "request_id", "details"}}`. Interactive documentation is at `/docs` and the
 OpenAPI document at `/openapi.json`. The index must exist first (`python -m
 sanket.indexing --apply`), and the server checks at startup that
 `EMBEDDING_DIMENSIONS` matches the vector column.
@@ -43,7 +46,7 @@ There is no salary filter: extracted salaries are not normalised to one currency
 and period, so they could not be compared fairly (ADR 0004). The amounts are in
 each result.
 
-Unknown parameters, bad values and a NUL character are rejected with `422`.
+Unknown parameters, bad values and a NUL character are rejected with `422` (the problems are in `error.details`).
 
 Example:
 

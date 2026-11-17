@@ -124,7 +124,7 @@ run's exit code and summary are unchanged; run `rematch --all-jobs --apply` afte
 | `MATCH_RECENT_JOB_DAYS` | `30` | Age limit of the jobs examined for a changed profile. |
 | `MATCH_MAX_JOBS_PER_PROFILE` | `200` | Jobs examined for a changed profile. |
 | `MAX_PROFILES_PER_OWNER` | `20` | Profiles an owner may have. |
-| `DEFAULT_OWNER_ID` | `default` | Owner of every request until authentication exists. |
+| `DEFAULT_OWNER_ID` | `default` | Owner of requests without a credential, only with `AUTH_DEV_BYPASS=true` and `ENVIRONMENT=development` (ADR 0008). Otherwise the owner is the authenticated token subject. |
 | `REDIS_URL`, `QUEUE_*`, `REDIS_TIMEOUT_SECONDS` | see `.env.example` | The queue (ADR 0005). |
 
 Embedding settings are shared with indexing (`EMBEDDING_*`, `HNSW_EF_SEARCH`).

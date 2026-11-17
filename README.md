@@ -73,7 +73,10 @@ OpenTelemetry, Prometheus, Grafana.
 - [x] **Profiles and matching.** Saved profiles are embedded and scored against jobs
   from both sides on a task queue. Thresholds are not tuned yet.
 - [ ] Real-time match feed
-- [ ] Self-hosted deployment with CI/CD and observability
+- [x] **Hardening.** Authentication, rate limiting, structured logs, one error format,
+  probes, metrics, tracing hooks, container images and runbooks. *(configured and tested
+  locally; nothing is deployed yet)*
+- [ ] Self-hosted deployment with CI/CD
 
 ## Getting started
 
@@ -199,8 +202,8 @@ and reading its summary is in [docs/indexing.md](docs/indexing.md).
 
 ## Search
 
-`python -m sanket.api` serves `GET /search` on `127.0.0.1:8000` (no authentication
-yet, so it binds to loopback). A query runs a full-text and a vector search, each
+`python -m sanket.api` serves `GET /search` on `127.0.0.1:8000` (it needs a bearer
+credential, see [Security and operations](#security-and-operations)). A query runs a full-text and a vector search, each
 pre-filtered by work mode, seniority, employment type, country, source, company,
 location, posting date and skills, and fuses the two ranked lists with
 Reciprocal Rank Fusion on ranks, not scores. If the query cannot be embedded,
@@ -230,6 +233,24 @@ including without Redis (`--inline`). The design is in
 queue in [docs/adr/0005-task-queue.md](docs/adr/0005-task-queue.md), and running and
 tuning it in [docs/matching.md](docs/matching.md). Scoring defaults are reasoned
 starting points, not tuned values.
+
+## Security and operations
+
+Every API route except the probes needs `Authorization: Bearer <JWT or API key>`; the
+token subject is the owner, and every profile and match query is scoped by it (another
+owner's profile is a 404). Callers are rate limited per owner or address, every response
+carries an `X-Request-ID`, and every error uses one JSON envelope. Logs are JSON lines
+with the request id and no credentials. `/healthz` and `/readyz` are the probes, and
+`/metrics` (Prometheus, behind its own token), alert rules and a Grafana dashboard live
+under `ops/observability/`. Tracing is optional OpenTelemetry. The backend ships as one
+non-root image (`backend/Dockerfile`) with a role per process, and Compose runs the
+migration job, API and worker. For local work set `ENVIRONMENT=development` and
+`AUTH_DEV_BYPASS=true` as `.env.example` does. Decisions are in
+[ADR 0008](docs/adr/0008-authentication.md) (authentication, including how the feed
+authenticates), [ADR 0009](docs/adr/0009-rate-limiting.md) and
+[ADR 0010](docs/adr/0010-observability.md). How to deploy, every setting, Neon setup and
+secrets are in [docs/deploy.md](docs/deploy.md); the release order, rollback, queue and
+alert handling and secret rotation are in [docs/runbook.md](docs/runbook.md).
 
 ## Database migrations
 
