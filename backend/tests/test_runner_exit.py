@@ -1,7 +1,8 @@
 """When `python -m sanket.extraction.runner` exits non-zero.
 
 No database and no network: `run_batch` and the Gemini client are replaced, and every Settings
-is built with `_env_file=None` so a local `.env` cannot change the outcome.
+a test uses is built with `_env_file=None` and explicit values, so a local `.env` cannot change
+the outcome.
 """
 
 import logging
@@ -70,7 +71,7 @@ def test_a_batch_with_nothing_attempted_passes() -> None:
     assert batch_failure(result(skipped=3), DEFAULT_RATIO) is None
 
 
-def test_skipped_postings_made_no_provider_call_so_they_are_not_attempts() -> None:
+def test_skipped_postings_are_not_counted_as_attempts() -> None:
     # 1 error in 4 attempts is 0.25; counting the 46 skipped postings would make it 0.02.
     assert batch_failure(result(ok=3, errors=1, skipped=46), DEFAULT_RATIO) is not None
 
@@ -101,7 +102,9 @@ def test_a_limit_of_one_fails_only_on_the_early_stop() -> None:
 # --- the setting --------------------------------------------------------------------------
 
 
-def test_the_limit_defaults_to_a_fifth() -> None:
+def test_the_limit_defaults_to_a_fifth(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("EXTRACTION_MAX_PROVIDER_ERROR_RATIO", raising=False)
+
     assert make_settings().extraction_max_provider_error_ratio == DEFAULT_RATIO
 
 

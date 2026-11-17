@@ -241,7 +241,7 @@ def extract_posting(
 @dataclass(frozen=True)
 class BatchResult:
     counts: Mapping[Outcome, int]
-    # The consecutive-errors guard ended the batch before every pending posting was tried.
+    # The consecutive-errors guard ended the batch (any postings after it were not tried).
     stopped_early: bool = False
 
 
@@ -263,7 +263,8 @@ def run_batch(
 
 
 def attempted_postings(counts: Mapping[Outcome, int]) -> int:
-    """Postings the provider was asked about; a skipped posting made no call."""
+    """Postings the run tried to extract. Skipped ones (no longer pending, or the result was
+    stale and not stored) are left out."""
     return sum(n for outcome, n in counts.items() if outcome is not Outcome.SKIPPED)
 
 

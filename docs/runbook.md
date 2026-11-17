@@ -116,8 +116,8 @@ Exit status: a provider error (quota, outage, bad key) stores nothing, so that
 posting stays pending and the next run retries it. The command exits non-zero
 only when the run stopped early (three provider errors in a row) or when
 `provider_error` is more than `EXTRACTION_MAX_PROVIDER_ERROR_RATIO` of the
-postings it attempted, that is `ok + failed + provider_error` (`skipped` made
-no call and is not counted). The default is `0.2`. Below the limit the run
+postings it attempted, that is `ok + failed + provider_error` (`skipped`
+postings, already extracted or changed mid-run, are not counted). The default is `0.2`. Below the limit the run
 exits 0 and logs a warning such as `1 of 50 attempted postings hit a provider
 error (ratio 0.02, limit 0.20); they stay pending for the next run`. A red
 run therefore means the provider is really failing, not that one request hit
