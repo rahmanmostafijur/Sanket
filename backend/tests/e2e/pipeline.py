@@ -18,13 +18,10 @@ LIVE FEED: `build_feed_stack` builds the stack with the real `RedisMatchNotifier
 a fake Redis (`Stack.redis`), and `api_app` gives the app whose streams subscribe to it. The
 stage itself is in `tests/e2e/test_feed_e2e.py`, with the ASGI stream client in `sse.py`.
 
-EXTENSION POINT (authenticated requests, phase 8, not built yet). `api_app` and `api_client`
-forward `dependencies` (FastAPI dependencies applied to every route) and any `Settings`
-overrides to `create_app`; pass the auth dependency and the auth settings there, and send the
-credentials as headers (`TestClient(headers=...)`, or the `headers` argument of `sse.open_sse`).
-Profile calls must then be made as two different users to assert scoping; until then
-`api_client(stack, default_owner_id="someone")` is how a second owner is simulated. Add the new
-stage as a new test module next to `test_feed_e2e.py` and reuse `run_pipeline` unchanged.
+AUTHENTICATION: `build_auth_stack` builds a feed stack whose app needs real credentials (bearer
+JWTs, an API key, stream tokens; no development bypass). The stage is in
+`tests/e2e/test_auth_e2e.py`. Every other stack uses `auth_dev_bypass`, so its requests act as
+`default_owner_id` (`api_client(stack, default_owner_id="someone")` simulates a second owner).
 """
 
 import json
@@ -55,6 +52,7 @@ from sanket.models import Job, JobEmbedding, JobMatch, Posting
 from sanket.queue.memory import InMemoryTaskQueue
 from sanket.sources.base import Source
 from sanket.storage import save_postings
+from tests import auth_helpers
 from tests.e2e.data import EXTRACTIONS
 from tests.feed_helpers import PREFIX as FEED_PREFIX
 from tests.feed_helpers import FakeRedisSide
@@ -65,6 +63,8 @@ from tests.source_helpers import json_handler, make_fetcher
 from tests.test_llm import ScriptedClient
 
 OWNER = "e2e-owner"
+# The owner the static API key of the authenticated stack belongs to.
+API_KEY_OWNER = "ops"
 # The fake embedding is a bag of hashed words, so its cosines are small and say little about
 # fit. These thresholds let the profile's hard filters decide, which is what the tests assert.
 # The window is wide so the recorded (fixed) dates never age out of "recent jobs".
@@ -122,6 +122,10 @@ def build_stack(
             "embedding_model_version": SPEC.model_version,
             "embedding_dimensions": SPEC.dimensions,
             "default_owner_id": OWNER,
+            # Requests without credentials act as `default_owner_id` unless a test is about
+            # authentication and builds its stack with `auth_dev_bypass=False` (see
+            # `build_auth_stack`).
+            "auth_dev_bypass": True,
             **settings,
         }
     )
@@ -135,7 +139,7 @@ def build_stack(
     )
 
 
-def build_feed_stack(engine: Engine) -> Stack:
+def build_feed_stack(engine: Engine, **settings: Any) -> Stack:
     """A stack whose notifier is the real `RedisMatchNotifier` on a fake Redis, and whose app
     streams from that same Redis. Intervals are tiny so nothing waits."""
     redis = FakeRedisSide()
@@ -145,8 +149,22 @@ def build_feed_stack(engine: Engine) -> Stack:
         feed_channel_prefix=FEED_PREFIX,
         feed_heartbeat_seconds=HEARTBEAT_SECONDS,
         feed_db_poll_seconds=0.02,
+        **settings,
     )
     return replace(stack, redis=redis)
+
+
+def build_auth_stack(engine: Engine, **settings: Any) -> Stack:
+    """A feed stack whose app needs real credentials: bearer JWTs (HS256), one API key and
+    stream tokens, and no development bypass (see `tests/auth_helpers.py` for the credentials)."""
+    return build_feed_stack(
+        engine,
+        auth_dev_bypass=False,
+        auth_jwt_secret=auth_helpers.SECRET,
+        auth_api_keys=f"{API_KEY_OWNER}={auth_helpers.API_KEY}",
+        auth_stream_token_secret=auth_helpers.STREAM_SECRET,
+        **settings,
+    )
 
 
 # -- the pipeline, one stage at a time ----------------------------------------------------------
@@ -243,38 +261,52 @@ def api_client(stack: Stack, dependencies: Sequence[Depends] = (), **settings: A
     return TestClient(api_app(stack, dependencies, **settings))
 
 
-def search(client: TestClient, q: str, **params: Any) -> dict[str, Any]:
-    response = client.get("/search", params={"q": q, **params})
+# The calls below take the credentials of an authenticated stack as `headers`; stacks that
+# use the development bypass need none.
+Headers = Mapping[str, str] | None
+
+
+def search(client: TestClient, q: str, headers: Headers = None, **params: Any) -> dict[str, Any]:
+    response = client.get("/search", params={"q": q, **params}, headers=headers)
     assert response.status_code == 200, response.text
     body: dict[str, Any] = response.json()
     return body
 
 
-def search_titles(client: TestClient, q: str, **params: Any) -> list[str]:
-    return [item["title"] for item in search(client, q, **params)["items"]]
+def search_titles(client: TestClient, q: str, headers: Headers = None, **params: Any) -> list[str]:
+    return [item["title"] for item in search(client, q, headers, **params)["items"]]
 
 
-def create_profile(client: TestClient, body: Mapping[str, Any]) -> dict[str, Any]:
-    response = client.post("/profiles", json=body)
+def create_profile(
+    client: TestClient, body: Mapping[str, Any], headers: Headers = None
+) -> dict[str, Any]:
+    response = client.post("/profiles", json=body, headers=headers)
     assert response.status_code == 201, response.text
     created: dict[str, Any] = response.json()
     return created
 
 
 def matches_of(
-    client: TestClient, profile_id: int, *, include_withdrawn: bool = False
+    client: TestClient,
+    profile_id: int,
+    *,
+    include_withdrawn: bool = False,
+    headers: Headers = None,
 ) -> list[dict[str, Any]]:
     response = client.get(
         f"/profiles/{profile_id}/matches",
         params={"include_withdrawn": include_withdrawn, "limit": 100},
+        headers=headers,
     )
     assert response.status_code == 200, response.text
     items: list[dict[str, Any]] = response.json()["items"]
     return items
 
 
-def matched_titles(client: TestClient, profile_id: int) -> list[str]:
-    return sorted(match["job"]["title"] for match in matches_of(client, profile_id))
+def matched_titles(client: TestClient, profile_id: int, headers: Headers = None) -> list[str]:
+    return sorted(
+        match["job"]["title"] for match in matches_of(client, profile_id, headers=headers)
+    )
 
 
 # -- reading and changing the database ----------------------------------------------------------
