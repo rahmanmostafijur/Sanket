@@ -155,6 +155,32 @@ class Settings(BaseSettings):
     match_recent_job_days: int = Field(default=30, ge=1, le=365)
     match_max_jobs_per_profile: int = Field(default=200, ge=1, le=5000)
 
+    # The live match feed (see docs/adr/0007-live-match-feed.md). The worker publishes each new
+    # match to a Redis channel per profile (`<prefix>:<profile id>`); the API streams them as
+    # Server-Sent Events. Without REDIS_URL nothing is published and streams poll the database.
+    feed_channel_prefix: str = Field(
+        default="sanket:matches", min_length=1, max_length=100, pattern=r"^[A-Za-z0-9_:.-]+$"
+    )
+    # A comment line is sent after this long without an event, so proxies keep the stream open.
+    feed_heartbeat_seconds: float = Field(default=15.0, gt=0, le=300)
+    # Reconnect delay suggested to the client (the SSE `retry:` field).
+    feed_retry_ms: int = Field(default=3000, ge=100, le=600_000)
+    # Matches read per database query when resuming after Last-Event-ID, and events handled
+    # per round of the live loop.
+    feed_replay_batch_size: int = Field(default=100, ge=1, le=1000)
+    # Events a connection may have waiting to be sent. A client that falls further behind is
+    # disconnected and resumes with Last-Event-ID.
+    feed_buffer_size: int = Field(default=100, ge=1, le=10_000)
+    # Open streams per API process, and per profile.
+    feed_max_streams: int = Field(default=200, ge=1, le=100_000)
+    feed_max_streams_per_profile: int = Field(default=5, ge=1, le=1000)
+    # Without Redis, or when it is down at connect time, a stream asks the database for new
+    # matches this often.
+    feed_db_poll_seconds: float = Field(default=5.0, gt=0, le=300)
+    # A stream is closed after this long and the client reconnects (EventSource does it on its
+    # own), which also hands the connection to a newer API process after a deploy.
+    feed_max_stream_seconds: float = Field(default=3600.0, gt=0)
+
     # The API server. Loopback by default; bind to another address deliberately.
     api_host: str = "127.0.0.1"
     api_port: int = Field(default=8000, ge=1, le=65535)

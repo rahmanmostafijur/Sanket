@@ -4,7 +4,9 @@ Everything the app depends on is passed in, so tests run it against the test dat
 fake embedding client and nothing global is touched at import time. Omit `embedding_client`
 to build the real one from the settings (or none, without a key); pass None to disable
 embeddings explicitly. `task_queue` works the same way (the Redis queue when REDIS_URL is set,
-else none); the profile endpoints queue their embedding work on it.
+else none); the profile endpoints queue their embedding work on it. `feed_redis` opens the
+Redis clients the live match feed subscribes with (none without REDIS_URL, and the streams then
+poll the database).
 
 Authentication is built from the settings (`sanket.auth`, docs/adr/0008-authentication.md);
 `dependencies` is applied to every API route on top of it. The settings are checked first
@@ -25,6 +27,7 @@ from sanket.api.health import ReadinessProbe, checks_from_settings
 from sanket.api.limits import RateLimit
 from sanket.api.middleware import RequestContextMiddleware
 from sanket.api.routers import auth as auth_router
+from sanket.api.routers import feed as feed_router
 from sanket.api.routers import ops as ops_router
 from sanket.api.routers import profiles as profiles_router
 from sanket.api.routers import search as search_router
@@ -34,6 +37,10 @@ from sanket.config import Settings
 from sanket.config import settings as default_settings
 from sanket.db import engine as default_engine
 from sanket.embeddings.client import EmbeddingClient, spec_of
+from sanket.feed.config import config_from_settings as feed_config_from_settings
+from sanket.feed.connection import redis_factory_from_settings
+from sanket.feed.limits import StreamLimiter
+from sanket.feed.subscription import RedisFactory
 from sanket.observability.metrics import ApiMetrics
 from sanket.observability.tracing import setup_tracing
 from sanket.queue.base import TaskQueue
@@ -88,6 +95,7 @@ def create_app(
     task_queue: TaskQueue | None | _UseSettings = USE_SETTINGS,
     rate_limiter: RateLimiter | None | _UseSettings = USE_SETTINGS,
     dependencies: Sequence[Depends] = (),
+    feed_redis: RedisFactory | None | _UseSettings = USE_SETTINGS,
 ) -> FastAPI:
     config = settings or default_settings
     check_api(config)
@@ -102,6 +110,7 @@ def create_app(
             f"the embedding client produces {spec_of(client)} but the index is searched with "
             f"{search_config.spec}"
         )
+    feed_config = feed_config_from_settings(config)
     app = FastAPI(title=API_TITLE, version=API_VERSION)
     install_error_handlers(app)
     engine_in_use = db_engine or default_engine
@@ -118,6 +127,13 @@ def create_app(
         task_queue=queue,
         default_owner_id=config.default_owner_id,
         max_profiles_per_owner=config.max_profiles_per_owner,
+        feed_config=feed_config,
+        feed_limiter=StreamLimiter(feed_config.max_streams, feed_config.max_streams_per_profile),
+        feed_redis=(
+            redis_factory_from_settings(config)
+            if isinstance(feed_redis, _UseSettings)
+            else feed_redis
+        ),
         authenticator=authenticator_from_settings(config),
         stream_tokens=_stream_tokens(config),
         search_public=config.search_public,
@@ -139,6 +155,8 @@ def create_app(
     app.include_router(search_router.router, dependencies=[Depends(RateLimit("search")), *guard])
     app.include_router(profiles_router.router, dependencies=standard)
     app.include_router(auth_router.router, dependencies=standard)
+    # Streams are exempt from the per-request rate limit; the feed caps open streams instead.
+    app.include_router(feed_router.router, dependencies=guard)
     app.include_router(ops_router.router)
     setup_tracing(app, engine_in_use, config)
     return app

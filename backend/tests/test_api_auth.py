@@ -1,6 +1,6 @@
 """Authentication and authorization through the API: 401, 403, 404 and owner isolation."""
 
-from typing import Annotated, Any
+from typing import Any
 
 import pytest
 from fastapi import Depends
@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
 from sanket.api import create_app
-from sanket.api.deps import get_owner_id
 from sanket.auth.stream_token import StreamTokens, feed_path
 from sanket.embeddings.fake import FakeEmbeddingClient
 from tests.auth_helpers import (
@@ -197,16 +196,21 @@ def test_the_dev_bypass_cannot_be_started_in_production(clean_db: Engine) -> Non
 
 
 def stream_app(engine: Engine, **overrides: Any) -> TestClient:
-    """The app plus a stand-in for the feed route, which uses get_owner_id like the real one."""
-    app = create_app(
-        settings(auth_stream_token_secret=STREAM_SECRET, **overrides), engine, FakeEmbeddingClient()
-    )
-
-    def stream(profile_id: int, owner: Annotated[str, Depends(get_owner_id)]) -> dict[str, Any]:
-        return {"owner": owner, "profile_id": profile_id}
-
-    app.add_api_route("/profiles/{profile_id}/matches/stream", stream)
+    """The app with the real feed route. A test client collects the whole response, so the
+    stream is made to end by itself after a fraction of a second."""
+    values: dict[str, Any] = {
+        "auth_stream_token_secret": STREAM_SECRET,
+        "feed_max_stream_seconds": 0.2,
+        "feed_heartbeat_seconds": 0.05,
+        "feed_db_poll_seconds": 0.02,
+        **overrides,
+    }
+    app = create_app(settings(**values), engine, FakeEmbeddingClient(), task_queue=None)
     return TestClient(app)
+
+
+def is_event_stream(response: Any) -> bool:
+    return response.status_code == 200 and "text/event-stream" in response.headers["content-type"]
 
 
 def mint(client: TestClient, profile_id: int, headers: dict[str, str] = ALICE) -> dict[str, Any]:
@@ -224,7 +228,7 @@ def test_a_minted_token_opens_the_stream_of_its_own_profile(clean_db: Engine) ->
     response = client.get(minted["path"], params={minted["query_parameter"]: minted["token"]})
 
     assert minted["path"] == feed_path(profile_id) and minted["expires_in"] == 60
-    assert response.json() == {"owner": "alice", "profile_id": profile_id}
+    assert is_event_stream(response)
 
 
 def test_a_stream_token_opens_nothing_else(clean_db: Engine) -> None:
@@ -260,11 +264,23 @@ def test_an_expired_stream_token_is_401(clean_db: Engine) -> None:
 
 
 def test_the_header_still_works_on_the_stream_path(clean_db: Engine) -> None:
+    bobs = own_profile(clean_db, "bob")
     client = stream_app(clean_db)
 
-    response = client.get(feed_path(3), headers=BOB)
+    own = client.get(feed_path(bobs), headers=BOB)
+    foreign = client.get(feed_path(bobs), headers=ALICE)
 
-    assert response.json()["owner"] == "bob"
+    assert is_event_stream(own)
+    assert foreign.status_code == 404
+
+
+def test_a_stream_token_cannot_be_minted_for_another_owners_profile(clean_db: Engine) -> None:
+    bobs = own_profile(clean_db, "bob")
+    client = stream_app(clean_db)
+
+    response = client.post("/auth/stream-token", json={"profile_id": bobs}, headers=ALICE)
+
+    assert response.status_code == 404
 
 
 def test_without_a_secret_stream_tokens_are_off(clean_db: Engine) -> None:

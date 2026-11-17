@@ -141,6 +141,20 @@ class MatchOut(BaseModel):
         )
 
 
+class MatchEventOut(MatchOut):
+    """The data of a live feed event: a match as listed, plus whether it just came back."""
+
+    reactivated: bool = Field(
+        description="True when a match that had been withdrawn is active again."
+    )
+
+    @classmethod
+    def from_match(cls, item: MatchItem, *, reactivated: bool) -> "MatchEventOut":
+        base = MatchOut.from_item(item)
+        fields = {name: getattr(base, name) for name in MatchOut.model_fields}
+        return cls(**fields, reactivated=reactivated)
+
+
 def _matched_job(item: MatchItem) -> MatchedJob | None:
     details = item.job
     if details is None:

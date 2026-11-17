@@ -83,6 +83,7 @@ module = [
     "sanket.queue.*",
     "sanket.profiles.*",
     "sanket.matching.*",
+    "sanket.feed.*",
     "sanket.worker.*",
     "sanket.runtime_checks",
     "sanket.auth.*",

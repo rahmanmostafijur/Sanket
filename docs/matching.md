@@ -16,6 +16,7 @@ python -m sanket.indexing --apply ──► job_embedding written ──► task
                           └─ job removed as dead ──► task match_job (withdraw) ──────────┘
                                                                                           │
                                                           MatchNotifier.notify (after commit)
+                                                          └─ RedisMatchNotifier ──► live feed (feed.md)
 ```
 
 - Saving a profile stores it and queues `embed_profile`. The embedding provider is
@@ -171,12 +172,22 @@ called once per new match (first match, or a withdrawn one that became active ag
 with `reactivated=True`) after the transaction that wrote it has committed, so the row
 is always readable. `notified_at` is set for the matches a hook call returned for. A
 hook that raises is logged and does not fail or retry the task; that match stays with
-`notified_at` NULL, which is also what a crash between commit and call leaves. The
-next phase implements the hook (publishing to Redis for the live feed) and a sweep for
-active matches whose `notified_at` is NULL. Hooks must be quick and must not assume
-exactly-once delivery.
+`notified_at` NULL, which is also what a crash between commit and call leaves. Hooks
+must be quick and must not assume exactly-once delivery.
 
-To wire one in, pass it as `notifier=` to `sanket.worker.run.run_worker` (from
-`sanket/worker/__main__.py`) and to `CliContext` in the `sanket.matching` command; both
-default to `NoopNotifier`, which accepts every match, so until a real hook exists
-`notified_at` is set for matches without anything having been published.
+The real hook is `sanket.feed.notifier.RedisMatchNotifier`: it publishes a small JSON
+pointer (match, profile and job ids, score, `reactivated`; nothing owner-private) to the
+Redis channel `<FEED_CHANNEL_PREFIX>:<profile id>`, and the live feed
+([feed.md](feed.md)) turns it into a Server-Sent Event. It is the default of the worker
+registry and of `python -m sanket.matching ... --inline` whenever `REDIS_URL` is set;
+without `REDIS_URL` the default is `NoopNotifier`, which accepts every match and
+publishes nothing. To use another hook, pass it as `notifier=` to
+`sanket.worker.run.run_worker` and to `CliContext` in the `sanket.matching` command.
+
+What `notified_at` means now: the hook returned, which for Redis means the `PUBLISH`
+was accepted. Publishing to a channel with no subscribers succeeds and counts as
+delivered, which is right: the row is the source of truth and a stream that connects
+later replays it from the database, and a connected stream also asks the database
+again after each idle heartbeat, so a lost message is not a lost match. NULL still marks
+a match whose publish failed. The sweep for those that an earlier note planned is not
+needed by the feed and is not built.

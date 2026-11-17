@@ -12,6 +12,9 @@ from sanket.auth.errors import AuthError
 from sanket.auth.principal import Principal
 from sanket.auth.stream_token import QUERY_PARAMETER, StreamTokens
 from sanket.embeddings.client import EmbeddingClient
+from sanket.feed.config import FeedConfig
+from sanket.feed.limits import StreamLimiter
+from sanket.feed.subscription import RedisFactory
 from sanket.observability.metrics import ApiMetrics
 from sanket.queue.base import TaskQueue
 from sanket.ratelimit.limiter import RateLimiter
@@ -31,6 +34,11 @@ class ApiContext:
     task_queue: TaskQueue | None
     default_owner_id: str
     max_profiles_per_owner: int
+    feed_config: FeedConfig
+    feed_limiter: StreamLimiter
+    # Opens a Redis client for one stream; None when Redis is not configured (streams then
+    # poll the database).
+    feed_redis: RedisFactory | None
     # Who a request is (see `get_principal`). The default accepts nobody.
     authenticator: Authenticator = field(default_factory=Authenticator)
     # None when stream tokens are not configured (see sanket.auth.stream_token).
