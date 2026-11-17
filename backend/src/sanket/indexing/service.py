@@ -19,10 +19,15 @@ they stay pending for the next run (nothing is stored, nothing retried in a loop
 the provider rejects as invalid is retried text by text to find the offender. After
 `MAX_CONSECUTIVE_FAILED_BATCHES` batches in a row fail completely (quota, outage, bad key)
 the run stops. Embeddings are written per batch, so an interrupted run loses nothing.
+
+A caller can pass `on_changes`, which an applied run calls once at the end with the jobs whose
+embedding was written (and the hash stored) and the jobs removed as dead, for example to queue
+their matching. It is not called for a dry run or a run that changed neither; an exception it
+raises is logged and changes nothing about the run or its summary.
 """
 
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
@@ -104,6 +109,23 @@ class IndexSummary:
         )
 
 
+@dataclass(frozen=True)
+class IndexChanges:
+    """What an applied run changed that other parts of the system may care about."""
+
+    # (job id, content hash of the embedding written), in job id order.
+    embedded: tuple[tuple[int, str], ...] = ()
+    # Ids of the jobs removed from the index because they have no postings left.
+    removed: tuple[int, ...] = ()
+
+    @property
+    def is_empty(self) -> bool:
+        return not (self.embedded or self.removed)
+
+
+IndexObserver = Callable[[IndexChanges], None]
+
+
 @dataclass
 class _Run:
     """Totals of one run. Internal to this module."""
@@ -118,9 +140,17 @@ class _Run:
     skipped_no_text: int = 0
     embedding_excluded: int = 0
     failed_ids: set[int] = field(default_factory=set)
+    embedded_hashes: dict[int, str] = field(default_factory=dict)
+    removed_ids: set[int] = field(default_factory=set)
     failed_batches_in_a_row: int = 0
     stopped: bool = False
     stopped_early: bool = False
+
+    def changes(self) -> IndexChanges:
+        return IndexChanges(
+            embedded=tuple(sorted(self.embedded_hashes.items())),
+            removed=tuple(sorted(self.removed_ids)),
+        )
 
     def summary(self) -> IndexSummary:
         return IndexSummary(
@@ -222,6 +252,7 @@ def _remove(run: _Run, plans: Sequence[JobPlan], db_engine: Engine) -> None:
         run.failed_ids.update(ids)
         return
     run.removed += len(ids)
+    run.removed_ids.update(ids)
 
 
 def _update_tsvectors(run: _Run, plans: Sequence[JobPlan], db_engine: Engine) -> None:
@@ -281,6 +312,7 @@ def _store_embeddings(
         run.failed_ids.update(write.job_id for write in writes)
         return
     run.embedded += len(writes)
+    run.embedded_hashes.update({write.job_id: write.content_hash for write in writes})
 
 
 def _embed_batch(
@@ -336,6 +368,17 @@ def _handle_page(
     _embed(run, client, plans, cfg, db_engine)
 
 
+def _report(run: _Run, on_changes: IndexObserver | None) -> None:
+    """Tell the observer what an applied run changed. Its failure must not fail the run."""
+    changes = run.changes()
+    if on_changes is None or not run.apply or changes.is_empty:
+        return
+    try:
+        on_changes(changes)
+    except Exception:  # the observer is outside the indexing's control
+        logger.exception("The indexing observer failed; the run itself is unaffected")
+
+
 def _prepare(
     cfg: IndexConfig, client: EmbeddingClient | None, apply: bool, db_engine: Engine
 ) -> None:
@@ -353,6 +396,7 @@ def index_pending(
     limit: int | None = None,
     apply: bool = False,
     db_engine: Engine = engine,
+    on_changes: IndexObserver | None = None,
 ) -> IndexSummary:
     """Index the first `limit` (default `cfg.batch_limit`) jobs that need work.
 
@@ -375,6 +419,7 @@ def index_pending(
             break
         _handle_page(run, client, sources, cfg, db_engine)
         last_id = sources[-1].job_id
+    _report(run, on_changes)
     return run.summary()
 
 
@@ -383,6 +428,7 @@ def index_jobs(
     cfg: IndexConfig,
     client: EmbeddingClient,
     db_engine: Engine = engine,
+    on_changes: IndexObserver | None = None,
 ) -> IndexSummary:
     """Index just these jobs and write the result, for callers that know what they touched.
 
@@ -402,4 +448,5 @@ def index_jobs(
                 job_ids=ids[start : start + cfg.scan_page_size],
             )
         _handle_page(run, client, sources, cfg, db_engine)
+    _report(run, on_changes)
     return run.summary()
