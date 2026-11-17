@@ -1,8 +1,8 @@
 # Backend status
 
-Draft written on 2026-11-17 on `feat/m9-integration` (phase 9a). Phases 1 to 6 are done and
-pushed. Phases 7, 8 and 9 are in progress and are completed by the orchestrator after the
-branches are combined. Nothing here has been deployed: no Neon connection, migration run or
+Draft written on 2026-11-17 on `feat/m9-integration` (phases 9a and the feed stage of 9b).
+Phases 1 to 7 are done and pushed. Phases 8 and 9 are in progress and are completed by the
+orchestrator after the branches are combined. Nothing here has been deployed: no Neon connection, migration run or
 VPS work has happened.
 
 Places to finish are marked `<!-- TODO-ORCH: ... -->`; find them with
@@ -23,22 +23,28 @@ end of the phase.
 | 4 | `feat/m4-index` | `search_vector` with GIN, `job_embedding` with HNSW, embedding client, indexing worker and CLI | 674 | done, pushed |
 | 5 | `feat/m5-search` | `GET /search` (full text and vector, RRF fusion, filters), evaluation harness | 899 | done, pushed |
 | 6 | `feat/m6-matcher` | profiles, RQ task queue, scorer, matcher, worker, matching CLI, indexing trigger, Redis in compose | 1286 | done, pushed |
-| 7 | `feat/m7-sse` | per-profile live match feed over Server-Sent Events (Redis pub/sub, resume from stored match ids, heartbeat, catch-up) | <!-- TODO-ORCH: count --> | in progress, to be completed by the orchestrator <!-- TODO-ORCH: state after review and gate --> |
+| 7 | `feat/m7-sse` | per-profile live match feed over Server-Sent Events (Redis pub/sub, resume from stored match ids, heartbeat, idle catch-up), ADR 0007, `docs/feed.md`, no migration | 1364 | done, pushed |
 | 8 | `feat/m8-hardening` | settings, auth, logging, rate limiting, health endpoints, Dockerfiles, full compose, observability, CI image builds, deploy docs and runbook | <!-- TODO-ORCH: count --> | in progress, to be completed by the orchestrator <!-- TODO-ORCH: state after review and gate --> |
-| 9 | `feat/m9-integration` | 9a (this branch): end-to-end pipeline test, smoke check, STATUS draft, status collector, README quickstart. 9b: feed and auth stages of the e2e test, compose up, final numbers | see below | 9a done on this branch; 9b in progress, to be completed by the orchestrator <!-- TODO-ORCH: 9b --> |
+| 9 | `feat/m9-integration` | 9a (this branch): end-to-end pipeline test, smoke check, STATUS draft, status collector, README quickstart. 9b: live feed stage of the e2e test (done, on top of phase 7); the authenticated-requests stage, compose up and final numbers are left | see below | 9a and the feed stage done on this branch; the rest in progress, to be completed by the orchestrator <!-- TODO-ORCH: 9b --> |
 
 Phase 9a added 64 tests (10 end-to-end, 24 smoke, 30 status collector) on top of the 1286 tests
-of phase 6, 1350 in all. <!-- TODO-ORCH: replace with the count after the rebase onto phases 7 and 8 -->
+of phase 6, 1350 in all, and 10 more (the live feed stage of the end-to-end test) once the
+branch was rebased onto phase 7: 1438 in all with phase 7's 1364. <!-- TODO-ORCH: replace with the count after the rebase onto phase 8 -->
 
 ### What exists, end to end
 
 sources (10 adapters) -> ingest with content-hash gate -> canonical jobs -> LLM extraction
 (validated, repair loop) -> index (full text and 768-dimension embeddings) -> hybrid search API
 -> profiles -> matching on a task queue (job side and profile side) -> stored, idempotent
-matches -> `MatchNotifier` hook. The live feed (phase 7) plugs into that hook.
-`backend/tests/e2e` runs the chain through phase 6 with recorded payloads and fakes.
+matches -> `MatchNotifier` hook -> live feed (phase 7): the worker (and `python -m sanket.matching
+--inline`) publish each new match to a Redis channel per profile when `REDIS_URL` is set
+(`RedisMatchNotifier`, built by `registry_from_settings`; no-op without Redis), and
+`GET /profiles/{id}/matches/stream` sends the stored row as a Server-Sent Event with the match id
+as the event id, resumes from `Last-Event-ID`, and catches up from the database when idle.
+`backend/tests/e2e` runs the chain with recorded payloads and fakes, including the feed on a
+fake Redis.
 
-<!-- TODO-ORCH: describe the integrated stack after phases 7 and 8 (feed, auth, compose) -->
+<!-- TODO-ORCH: describe the integrated stack after phase 8 (auth, compose) -->
 
 ## Architecture decision records
 
@@ -51,12 +57,12 @@ matches -> `MatchNotifier` hook. The live feed (phase 7) plugs into that hook.
 | 0004 | Search design | accepted | Full-text and vector candidates, each pre-filtered, fused by reciprocal rank (ranks, not scores); falls back to full text when the query cannot be embedded. |
 | 0005 | Task queue library | accepted | RQ 3 on Redis behind a small `TaskQueue` interface, fakeredis in tests, idempotent keyed tasks, retries with backoff and a dead-letter store. |
 | 0006 | Profiles and matching | accepted | A profile is criteria plus a name; jobs are scored from both sides with hard filters and a blended score, stored idempotently and withdrawn rather than deleted. |
+| 0007 | Live match feed | accepted | Per-profile Server-Sent Events fed by a Redis pointer per new match; the stream sends the stored row, resumes from `Last-Event-ID` over persisted match ids and catches up from the database when idle. |
 <!-- /AUTO:adr-list -->
 
-Coming from the other branches: 0007 (the live match feed, on `feat/m7-sse`) and 0008 onward
-(operations and hardening, on `feat/m8-hardening`). The table above is regenerated after the
+Coming from the other branch: 0008 onward (operations and hardening, on `feat/m8-hardening`). The table above is regenerated after the
 rebase and new rows get a TODO marker for their summary.
-<!-- TODO-ORCH: run collect_status.py after the rebase and write the summaries of 0007 and 0008+ -->
+<!-- TODO-ORCH: run collect_status.py after the rebase and write the summaries of 0008+ -->
 
 ## Migrations
 
@@ -101,10 +107,13 @@ named.
   Cloudflare postings into one job (`291c3b1`).
 - Two workers racing on a first match could both announce it; first matches are now inserted
   with ON CONFLICT DO NOTHING so only one announces (`25e0b8b`).
-- The live feed leaked the Redis subscription when a client disconnected, because the server's
-  cancellation abandoned the cleanup; found against a real Redis and fixed (`27fe278`).
+- The live feed leaked a Redis subscription on every client disconnect: the server cancels a
+  streaming response with a scope that cancels again at each await, so the cleanup was
+  abandoned half way. Found by running against a real Redis and uvicorn; fixed with a shielded,
+  time-bounded close and a test that cancels the same way (`27fe278`).
 - Redis pub/sub does not redeliver a lost message, so an idle stream now catches up from the
-  database (`660d3e1`).
+  database instead of waiting for the next event (`660d3e1`, an addition after the first
+  version rather than a reported failure).
 <!-- TODO-ORCH: add the bugs found in phases 8 and 9b -->
 
 ## Gate results
@@ -121,12 +130,12 @@ database. CI runs the first four and has no Redis (the tests use fakeredis).
 | 4 | 674 passed | migration `c6604cea877e` |
 | 5 | 899 passed | no migration |
 | 6 | 1286 passed | migration `c8199e1b7ec9`; re-run on 2026-11-17 at the start of phase 9a: 1286 passed |
-| 7 | <!-- TODO-ORCH --> | |
+| 7 | 1364 passed | no migration; ADR 0007; verified against a real Redis and uvicorn by hand, not in CI |
 | 8 | <!-- TODO-ORCH --> | |
-| 9 | <!-- TODO-ORCH: final count --> | 9a (branch on phase 6): 1350 passed, 0 skipped, ruff, format, mypy and `alembic check` clean |
+| 9 | <!-- TODO-ORCH: final count --> | 9a on phase 6: 1350 passed. With the feed stage on phase 7: 1438 passed, 0 skipped, ruff, format, mypy and `alembic check` clean |
 
 <!-- AUTO:pytest -->
-Last gate run: `1350 passed in 114s (phase 9a, on phase 6)`
+Last gate run: `1438 passed in 149s (phase 9b feed stage, on phase 7)`
 <!-- /AUTO:pytest -->
 
 ## Steps only the owner can do, in order
@@ -162,6 +171,9 @@ Decisions and requests that need the owner, in no particular order:
 - **Get a USAJOBS key** and set `USAJOBS_API_KEY` and `USAJOBS_USER_AGENT_EMAIL`; the source is
   skipped without them. Its test fixture is derived from the documentation, not recorded.
 - **Provide the `GEMINI_API_KEY`** for extraction, indexing and profile embedding.
+- **Provide a Redis** and set `REDIS_URL` on the API and the worker (queue and live feed). Behind
+  nginx the stream needs `proxy_buffering off` and a read timeout above the heartbeat (see
+  `docs/feed.md`).
 - <!-- TODO-ORCH: owner steps from phase 8 (secrets, VPS, DNS, Grafana access) -->
 
 ## Risks and limits
@@ -170,10 +182,19 @@ Decisions and requests that need the owner, in no particular order:
   no company name) use the board slug as the company, so their jobs rarely fingerprint the same
   as the same job on an aggregator that uses the real company name. Cross-source grouping and
   matching will often miss these; the cheaper error was chosen on purpose (ADR 0002).
-- **`NoopNotifier` counts as delivered.** Until the feed's notifier is the one in use, the
-  default notifier does nothing and `notified_at` is still set. A deployment that runs the
-  matcher without the feed notifier will mark matches as notified that nobody was told about.
-  <!-- TODO-ORCH: confirm the worker is wired to the feed notifier after integration -->
+- **`notified_at` means "the publish was accepted".** The worker and the matching commands use
+  the Redis notifier when `REDIS_URL` is set (checked in `registry_from_settings` and the
+  matching CLI), so `notified_at` is set when `PUBLISH` returned, also when nobody was listening;
+  the row is the source of truth and a stream that connects later replays it. Without
+  `REDIS_URL` the notifier is the no-op one and `notified_at` is still set with nothing
+  published, so a deployment must set `REDIS_URL` on the worker to have a feed at all.
+- **The feed has no authentication until phase 8.** The stream acts for `DEFAULT_OWNER_ID` like
+  every other route. When auth lands, `EventSource` cannot send an `Authorization` header, so the
+  scheme must also accept a cookie or a short-lived token in the query (see `docs/feed.md`).
+- **One Redis connection per open stream** (capped at 200 streams per API process and 5 per
+  profile), outside the connection pool. Delivery is at least once: clients must ignore an id
+  they have seen. A match withdrawn and reactivated keeps its id, so a client already past it is
+  not replayed it.
 - **No Redis in CI.** The queue and the feed are tested with fakeredis and in-memory fakes; the
   real Redis path (RQ workers, pub/sub) is not exercised by the automated suite; phase 7 found
   the stream-cleanup leak above only by running against a real Redis and uvicorn.
@@ -186,7 +207,7 @@ Decisions and requests that need the owner, in no particular order:
   phase 8's auth is merged. <!-- TODO-ORCH: confirm after integration -->
 - **Stacked, unmerged work.** `main` does not contain any of the 80+ commits of this stack;
   merging is the owner's step 3 above.
-- <!-- TODO-ORCH: risks from phases 7 and 8 -->
+- <!-- TODO-ORCH: risks from phase 8 -->
 
 ## Git log per branch
 
@@ -316,40 +337,45 @@ befd29b docs: add ADR 0005 on the task queue library
 bf6e5ed feat(matching): read matches by id and find a profile's latest match id
 ```
 
-#### `feat/m8-hardening` (4 commits on `feat/m6-matcher`)
+#### `feat/m8-hardening` (7 commits on `feat/m6-matcher`)
 
 ```
+986894d build: add Prometheus config, alert rules, Grafana dashboard and collector config under ops/observability
+f82a053 feat(api): add liveness and readiness probes, Prometheus metrics and optional OpenTelemetry tracing
+44a51cd feat(api): rate limit callers per owner or address with a Redis-backed sliding window
 1e51ca3 feat(api): answer every error with one envelope, add request ids and an access log
 782fa3a feat(logging): write redacted JSON or text logs with a request id from every entry point
 aabba3b feat(api): authenticate with bearer JWTs or API keys, scope every owner route and add stream tokens
 7d3e310 feat(config): add an environment setting, keep database URLs secret and check worker settings at start
 ```
 
-#### `feat/m9-integration` (5 commits on `feat/m6-matcher`)
+#### `feat/m9-integration` (7 commits on `feat/m7-sse`)
 
 ```
-aa4ccb1 docs: add the STATUS draft with per-phase status, ADRs, bugs, owner steps and risks
-840816d docs: add a backend overview and quickstart to the README
-bfa70a9 chore(scripts): add collect_status to regenerate the mechanical parts of STATUS.md
-e9abed3 feat(smoke): add a smoke check for a running API
-665f79a test(e2e): add the pipeline end-to-end test with recorded payloads and fakes
+eaf721f test(e2e): add the live feed stage with the real Redis notifier on a fake Redis
+05c4eac docs: record the phase 9a gate run in STATUS
+8c0c21a docs: add the STATUS draft with per-phase status, ADRs, bugs, owner steps and risks
+1938e36 docs: add a backend overview and quickstart to the README
+99e7c80 chore(scripts): add collect_status to regenerate the mechanical parts of STATUS.md
+b9a57e2 feat(smoke): add a smoke check for a running API
+bcf8877 test(e2e): add the pipeline end-to-end test with recorded payloads and fakes
 ```
 <!-- /AUTO:branch-logs -->
 
 ## Current status block for `sanket-context.md`
 
-Paste over the "Current status" section there once phases 7 to 9 are final. Draft as of the end
-of phase 9a:
+Paste over the "Current status" section there once phases 7 to 9 are final. Draft as of the feed
+stage of phase 9b:
 
 ```
 ## Current status (17 Nov 2026)
-- Backend phases 1-6 done and pushed on the stacked branches feat/ci-tests ... feat/m6-matcher (1286 tests, gate green). Phases 7 (SSE feed), 8 (hardening, ops) and 9 (integration) in progress; main has none of it yet
-- Pipeline: 10 sources -> ingest -> canonical jobs (fp1) -> LLM extraction -> index (tsvector + pgvector HNSW) -> hybrid search (GET /search) -> profiles -> matching on an RQ queue -> stored matches -> MatchNotifier hook
+- Backend phases 1-7 done and pushed on the stacked branches feat/ci-tests ... feat/m7-sse (phase 6: 1286 tests, phase 7: 1364, gate green). Phase 7 = live match feed (SSE, Redis pub/sub, ADR 0007). Phases 8 (hardening, ops) and 9 (integration) in progress; main has none of it yet
+- Pipeline: 10 sources -> ingest -> canonical jobs (fp1) -> LLM extraction -> index (tsvector + pgvector HNSW) -> hybrid search (GET /search) -> profiles -> matching on an RQ queue -> stored matches -> MatchNotifier -> Redis channel per profile -> GET /profiles/{id}/matches/stream (SSE, resume with Last-Event-ID)
 - Commands: python -m sanket.api | worker | matching | queue.dlq | indexing | canonicalise | smoke
-- End-to-end test with recorded payloads and fakes in backend/tests/e2e; smoke check: python -m sanket.smoke
+- End-to-end test with recorded payloads and fakes in backend/tests/e2e (includes the feed on a fake Redis); smoke check: python -m sanket.smoke
 - Migrations: ... c6604cea877e (index), c8199e1b7ec9 (profiles, matches); single head; NOT applied on Neon
 - Nothing deployed. Local only; dev db sanket and test dbs on the Docker container
-<!-- TODO-ORCH: update counts, feed/auth/compose status, ADR range 0001-NNNN, new commands -->
+<!-- TODO-ORCH: update counts, auth/compose status, ADR range 0001-NNNN, new commands -->
 
 ## Next step
 1. Owner: apply migrations e67e00d6f629, c6604cea877e, c8199e1b7ec9 to Neon (vector extension), then merge and deploy
