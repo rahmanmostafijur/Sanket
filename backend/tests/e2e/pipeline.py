@@ -198,7 +198,7 @@ def canonicalise_all(stack: Stack) -> CanonicaliseSummary:
 
 
 def extract_pending(stack: Stack) -> dict[Outcome, int]:
-    return dict(run_batch(stack.llm, EXTRACTION_CFG, 100, stack.engine))
+    return dict(run_batch(stack.llm, EXTRACTION_CFG, 100, stack.engine).counts)
 
 
 def index_all(stack: Stack) -> IndexSummary:

@@ -81,6 +81,11 @@ class Settings(BaseSettings):
     extraction_batch_limit: int = Field(default=50, ge=1)
     extraction_max_description_chars: int = Field(default=12000, ge=500)
     extraction_max_attempts: int = Field(default=3, ge=1)
+    # The extraction run exits non-zero when provider errors (quota, outage, bad key) are more
+    # than this share of the postings it tried, or when it stopped early after several in a
+    # row. Below it, the errors are logged as a warning and those postings are retried next
+    # run. 0 fails on any provider error; 1 fails only on the early stop.
+    extraction_max_provider_error_ratio: float = Field(default=0.2, ge=0, le=1)
     # Remote OK reserves AI training on its data; on the Gemini free tier, API inputs may be
     # used to improve Google's models, so Remote OK postings are not sent by default.
     extraction_excluded_sources: CommaList = ["remoteok"]

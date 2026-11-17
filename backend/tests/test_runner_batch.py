@@ -195,7 +195,7 @@ def test_run_batch_extracts_only_pending_postings(clean_db) -> None:
     add_extraction(clean_db, done)
     client = ScriptedClient([valid_response()] * 2)
 
-    counts = run_batch(client, CFG, 10, clean_db)
+    counts = run_batch(client, CFG, 10, clean_db).counts
 
     assert dict(counts) == {Outcome.OK: 2}
     assert client.calls == 2
@@ -213,7 +213,7 @@ def test_run_batch_reports_each_outcome(clean_db) -> None:
     ]
     client = ScriptedClient(script)
 
-    counts = run_batch(client, CFG, 10, clean_db)
+    counts = run_batch(client, CFG, 10, clean_db).counts
 
     assert dict(counts) == {Outcome.OK: 1, Outcome.FAILED: 1, Outcome.PROVIDER_ERROR: 1}
 
@@ -222,7 +222,7 @@ def test_run_batch_honours_the_limit_and_takes_newest_first(clean_db) -> None:
     ids = [add_posting(clean_db) for _ in range(4)]
     client = ScriptedClient([valid_response()] * 2)
 
-    counts = run_batch(client, CFG, 2, clean_db)
+    counts = run_batch(client, CFG, 2, clean_db).counts
 
     assert dict(counts) == {Outcome.OK: 2}
     assert find_pending(CFG, 10, clean_db) == [ids[1], ids[0]]
@@ -231,7 +231,7 @@ def test_run_batch_honours_the_limit_and_takes_newest_first(clean_db) -> None:
 def test_run_batch_is_a_no_op_when_nothing_is_pending(clean_db) -> None:
     client = ScriptedClient([])
 
-    assert run_batch(client, CFG, 10, clean_db) == {}
+    assert run_batch(client, CFG, 10, clean_db).counts == {}
     assert client.calls == 0
 
 
@@ -240,7 +240,7 @@ def test_run_batch_twice_does_not_extract_again(clean_db) -> None:
     client = ScriptedClient([valid_response()])
     run_batch(client, CFG, 10, clean_db)
 
-    second = run_batch(client, CFG, 10, clean_db)
+    second = run_batch(client, CFG, 10, clean_db).counts
 
     assert second == {}
     assert client.calls == 1
@@ -251,11 +251,29 @@ def test_run_batch_stops_after_consecutive_provider_errors(clean_db) -> None:
         add_posting(clean_db)
     client = ScriptedClient([quota_error()] * (MAX_CONSECUTIVE_PROVIDER_ERRORS + 2))
 
-    counts = run_batch(client, CFG, 100, clean_db)
+    result = run_batch(client, CFG, 100, clean_db)
 
-    assert dict(counts) == {Outcome.PROVIDER_ERROR: MAX_CONSECUTIVE_PROVIDER_ERRORS}
+    assert dict(result.counts) == {Outcome.PROVIDER_ERROR: MAX_CONSECUTIVE_PROVIDER_ERRORS}
+    assert result.stopped_early
     assert client.calls == MAX_CONSECUTIVE_PROVIDER_ERRORS
     assert count_extractions(clean_db) == 0
+
+
+def test_one_provider_error_in_a_batch_leaves_only_that_posting_pending(clean_db) -> None:
+    first = add_posting(clean_db)
+    unlucky = add_posting(clean_db)
+    last = add_posting(clean_db)
+    # Newest first: `last` is ok, `unlucky` hits the provider error, `first` is ok.
+    client = ScriptedClient([valid_response(), quota_error(), valid_response()])
+
+    result = run_batch(client, CFG, 10, clean_db)
+
+    assert dict(result.counts) == {Outcome.OK: 2, Outcome.PROVIDER_ERROR: 1}
+    assert not result.stopped_early
+    assert require_extraction(clean_db, first).status == STATUS_OK
+    assert require_extraction(clean_db, last).status == STATUS_OK
+    assert count_extractions(clean_db) == 2
+    assert find_pending(CFG, 10, clean_db) == [unlucky]
 
 
 def test_a_success_resets_the_consecutive_provider_error_count(clean_db) -> None:
@@ -270,7 +288,8 @@ def test_a_success_resets_the_consecutive_provider_error_count(clean_db) -> None
     ]
     client = ScriptedClient(script)
 
-    counts = run_batch(client, CFG, 100, clean_db)
+    result = run_batch(client, CFG, 100, clean_db)
 
     assert client.calls == 5
-    assert dict(counts) == {Outcome.PROVIDER_ERROR: 4, Outcome.OK: 1}
+    assert dict(result.counts) == {Outcome.PROVIDER_ERROR: 4, Outcome.OK: 1}
+    assert not result.stopped_early

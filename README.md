@@ -214,6 +214,14 @@ pending postings and runs in the scheduled workflow after ingestion.
   (`EXTRACTION_BATCH_LIMIT`), and calls are paced to
   `GEMINI_REQUESTS_PER_MINUTE`. A run stops after three provider errors
   in a row.
+- **Provider errors and the exit status.** A provider error (quota,
+  outage, bad key) stores nothing, so the posting stays pending and the
+  next run retries it. The command exits non-zero only if the run
+  stopped early after three provider errors in a row, or if provider
+  errors are more than `EXTRACTION_MAX_PROVIDER_ERROR_RATIO` (default
+  0.2) of the postings it attempted (skipped postings are not counted).
+  A few errors under that limit exit 0 and log a warning with the count
+  and ratio, so one transient 503 does not fail the scheduled run.
 - **Provider.** Gemini sits behind the small `LlmClient` interface in
   `sanket/extraction/llm.py`, so another provider can be swapped in.
   `extract_posting(posting_id, ...)` handles a single posting and can be
