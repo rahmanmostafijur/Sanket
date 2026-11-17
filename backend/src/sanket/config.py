@@ -1,7 +1,7 @@
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal, Self
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
@@ -9,6 +9,9 @@ ROOT_DIR = Path(__file__).resolve().parents[3]
 CommaList = Annotated[list[str], NoDecode]
 
 Environment = Literal["development", "test", "production"]
+
+# The one rule for the development bypass: allowed in development and test, never in production.
+DEV_BYPASS_IN_PRODUCTION = "AUTH_DEV_BYPASS must not be enabled when ENVIRONMENT=production"
 
 if TYPE_CHECKING:
     # Tests and callers build Settings with plain strings; pydantic turns them into SecretStr.
@@ -24,8 +27,8 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Where this process runs. Anything but "development" refuses the development shortcuts
-    # (see sanket.runtime_checks) and "production" is what the container images set.
+    # Where this process runs. "production" is what the container images set and it refuses the
+    # development shortcuts: Settings cannot be built with AUTH_DEV_BYPASS in production.
     environment: Environment = "development"
     # The URLs carry the database password, so they are secrets: read them with
     # `database_dsn` where a connection is made and nowhere else.
@@ -222,7 +225,8 @@ class Settings(BaseSettings):
     # with a JWT (signed with AUTH_JWT_SECRET, or by a provider whose keys are at
     # AUTH_JWKS_URL) or one of the static AUTH_API_KEYS (`owner=key,owner2=key2`). The token
     # subject (AUTH_OWNER_CLAIM) is the owner id. AUTH_DEV_BYPASS lets requests without a
-    # credential act as DEFAULT_OWNER_ID; it only works with ENVIRONMENT=development.
+    # credential act as DEFAULT_OWNER_ID; it is allowed in development and test and refused
+    # (the settings do not load) with ENVIRONMENT=production.
     auth_dev_bypass: bool = False
     auth_jwt_secret: SecretStr | None = None
     auth_jwks_url: str | None = None
@@ -265,6 +269,14 @@ class Settings(BaseSettings):
             return None
         return value
 
+    @model_validator(mode="after")
+    def _refuse_dev_bypass_in_production(self) -> Self:
+        # Checked here so that every process that loads the settings (api, worker, ingest,
+        # alembic, the CLIs) refuses to start, not only the API.
+        if self.environment == "production" and self.auth_dev_bypass:
+            raise ValueError(DEV_BYPASS_IN_PRODUCTION)
+        return self
+
     @property
     def effective_log_format(self) -> Literal["json", "text"]:
         if self.log_format is not None:
@@ -282,5 +294,28 @@ class Settings(BaseSettings):
         return url if isinstance(url, str) else url.get_secret_value()
 
 
+VALUE_ERROR_PREFIX = "Value error, "
+
+
+def describe_settings_error(error: ValidationError) -> str:
+    """One line naming each invalid setting and why. Never the values: pydantic's own text
+    quotes the input, which for a secret setting would be the secret."""
+    problems: list[str] = []
+    for item in error.errors(include_input=False, include_url=False):
+        message = item["msg"].removeprefix(VALUE_ERROR_PREFIX).replace("\n", " ")
+        name = ".".join(str(part) for part in item["loc"]).upper()
+        problems.append(f"{name}: {message}" if name else message)
+    return "invalid configuration: " + "; ".join(problems)
+
+
+def load_settings() -> Settings:
+    """Read the settings from the environment and `.env`, or stop the process with a plain
+    message (no traceback) when they are invalid."""
+    try:
+        return Settings()  # type: ignore[call-arg]
+    except ValidationError as error:
+        raise SystemExit(describe_settings_error(error)) from None
+
+
 # database_url has no default and is read from the environment, which mypy cannot see.
-settings = Settings()  # type: ignore[call-arg]
+settings = load_settings()

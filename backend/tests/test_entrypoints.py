@@ -23,7 +23,15 @@ def test_the_api_refuses_to_start_without_authentication(
 def test_the_worker_refuses_to_start_in_production_without_the_embedding_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    config = Settings.model_validate({"database_url": URL, "environment": "production"})
+    # The key and the Redis URL are given as None because the local .env may set them.
+    config = Settings.model_validate(
+        {
+            "database_url": URL,
+            "environment": "production",
+            "gemini_api_key": None,
+            "redis_url": None,
+        }
+    )
     monkeypatch.setattr(worker_main, "settings", config)
 
     with pytest.raises(SystemExit) as stopped:

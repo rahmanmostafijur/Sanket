@@ -10,7 +10,7 @@ from sanket.auth.authenticator import dev_bypass_allowed
 from sanket.auth.jwt_verifier import MIN_SECRET_LENGTH
 from sanket.auth.keys import parse_api_keys
 from sanket.auth.stream_token import MIN_SECRET_LENGTH as MIN_STREAM_SECRET_LENGTH
-from sanket.config import Settings
+from sanket.config import DEV_BYPASS_IN_PRODUCTION, Settings
 
 
 class ConfigError(Exception):
@@ -57,8 +57,9 @@ def _secret_problems(config: Settings) -> list[str]:
 
 def _auth_problems(config: Settings) -> list[str]:
     problems = _secret_problems(config)
-    if config.auth_dev_bypass and config.environment != "development":
-        problems.append("AUTH_DEV_BYPASS only works with ENVIRONMENT=development")
+    if config.auth_dev_bypass and config.is_production:
+        # Settings refuses this itself; kept for objects that were built without validation.
+        problems.append(DEV_BYPASS_IN_PRODUCTION)
     jwks_url = config.auth_jwks_url
     insecure_jwks = jwks_url is not None and not jwks_url.startswith("https://")
     if insecure_jwks and config.environment != "development":
@@ -67,7 +68,7 @@ def _auth_problems(config: Settings) -> list[str]:
     if not has_credentials and not dev_bypass_allowed(config):
         problems.append(
             "no authentication is configured: set AUTH_JWT_SECRET, AUTH_JWKS_URL or "
-            "AUTH_API_KEYS (or AUTH_DEV_BYPASS=true with ENVIRONMENT=development)"
+            "AUTH_API_KEYS (or AUTH_DEV_BYPASS=true outside ENVIRONMENT=production)"
         )
     return problems
 

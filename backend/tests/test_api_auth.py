@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 from fastapi import Depends
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 from sqlalchemy import Engine
 
 from sanket.api import create_app
@@ -188,8 +189,21 @@ def test_the_dev_bypass_acts_as_the_default_owner_and_a_bad_token_still_fails(
 
 
 def test_the_dev_bypass_cannot_be_started_in_production(clean_db: Engine) -> None:
-    with pytest.raises(Exception, match="AUTH_DEV_BYPASS"):
+    with pytest.raises(ValidationError, match="AUTH_DEV_BYPASS"):
         auth_client(clean_db, auth_dev_bypass=True, environment="production")
+
+
+def test_the_dev_bypass_works_in_the_test_environment(clean_db: Engine) -> None:
+    profile_id = own_profile(clean_db, "dev")
+    client = auth_client(
+        clean_db,
+        auth_jwt_secret=None,
+        auth_dev_bypass=True,
+        default_owner_id="dev",
+        environment="test",
+    )
+
+    assert client.get(f"/profiles/{profile_id}").status_code == 200
 
 
 # --- stream tokens ------------------------------------------------------------------------

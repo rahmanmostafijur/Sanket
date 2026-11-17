@@ -18,8 +18,8 @@ MAX_TOKEN_LENGTH = 8192
 
 
 class Authenticator:
-    """Accepts static API keys and JWTs. In development it can also let a caller without a
-    credential in as one owner (`dev_owner`); production configuration cannot enable that.
+    """Accepts static API keys and JWTs. In development and test it can also let a caller
+    without a credential in as one owner (`dev_owner`); production cannot enable that.
     """
 
     def __init__(
@@ -88,5 +88,7 @@ def authenticator_from_settings(config: Settings) -> Authenticator:
 
 
 def dev_bypass_allowed(config: Settings) -> bool:
-    """The bypass needs both the explicit flag and the development environment."""
-    return config.auth_dev_bypass and config.environment == "development"
+    """The bypass needs the explicit flag and any environment but production. The settings do
+    not even load with both, so this also fails closed for a settings object that was built
+    without validation."""
+    return config.auth_dev_bypass and not config.is_production

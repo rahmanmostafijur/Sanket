@@ -6,6 +6,7 @@ from typing import Any
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
+from pydantic import ValidationError
 
 from sanket.auth.authenticator import Authenticator, authenticator_from_settings
 from sanket.auth.errors import ForbiddenError, UnauthenticatedError
@@ -246,11 +247,11 @@ def test_an_api_without_any_authentication_does_not_start() -> None:
         check_api(settings(auth_jwt_secret=None))
 
 
-def test_the_dev_bypass_is_refused_outside_development() -> None:
-    config = settings(auth_dev_bypass=True, environment="production")
-
-    with pytest.raises(ConfigError, match="AUTH_DEV_BYPASS"):
-        check_api(config)
+def test_the_dev_bypass_is_refused_in_production() -> None:
+    # The settings themselves refuse it (tests/test_dev_bypass_guard.py), so the API never
+    # gets as far as its own check.
+    with pytest.raises(ValidationError, match="AUTH_DEV_BYPASS"):
+        settings(auth_dev_bypass=True, environment="production")
 
 
 def test_weak_secrets_and_bad_keys_are_all_reported_without_values() -> None:

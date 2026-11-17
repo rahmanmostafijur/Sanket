@@ -30,8 +30,9 @@ def test_the_environment_defaults_to_development_and_is_validated() -> None:
 
 
 def test_a_worker_in_production_needs_the_embedding_key() -> None:
+    # The key is given as None because the local .env, which Settings also reads, may set one.
     with pytest.raises(ConfigError, match="GEMINI_API_KEY"):
-        check_worker(make(environment="production"))
+        check_worker(make(environment="production", gemini_api_key=None))
 
     check_worker(make(environment="production", gemini_api_key="k"))
     check_worker(make())
