@@ -62,6 +62,16 @@ def _safe_value(key: str, value: Any) -> Any:
     return redact(str(value))
 
 
+def _trace_id() -> str | None:
+    """The active OpenTelemetry trace id, when tracing is on (the package is never imported
+    here, only looked up, so it costs nothing without it)."""
+    trace = sys.modules.get("opentelemetry.trace")
+    if trace is None:
+        return None
+    context = trace.get_current_span().get_span_context()
+    return format(context.trace_id, "032x") if context.is_valid else None
+
+
 def _extras(record: logging.LogRecord) -> dict[str, Any]:
     return {
         key: _safe_value(key, value)
@@ -83,6 +93,9 @@ class JsonFormatter(logging.Formatter):
         request_id = request_id_var.get()
         if request_id is not None:
             entry["request_id"] = request_id
+        trace_id = _trace_id()
+        if trace_id is not None:
+            entry["trace_id"] = trace_id
         entry.update(_extras(record))
         if record.exc_info:
             entry["exception"] = redact(self.formatException(record.exc_info))

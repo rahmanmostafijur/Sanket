@@ -21,9 +21,11 @@ from sqlalchemy import Engine
 
 from sanket.api.deps import ApiContext
 from sanket.api.errors import install_error_handlers
+from sanket.api.health import ReadinessProbe, checks_from_settings
 from sanket.api.limits import RateLimit
 from sanket.api.middleware import RequestContextMiddleware
 from sanket.api.routers import auth as auth_router
+from sanket.api.routers import ops as ops_router
 from sanket.api.routers import profiles as profiles_router
 from sanket.api.routers import search as search_router
 from sanket.auth.authenticator import authenticator_from_settings
@@ -32,6 +34,8 @@ from sanket.config import Settings
 from sanket.config import settings as default_settings
 from sanket.db import engine as default_engine
 from sanket.embeddings.client import EmbeddingClient, spec_of
+from sanket.observability.metrics import ApiMetrics
+from sanket.observability.tracing import setup_tracing
 from sanket.queue.base import TaskQueue
 from sanket.queue.connection import task_queue_from_settings
 from sanket.ratelimit.factory import limiter_from_settings
@@ -63,6 +67,20 @@ def _stream_tokens(config: Settings) -> StreamTokens | None:
     )
 
 
+def _metrics(config: Settings, queue: TaskQueue | None) -> ApiMetrics | None:
+    """Metrics are served unless switched off, and without a token only outside production."""
+    if not config.metrics_enabled:
+        return None
+    if config.metrics_token is None and config.is_production:
+        logger.info("metrics are off: set METRICS_TOKEN to serve /metrics in production")
+        return None
+    return ApiMetrics(queue)
+
+
+def _metrics_token(config: Settings) -> str | None:
+    return config.metrics_token.get_secret_value() if config.metrics_token else None
+
+
 def create_app(
     settings: Settings | None = None,
     db_engine: Engine | None = None,
@@ -86,15 +104,18 @@ def create_app(
         )
     app = FastAPI(title=API_TITLE, version=API_VERSION)
     install_error_handlers(app)
-    app.add_middleware(RequestContextMiddleware)
+    engine_in_use = db_engine or default_engine
+    queue = task_queue_from_settings(config) if isinstance(task_queue, _UseSettings) else task_queue
+    metrics = _metrics(config, queue)
+    app.add_middleware(
+        RequestContextMiddleware, observer=metrics.observe_request if metrics else None
+    )
     context = ApiContext(
-        db_engine=db_engine or default_engine,
+        db_engine=engine_in_use,
         search_config=search_config,
         embedding_client=client,
         query_cache=QueryEmbeddingCache(config.search_query_cache_size),
-        task_queue=(
-            task_queue_from_settings(config) if isinstance(task_queue, _UseSettings) else task_queue
-        ),
+        task_queue=queue,
         default_owner_id=config.default_owner_id,
         max_profiles_per_owner=config.max_profiles_per_owner,
         authenticator=authenticator_from_settings(config),
@@ -106,6 +127,11 @@ def create_app(
             else rate_limiter
         ),
         rate_limits=limits_from_settings(config),
+        readiness=ReadinessProbe(
+            checks_from_settings(config, engine_in_use), config.readyz_timeout_seconds
+        ),
+        metrics=metrics,
+        metrics_token=_metrics_token(config),
     )
     app.state.context = context
     guard = list(dependencies)
@@ -113,4 +139,6 @@ def create_app(
     app.include_router(search_router.router, dependencies=[Depends(RateLimit("search")), *guard])
     app.include_router(profiles_router.router, dependencies=standard)
     app.include_router(auth_router.router, dependencies=standard)
+    app.include_router(ops_router.router)
+    setup_tracing(app, engine_in_use, config)
     return app

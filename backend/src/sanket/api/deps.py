@@ -6,11 +6,13 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy import Engine
 
+from sanket.api.health import ReadinessProbe
 from sanket.auth.authenticator import Authenticator
 from sanket.auth.errors import AuthError
 from sanket.auth.principal import Principal
 from sanket.auth.stream_token import QUERY_PARAMETER, StreamTokens
 from sanket.embeddings.client import EmbeddingClient
+from sanket.observability.metrics import ApiMetrics
 from sanket.queue.base import TaskQueue
 from sanket.ratelimit.limiter import RateLimiter
 from sanket.ratelimit.policy import RateLimits
@@ -38,6 +40,11 @@ class ApiContext:
     # None when rate limiting is off (see sanket.api.limits).
     limiter: RateLimiter | None = None
     rate_limits: RateLimits = field(default_factory=RateLimits)
+    # None disables /readyz checks (always ready) and /metrics (404) respectively.
+    readiness: ReadinessProbe | None = None
+    metrics: ApiMetrics | None = None
+    # The bearer token /metrics requires, when one is configured.
+    metrics_token: str | None = None
 
 
 def get_context(request: Request) -> ApiContext:

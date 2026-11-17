@@ -175,6 +175,23 @@ class Settings(BaseSettings):
     rate_limit_search_requests: int = Field(default=30, ge=1)
     trusted_proxy_hops: int = Field(default=0, ge=0, le=5)
 
+    # Probes and metrics (docs/adr/0010-observability.md). /readyz checks the database, Redis
+    # when configured, and optionally that the schema is at the head the code expects (leave
+    # that off where old code may run against a newer schema, for example during a rollback).
+    # /metrics needs `Authorization: Bearer METRICS_TOKEN` when the token is set; without a
+    # token it is served in development and test, and answers 404 in production.
+    readyz_timeout_seconds: float = Field(default=2.0, gt=0, le=30)
+    readyz_check_migrations: bool = False
+    alembic_ini_path: Path = ROOT_DIR / "backend" / "alembic.ini"
+    metrics_enabled: bool = True
+    metrics_token: SecretStr | None = None
+    # Tracing is off unless an OTLP endpoint is set (or OTEL_ENABLED=true for the exporter's
+    # default endpoint). Needs the optional packages: pip install "sanket[otel]".
+    otel_enabled: bool = False
+    otel_exporter_otlp_endpoint: str | None = None
+    otel_service_name: str = Field(default="sanket-api", min_length=1, max_length=100)
+    otel_sample_ratio: float = Field(default=1.0, ge=0, le=1)
+
     # Authentication (docs/adr/0008-authentication.md). Callers send `Authorization: Bearer`
     # with a JWT (signed with AUTH_JWT_SECRET, or by a provider whose keys are at
     # AUTH_JWKS_URL) or one of the static AUTH_API_KEYS (`owner=key,owner2=key2`). The token
@@ -211,6 +228,8 @@ class Settings(BaseSettings):
         "auth_required_scope",
         "auth_api_keys",
         "auth_stream_token_secret",
+        "metrics_token",
+        "otel_exporter_otlp_endpoint",
         mode="before",
     )
     @classmethod
