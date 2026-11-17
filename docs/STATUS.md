@@ -453,9 +453,11 @@ aabba3b feat(api): authenticate with bearer JWTs or API keys, scope every owner 
 7d3e310 feat(config): add an environment setting, keep database URLs secret and check worker settings at start
 ```
 
-#### `feat/m9-integration` (11 commits on `feat/m8-hardening`)
+#### `feat/m9-integration` (13 commits on `feat/m8-hardening`)
 
 ```
+1a60161 docs: complete STATUS for the combined stack with phase 8 and 9 facts, owner steps and risks
+3550bd3 docs: link the deployment and runbook docs and explain local auth and the smoke token
 dbfdb56 feat(smoke): open the stream with a stream token when the server issues them
 4fcb0ae test(e2e): add the authentication stage with real credentials, scoping, stream tokens and rate limits
 8c13819 docs: fill the phase 7 facts and the feed stage gate in STATUS
