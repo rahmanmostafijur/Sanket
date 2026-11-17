@@ -10,6 +10,9 @@ The scheduler (`with_scheduler`) moves due retries and delayed tasks into the qu
 only elapses while a worker runs. SIGINT and SIGTERM are RQ's warm shutdown: the task in
 progress finishes, then the worker stops. A task that is lost to a hard kill is retried
 (delivery is at least once, the handlers are idempotent).
+
+While the worker runs, a thread writes the heartbeat key (`sanket.worker.heartbeat`, ADR 0011);
+the key is removed when the worker returns, however it ends, and expires if the process dies.
 """
 
 import logging
@@ -32,6 +35,7 @@ from sanket.queue.config import config_from_settings
 from sanket.queue.connection import redis_connection
 from sanket.queue.rq_queue import RqTaskQueue
 from sanket.queue.runner import set_registry
+from sanket.worker.heartbeat import Heartbeat, heartbeat_from_settings
 
 logger = logging.getLogger(__name__)
 
@@ -70,10 +74,12 @@ def run_worker(
     embedder: EmbeddingClient | None = None,
     notifier: MatchNotifier | None = None,
     db_engine: Engine = engine,
+    heartbeat: Heartbeat | None = None,
 ) -> bool:
     """Work the queue until it is empty (`burst`) or until stopped; True if any task ran.
 
-    Everything but `config` is injectable for tests.
+    Everything but `config` is injectable for tests. The heartbeat uses a Redis client of its
+    own (see `sanket.worker.heartbeat`) unless a connection was injected.
     """
     redis = _connect(config, connection)
     queue = RqTaskQueue(redis, config_from_settings(config))
@@ -91,7 +97,13 @@ def run_worker(
     # A forked task must not inherit a connection of this process.
     db_engine.dispose()
     worker = worker_class([queue.queue], connection=redis)
-    did_work = bool(worker.work(burst=burst, with_scheduler=True, logging_level=WORKER_LOG_LEVEL))
+    beat = heartbeat or heartbeat_from_settings(
+        config, connection if connection is not None else redis_connection(config)
+    )
+    with beat:
+        did_work = bool(
+            worker.work(burst=burst, with_scheduler=True, logging_level=WORKER_LOG_LEVEL)
+        )
     logger.info(
         "worker stopped succeeded=%d failed=%d",
         worker.successful_job_count,

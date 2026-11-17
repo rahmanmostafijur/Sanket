@@ -13,6 +13,9 @@ Environment = Literal["development", "test", "production"]
 # The one rule for the development bypass: allowed in development and test, never in production.
 DEV_BYPASS_IN_PRODUCTION = "AUTH_DEV_BYPASS must not be enabled when ENVIRONMENT=production"
 
+# A heartbeat TTL that covers fewer beats than this would expire on one late or lost beat.
+MIN_HEARTBEATS_IN_TTL = 3
+
 if TYPE_CHECKING:
     # Tests and callers build Settings with plain strings; pydantic turns them into SecretStr.
     SecretInput = SecretStr | str
@@ -133,6 +136,18 @@ class Settings(BaseSettings):
     queue_dead_letter_ttl_days: int = Field(default=30, ge=1)
     # Redis connect and read timeouts, so an unreachable Redis fails fast in a request.
     redis_timeout_seconds: float = Field(default=3.0, gt=0, le=60)
+
+    # Worker visibility (docs/adr/0011-worker-visibility.md). A running worker writes a
+    # heartbeat key in Redis every WORKER_HEARTBEAT_INTERVAL_SECONDS that expires after
+    # WORKER_HEARTBEAT_TTL_SECONDS, so a worker that dies or hangs disappears from the API's
+    # metrics and fails the container health check. The TTL must allow at least three beats.
+    # WORKER_NAME names this worker's key (default: the host name, which is the container id
+    # in Docker); two workers must not share one.
+    worker_name: str | None = Field(
+        default=None, min_length=1, max_length=100, pattern=r"^[A-Za-z0-9_.-]+$"
+    )
+    worker_heartbeat_interval_seconds: float = Field(default=10.0, gt=0, le=300)
+    worker_heartbeat_ttl_seconds: int = Field(default=45, ge=3, le=3600)
 
     # Profiles and matching (see docs/adr/0006-profiles-and-matching.md). Until authentication
     # exists every request acts as this owner; the authenticated principal replaces it.
@@ -260,6 +275,7 @@ class Settings(BaseSettings):
         "auth_stream_token_secret",
         "metrics_token",
         "otel_exporter_otlp_endpoint",
+        "worker_name",
         mode="before",
     )
     @classmethod
@@ -268,6 +284,16 @@ class Settings(BaseSettings):
         if isinstance(value, str) and not value.strip():
             return None
         return value
+
+    @model_validator(mode="after")
+    def _heartbeat_ttl_allows_missed_beats(self) -> Self:
+        minimum = self.worker_heartbeat_interval_seconds * MIN_HEARTBEATS_IN_TTL
+        if self.worker_heartbeat_ttl_seconds < minimum:
+            raise ValueError(
+                f"WORKER_HEARTBEAT_TTL_SECONDS must be at least {MIN_HEARTBEATS_IN_TTL} times "
+                "WORKER_HEARTBEAT_INTERVAL_SECONDS"
+            )
+        return self
 
     @model_validator(mode="after")
     def _refuse_dev_bypass_in_production(self) -> Self:
