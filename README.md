@@ -21,7 +21,7 @@ Sources (RemoteOK, Remotive, We Work Remotely, Jobicy, Himalayas,
   → Canonical jobs (postings of the same job grouped by fingerprint)
   → Index (full-text tsvector + pgvector embeddings)
   → Hybrid search API (full-text + vector, rank fusion, filters)
-  → [planned] Matching and real-time feed
+  → Profiles and matching on a task queue → live match feed (Server-Sent Events)
 ```
 
 ### Design decisions
@@ -72,7 +72,8 @@ OpenTelemetry, Prometheus, Grafana.
   behind `GET /search`, with an evaluation harness. Search quality is not tuned yet.
 - [x] **Profiles and matching.** Saved profiles are embedded and scored against jobs
   from both sides on a task queue. Thresholds are not tuned yet.
-- [ ] Real-time match feed
+- [x] **Real-time match feed.** Per-profile Server-Sent Events with resume from
+  stored matches (`GET /profiles/{id}/matches/stream`).
 - [ ] Self-hosted deployment with CI/CD and observability
 
 ## Getting started
@@ -223,13 +224,27 @@ whose value is unknown passes and is annotated), then its score blends the embed
 similarity, skill overlap and title words. Matches are stored with an explanation,
 are idempotent, and are withdrawn rather than deleted when a job stops fitting;
 `GET /profiles/{id}/matches` pages through them. New matches are announced to a
-`MatchNotifier` hook after the commit (the live feed of the next phase implements it).
+`MatchNotifier` hook after the commit (the live feed below publishes them to Redis).
 `python -m sanket.matching embed-profiles` and `rematch` queue or run the work again,
 including without Redis (`--inline`). The design is in
 [docs/adr/0006-profiles-and-matching.md](docs/adr/0006-profiles-and-matching.md), the
 queue in [docs/adr/0005-task-queue.md](docs/adr/0005-task-queue.md), and running and
 tuning it in [docs/matching.md](docs/matching.md). Scoring defaults are reasoned
 starting points, not tuned values.
+
+## Live match feed
+
+`GET /profiles/{id}/matches/stream` streams a profile's new matches as Server-Sent
+Events: each event is the stored match (same fields as the match list, the job link
+and credit line included) with the match id as the event id. The worker publishes a
+pointer to a Redis channel per profile and the API sends the row it points to; a client
+that reconnects sends `Last-Event-ID` and gets the stored matches after it first, then
+live ones, with a heartbeat, a bounded buffer for slow clients, a cap on open streams
+(429), and a fallback that polls the database when Redis is not available. Delivery is
+at least once: ignore an id you have seen. The design is in
+[docs/adr/0007-live-match-feed.md](docs/adr/0007-live-match-feed.md); curl and browser
+examples, the settings and operating notes are in [docs/feed.md](docs/feed.md). There
+is no authentication yet, so the endpoint acts for `DEFAULT_OWNER_ID` like the rest.
 
 ## Database migrations
 
