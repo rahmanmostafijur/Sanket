@@ -6,7 +6,7 @@ re-checks that the posting is still pending, so duplicate or stale jobs are chea
 
 import logging
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -238,19 +238,28 @@ def extract_posting(
     return Outcome.OK if result.ok else Outcome.FAILED
 
 
+@dataclass(frozen=True)
+class BatchResult:
+    counts: Mapping[Outcome, int]
+    # The consecutive-errors guard ended the batch before every pending posting was tried.
+    stopped_early: bool = False
+
+
 def run_batch(
     client: LlmClient, cfg: ExtractionConfig, limit: int, db_engine: Engine = engine
-) -> Counter[Outcome]:
+) -> BatchResult:
     counts: Counter[Outcome] = Counter()
     consecutive_errors = 0
+    stopped_early = False
     for posting_id in find_pending(cfg, limit, db_engine):
         outcome = extract_posting(posting_id, client, cfg, db_engine)
         counts[outcome] += 1
         consecutive_errors = consecutive_errors + 1 if outcome is Outcome.PROVIDER_ERROR else 0
         if consecutive_errors >= MAX_CONSECUTIVE_PROVIDER_ERRORS:
             logger.error("Stopping: %d provider errors in a row", consecutive_errors)
+            stopped_early = True
             break
-    return counts
+    return BatchResult(counts, stopped_early)
 
 
 def main() -> None:
@@ -261,13 +270,13 @@ def main() -> None:
     client = GeminiClient(
         settings.gemini_api_key, cfg.model, requests_per_minute=settings.gemini_requests_per_minute
     )
-    counts = run_batch(client, cfg, settings.extraction_batch_limit)
+    counts = run_batch(client, cfg, settings.extraction_batch_limit).counts
     logger.info(
         "extraction summary model=%s schema_version=%d prompt_version=%d %s",
         cfg.model,
         cfg.schema_version,
         cfg.prompt_version,
-        " ".join(f"{outcome.value}={counts[outcome]}" for outcome in Outcome),
+        " ".join(f"{outcome.value}={counts.get(outcome, 0)}" for outcome in Outcome),
     )
     if counts[Outcome.PROVIDER_ERROR]:
         raise SystemExit(f"{counts[Outcome.PROVIDER_ERROR]} provider errors")
