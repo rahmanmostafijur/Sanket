@@ -10,6 +10,7 @@ import logging
 from collections.abc import Sequence
 
 from sanket.config import settings
+from sanket.runtime_checks import check_worker
 from sanket.worker.run import run_worker
 
 
@@ -29,6 +30,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def main(argv: Sequence[str] | None = None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     args = parse_args(argv)
+    check_worker(settings)
     run_worker(settings, burst=args.burst, simple=args.simple)
 
 

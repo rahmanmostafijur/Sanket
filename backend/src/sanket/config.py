@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -7,6 +7,14 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 ROOT_DIR = Path(__file__).resolve().parents[3]
 
 CommaList = Annotated[list[str], NoDecode]
+
+Environment = Literal["development", "test", "production"]
+
+if TYPE_CHECKING:
+    # Tests and callers build Settings with plain strings; pydantic turns them into SecretStr.
+    SecretInput = SecretStr | str
+else:
+    SecretInput = SecretStr
 
 
 class Settings(BaseSettings):
@@ -16,8 +24,13 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    database_url: str
-    test_database_url: str | None = None
+    # Where this process runs. Anything but "development" refuses the development shortcuts
+    # (see sanket.runtime_checks) and "production" is what the container images set.
+    environment: Environment = "development"
+    # The URLs carry the database password, so they are secrets: read them with
+    # `database_dsn` where a connection is made and nowhere else.
+    database_url: SecretInput
+    test_database_url: SecretInput | None = None
     gemini_api_key: SecretStr | None = None
     gemini_model: str = "gemini-3.5-flash-lite"
     # Free-tier limit for gemini-3.5-flash-lite as reported by the API on 2026-11-12.
@@ -161,6 +174,16 @@ class Settings(BaseSettings):
         if isinstance(value, str) and not value.strip():
             return None
         return value
+
+    @property
+    def is_production(self) -> bool:
+        return self.environment == "production"
+
+    @property
+    def database_dsn(self) -> str:
+        """The database URL, with its password. Use it only where the connection is made."""
+        url = self.database_url
+        return url if isinstance(url, str) else url.get_secret_value()
 
 
 # database_url has no default and is read from the environment, which mypy cannot see.
