@@ -116,3 +116,22 @@ alternative of a cookie was rejected for the same reasons as option 1.
   short. The stream token's one-minute life limits what a leaked URL is worth.
 - Existing local `.env` files need `AUTH_DEV_BYPASS=true` (or a credential) to
   keep working.
+
+## Amendment, 2026-11-17: the bypass rule, in the settings
+
+Decision 5 said the bypass needs `ENVIRONMENT=development` and that only the
+API refused it. Two things changed before the first deployment:
+
+- **One rule: allowed in development and in test, refused only in production.**
+  `ENVIRONMENT=test` is a local and CI environment, so the bypass is useful
+  there (tests build apps with it) and harmless; nothing else is a production
+  environment (`ENVIRONMENT` accepts only `development`, `test` and
+  `production`). `dev_bypass_allowed` and the startup check follow it.
+- **The refusal moved into `Settings`.** A validator makes
+  `ENVIRONMENT=production` with `AUTH_DEV_BYPASS=true` an invalid configuration,
+  so every process that loads the settings (API, worker, ingest, alembic, the
+  CLIs) stops at start with `invalid configuration: AUTH_DEV_BYPASS must not be
+  enabled when ENVIRONMENT=production`, not only the API. The startup check keeps
+  a defensive copy for settings objects built without validation. The statements
+  above that name only development are superseded by this note; the rest of the
+  decision stands.

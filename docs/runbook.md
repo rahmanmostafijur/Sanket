@@ -21,6 +21,10 @@ the migrated schema; that is what makes the order safe and rollback possible.
 - Check nothing else is writing: no ingest run in progress (the `prod-db`
   concurrency group of the workflows covers the Actions side).
 - Look at what the migrations will do: `alembic history` and the revision files.
+- Pre-deploy check of the environment: `ENVIRONMENT=production` and `AUTH_DEV_BYPASS`
+  unset or `false` (see the production checklist in [deploy.md](deploy.md)). With the
+  bypass on, no process starts in production; the log line is
+  `invalid configuration: AUTH_DEV_BYPASS must not be enabled when ENVIRONMENT=production`.
 
 ### 1. Apply the migrations to Neon
 
@@ -67,7 +71,9 @@ Verify:
 - `GET /healthz` is 200, `GET /readyz` is 200 with `database: ok` (and `redis: ok`,
   `migrations: ok` when enabled). A 503 names the failing check.
 - A request without a credential gets 401 and with a valid token 200 (the startup
-  check refuses to boot without authentication, so a running API has some).
+  check refuses to boot without authentication, so a running API has some, and the
+  settings refuse to load with `AUTH_DEV_BYPASS` in production, so a running one
+  has no bypass).
 - `GET /metrics` with the token returns `sanket_queue_up 1`.
 - The worker log shows `worker starting` and `Listening on <queue>`.
 - The next scheduled ingest run succeeds (Actions tab).

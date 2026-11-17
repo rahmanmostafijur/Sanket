@@ -78,8 +78,9 @@ filesystem and `no-new-privileges`. Published ports are bound to `127.0.0.1`.
   `redis`) for the containers; all other settings come from `.env`. A database
   password containing `@ : / %` must be percent-encoded.
 - Inside the containers `ENVIRONMENT` is `production` unless `.env` sets it, so
-  the API refuses to start without authentication. For local work set
-  `ENVIRONMENT=development` and `AUTH_DEV_BYPASS=true` (the example file does).
+  the API refuses to start without authentication, and no container starts with
+  `AUTH_DEV_BYPASS` on. For local work set `ENVIRONMENT=development` and
+  `AUTH_DEV_BYPASS=true` (the example file does), or configure a credential.
 - One-shot jobs: `docker compose --profile jobs run --rm ingest`, or any role,
   for example `docker compose run --rm worker backfill --dry-run`.
 - Host ports can be changed with `API_HOST_PORT`, `DB_PORT` and `REDIS_PORT`
@@ -119,7 +120,7 @@ they are `SecretStr` in code, never logged, and shown as `**********` in `repr`.
 | Variable | Default | Meaning |
 |---|---|---|
 | `DATABASE_URL` **S** | required | SQLAlchemy URL, `postgresql+psycopg://user:pass@host/db` (Neon: add `?sslmode=require`) |
-| `ENVIRONMENT` | `development` | `development`, `test` or `production`; production refuses development shortcuts |
+| `ENVIRONMENT` | `development` | `development`, `test` or `production`; production refuses development shortcuts (the settings do not load with `AUTH_DEV_BYPASS` on) |
 | `REDIS_URL` **S** | unset | task queue, shared rate limits and (with the feed) pub/sub; unset runs without a queue |
 | `LOG_LEVEL` / `LOG_FORMAT` | `INFO` / json outside development | see ADR 0010 |
 | `API_HOST` / `API_PORT` | `127.0.0.1` / `8000` | bind address (the image sets `0.0.0.0`) |
@@ -138,7 +139,7 @@ the development bypass:
 | `AUTH_LEEWAY_SECONDS` | `30` | clock skew allowed |
 | `AUTH_STREAM_TOKEN_SECRET` **S** | unset | enables stream tokens for browsers (at least 32 characters) |
 | `AUTH_STREAM_TOKEN_TTL_SECONDS` | `60` | stream token lifetime |
-| `AUTH_DEV_BYPASS` | `false` | credential-less requests act as `DEFAULT_OWNER_ID`; only with `ENVIRONMENT=development` |
+| `AUTH_DEV_BYPASS` | `false` | credential-less requests act as `DEFAULT_OWNER_ID`; allowed in `development` and `test`, and with `ENVIRONMENT=production` no process starts (ADR 0008). Leave it unset in production |
 | `SEARCH_PUBLIC` | `false` | allow `GET /search` without credentials |
 
 **Limits and probes**
@@ -163,12 +164,46 @@ production by a startup check: `GEMINI_API_KEY` for the worker.
 
 ### Startup checks
 
-The API and the worker validate their settings before touching anything and stop
-with one message listing every problem (never a value): no authentication
-configured, `AUTH_DEV_BYPASS` outside development, secrets that are too short,
-malformed `AUTH_API_KEYS`, a non-https JWKS URL, a worker in production without
-`GEMINI_API_KEY`. Commands such as `ingest` and `alembic` do not need any of the
-API settings and are unaffected.
+Two layers, both naming the setting and never a value.
+
+1. **Loading the settings** (every process: api, worker, ingest, alembic and the
+   other commands). An invalid value stops the process with one line and exit
+   status 1, no traceback. The one cross-setting rule here is
+   `ENVIRONMENT=production` together with `AUTH_DEV_BYPASS=true`:
+
+   ```
+   invalid configuration: AUTH_DEV_BYPASS must not be enabled when ENVIRONMENT=production
+   ```
+
+2. **Role checks** (the API and the worker, before they touch anything), which
+   list every problem at once: no authentication configured, secrets that are too
+   short, malformed `AUTH_API_KEYS`, a non-https JWKS URL, a worker in production
+   without `GEMINI_API_KEY`.
+
+Commands such as `ingest` and `alembic` do not need any of the API settings and
+are unaffected by layer 2.
+
+## Production checklist
+
+Before the first start and before every release:
+
+- [ ] `ENVIRONMENT=production` in the deployed environment (the image sets it; do
+      not override it).
+- [ ] `AUTH_DEV_BYPASS` is **unset or `false`** in the deployed environment. It is
+      the credential-less shortcut for local work and must never exist in production;
+      the settings refuse to load with both, so a mistake stops the deploy instead
+      of opening the API.
+- [ ] One credential type is configured (`AUTH_JWT_SECRET`, `AUTH_JWKS_URL` or
+      `AUTH_API_KEYS`), plus `AUTH_STREAM_TOKEN_SECRET` if browsers open streams.
+- [ ] `METRICS_TOKEN` is set (without it `/metrics` answers 404 in production).
+- [ ] `GEMINI_API_KEY` and `REDIS_URL` are set on the worker.
+
+How to verify on the deployed stack: `docker compose exec api printenv ENVIRONMENT`
+prints `production`, and `docker compose exec api printenv AUTH_DEV_BYPASS` prints
+nothing or `false` (never print the other secrets). A request without a credential
+must answer 401. If the bypass is set by mistake the container exits at once, `docker
+compose ps` shows it restarting and its log has the single line shown under Startup
+checks.
 
 ## Neon (PostgreSQL)
 
