@@ -1,0 +1,41 @@
+{
+  "first_page": {
+    "jobs": [
+      {
+        "guid": "https://himalayas.app/companies/acme/jobs/backend-engineer",
+        "title": "Backend Engineer",
+        "companyName": "Acme &amp; Sons",
+        "applicationLink": "https://himalayas.app/apply/backend-engineer",
+        "locationRestrictions": ["Germany", "France"],
+        "description": "<p>Build APIs.</p>",
+        "minSalary": 60000,
+        "maxSalary": 80000,
+        "currency": "EUR",
+        "salaryPeriod": "year",
+        "pubDate": 1762761600
+      },
+      {
+        "guid": "https://himalayas.app/companies/studio/jobs/designer",
+        "title": "Designer &amp; Illustrator",
+        "companyName": "Studio",
+        "locationRestrictions": []
+      },
+      {
+        "title": "Job without a guid",
+        "companyName": "Ghost"
+      }
+    ],
+    "nextCursor": "page-2"
+  },
+  "second_page": {
+    "jobs": [
+      {
+        "guid": "https://himalayas.app/companies/beta/jobs/analyst",
+        "title": "Analyst",
+        "locationRestrictions": null,
+        "applicationLink": "https://himalayas.app/apply/analyst"
+      }
+    ],
+    "nextCursor": null
+  }
+}

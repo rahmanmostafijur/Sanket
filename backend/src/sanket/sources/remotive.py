@@ -1,31 +1,58 @@
-from datetime import UTC, datetime
+import logging
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
-import httpx
-
-from sanket.sources.base import NormalizedPosting
+from sanket.sources.base import FetchResult, NormalizedPosting, convert_items
+from sanket.sources.http import Fetcher
 
 URL = "https://remotive.com/api/remote-jobs"
-USER_AGENT = "Sanket/0.1.0 (github.com/rahmanmostafijur/Sanket)"
+
+logger = logging.getLogger(__name__)
 
 
-def fetch_remotive_jobs() -> list[dict]:
-    response = httpx.get(
-        URL,
-        headers={"User-Agent": USER_AGENT},
-        timeout=httpx.Timeout(10.0, connect=5.0),
+class RemotiveSource:
+    """Remotive public API.
+
+    Terms: at most 4 requests a day, link back to the Remotive URL and credit Remotive,
+    and do not pass the jobs on to other job sites. One attempt per run, no retries, so a
+    retry can never push the daily count over the limit.
+    """
+
+    name = "remotive"
+    max_requests_per_day: int | None = 4
+    max_attempts = 1
+    min_interval: timedelta | None = None
+
+    def fetch(self, http: Fetcher) -> FetchResult:
+        postings, failed = convert_items(self.name, fetch_remotive_jobs(http), to_posting)
+        return FetchResult(postings, failed=failed)
+
+
+def fetch_remotive_jobs(http: Fetcher) -> list[dict]:
+    data = http.get(URL).json()
+
+    logger.info(
+        "Fetched %d jobs from remotive (job-count=%s)",
+        len(data["jobs"]),
+        data.get("job-count"),
     )
-    response.raise_for_status()
-    data = response.json()
+    return [_with_aliases(job) for job in data["jobs"]]
 
-    return [
-        {
-            **job,
-            "company": job["company_name"],
-            "position": job["title"],
-            "location": job["candidate_required_location"],
-        }
-        for job in data["jobs"]
-    ]
+
+def _with_aliases(job: Any) -> Any:
+    """Add the shared company/position/location keys; a missing field stays None.
+
+    Anything that is not a JSON object is returned as is, so `to_posting` rejects it and
+    it is skipped like any other malformed item.
+    """
+    if not isinstance(job, dict):
+        return job
+    return {
+        **job,
+        "company": job.get("company_name"),
+        "position": job.get("title"),
+        "location": job.get("candidate_required_location"),
+    }
 
 
 def _parse_published_at(value: str | None) -> datetime | None:

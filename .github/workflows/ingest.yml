@@ -5,11 +5,25 @@ on:
   - cron: "0 */6 * * *"
   workflow_dispatch:
 
+# Shared with the migrate workflow so ingestion never overlaps a migration or another
+# ingestion run (which could also double-spend the per-source request budgets).
+concurrency:
+  group: prod-db
+  cancel-in-progress: false
+
 jobs:
   ingest:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      HIMALAYAS_API_KEY: ${{ secrets.HIMALAYAS_API_KEY }}
+      GREENHOUSE_BOARDS: ${{ vars.GREENHOUSE_BOARDS }}
+      LEVER_COMPANIES: ${{ vars.LEVER_COMPANIES }}
+      ASHBY_BOARDS: ${{ vars.ASHBY_BOARDS }}
+      JOBTECH_QUERY: ${{ vars.JOBTECH_QUERY }}
+      USAJOBS_API_KEY: ${{ secrets.USAJOBS_API_KEY }}
+      USAJOBS_USER_AGENT_EMAIL: ${{ secrets.USAJOBS_USER_AGENT_EMAIL }}
     defaults:
       run:
         working-directory: backend
@@ -19,5 +33,11 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e .
-      - run: alembic upgrade head
       - run: python -m sanket.ingest
+      # Runs even when a source failed, so one bad source does not block extraction.
+      - name: Extract pending postings
+        if: ${{ !cancelled() }}
+        timeout-minutes: 25
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python -m sanket.extraction.runner

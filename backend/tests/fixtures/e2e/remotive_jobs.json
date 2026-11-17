@@ -1,0 +1,35 @@
+{
+  "job-count": 3,
+  "jobs": [
+    {
+      "id": 8001,
+      "url": "https://remotive.com/remote-jobs/software-dev/senior-backend-engineer-8001",
+      "title": "Senior Backend Engineer",
+      "company_name": "Acme Inc",
+      "candidate_required_location": "Remote - EU",
+      "description": "<p>Design and run Python services and REST APIs on PostgreSQL. You own the data model and the release pipeline.</p>",
+      "salary": "",
+      "publication_date": "2026-11-03T15:00:00"
+    },
+    {
+      "id": 8002,
+      "url": "https://remotive.com/remote-jobs/devops/python-devops-engineer-8002",
+      "title": "Python DevOps Engineer",
+      "company_name": "Beta Corp",
+      "candidate_required_location": "Worldwide",
+      "description": "<p>Automate deployments with Python and Kubernetes, and keep the clusters healthy.</p>",
+      "salary": "$70k-$90k",
+      "publication_date": "2026-11-06T10:00:00"
+    },
+    {
+      "id": 8003,
+      "url": "https://remotive.com/remote-jobs/operations/office-manager-8003",
+      "title": "Office Manager",
+      "company_name": "Gamma Ltd",
+      "candidate_required_location": "Dhaka, Bangladesh",
+      "description": "<p>Run the Dhaka office: suppliers, visitors and the monthly budget.</p>",
+      "salary": "",
+      "publication_date": "2026-11-07T08:00:00"
+    }
+  ]
+}

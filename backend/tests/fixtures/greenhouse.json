@@ -1,0 +1,29 @@
+{
+  "jobs": [
+    {
+      "id": 4001,
+      "title": "Platform Engineer",
+      "absolute_url": "https://boards.greenhouse.io/acme/jobs/4001",
+      "company_name": "Acme Inc",
+      "location": {"name": "Remote - EU"},
+      "content": "&lt;p&gt;Build &amp;amp; run the platform.&lt;/p&gt;",
+      "first_published": "2026-11-01T10:00:00-05:00"
+    },
+    {
+      "id": 4002,
+      "title": "Minimal Role",
+      "absolute_url": "https://boards.greenhouse.io/acme/jobs/4002",
+      "location": null
+    },
+    {
+      "id": 4003,
+      "title": "Role without a url"
+    },
+    {
+      "id": 4004,
+      "title": "Role with a bad date",
+      "absolute_url": "https://boards.greenhouse.io/acme/jobs/4004",
+      "first_published": "yesterday"
+    }
+  ]
+}

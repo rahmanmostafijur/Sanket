@@ -1,0 +1,31 @@
+{
+  "jobs": [
+    {
+      "id": 7001,
+      "title": "Senior Backend Engineer",
+      "absolute_url": "https://boards.greenhouse.io/acme/jobs/7001",
+      "company_name": "Acme Inc",
+      "location": {"name": "Remote - EU"},
+      "content": "&lt;p&gt;Design and run Python services and REST APIs on PostgreSQL. You own the data model and the release pipeline.&lt;/p&gt;",
+      "first_published": "2026-11-03T09:00:00-05:00"
+    },
+    {
+      "id": 7002,
+      "title": "Data Scientist",
+      "absolute_url": "https://boards.greenhouse.io/acme/jobs/7002",
+      "company_name": "Acme Inc",
+      "location": {"name": "Berlin, Germany"},
+      "content": "&lt;p&gt;Build forecasting models with pandas and scikit-learn. Three days a week in the Berlin office.&lt;/p&gt;",
+      "first_published": "2026-11-04T09:00:00-05:00"
+    },
+    {
+      "id": 7003,
+      "title": "Frontend Developer",
+      "absolute_url": "https://boards.greenhouse.io/acme/jobs/7003",
+      "company_name": "Acme Inc",
+      "location": {"name": "Remote - EU"},
+      "content": "&lt;p&gt;Ship accessible interfaces in React and TypeScript for the customer dashboard.&lt;/p&gt;",
+      "first_published": "2026-11-05T09:00:00-05:00"
+    }
+  ]
+}

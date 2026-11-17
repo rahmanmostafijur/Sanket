@@ -1,0 +1,83 @@
+{
+ "LanguageCode": "EN",
+ "SearchResult": {
+  "SearchResultCount": 4,
+  "SearchResultCountAll": 4,
+  "SearchResultItems": [
+   {
+    "MatchedObjectId": "900000001",
+    "MatchedObjectDescriptor": {
+     "PositionID": "EX-26-0001",
+     "PositionTitle": "IT Specialist (APPSW)",
+     "PositionURI": "https://www.usajobs.gov/GetJob/ViewDetails/900000001",
+     "ApplyURI": [
+      "https://www.usajobs.gov/GetJob/ViewDetails/900000001"
+     ],
+     "PositionLocationDisplay": "Washington, District of Columbia",
+     "OrganizationName": "Example Agency",
+     "DepartmentName": "Example Department",
+     "PositionRemuneration": [
+      {
+       "MinimumRange": "92108",
+       "MaximumRange": "119746",
+       "RateIntervalCode": "PA",
+       "Description": "Per Year"
+      }
+     ],
+     "PublicationStartDate": "2026-11-15",
+     "ApplicationCloseDate": "2026-12-01T00:00:00Z",
+     "UserArea": {
+      "Details": {
+       "JobSummary": "Develops and maintains software.",
+       "MajorDuties": [
+        "Write code.",
+        "Review code."
+       ],
+       "QualificationSummary": "One year of specialised experience.",
+       "Requirements": "You must be a U.S. citizen."
+      }
+     }
+    },
+    "RelevanceRank": 0.0
+   },
+   {
+    "MatchedObjectId": "900000002",
+    "MatchedObjectDescriptor": {
+     "PositionTitle": "Park Ranger",
+     "PositionURI": "https://www.usajobs.gov/GetJob/ViewDetails/900000002"
+    },
+    "RelevanceRank": 0.0
+   },
+   {
+    "MatchedObjectId": "900000003",
+    "MatchedObjectDescriptor": {
+     "PositionTitle": "Role without a URI"
+    },
+    "RelevanceRank": 0.0
+   },
+   {
+    "MatchedObjectId": "900000004",
+    "MatchedObjectDescriptor": {
+     "PositionTitle": "Odd Pay",
+     "PositionURI": "https://www.usajobs.gov/GetJob/ViewDetails/900000004",
+     "PositionRemuneration": [
+      {
+       "MinimumRange": "n/a",
+       "MaximumRange": "",
+       "RateIntervalCode": "PH",
+       "Description": "Per Hour"
+      }
+     ],
+     "PublicationStartDate": "2026-11-14",
+     "ApplicationCloseDate": null,
+     "UserArea": {
+      "Details": {
+       "MajorDuties": "Single string duty."
+      }
+     }
+    },
+    "RelevanceRank": 0.0
+   }
+  ]
+ }
+}

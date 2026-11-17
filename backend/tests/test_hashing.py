@@ -1,3 +1,5 @@
+from typing import Any
+
 from sanket.hashing import content_hash, make_hash
 from sanket.sources.base import NormalizedPosting
 
@@ -24,7 +26,7 @@ def test_make_hash_differs_when_description_changes() -> None:
 
 
 def make_posting(**overrides) -> NormalizedPosting:
-    data = {
+    data: dict[str, Any] = {
         "source": "bdjobs",
         "source_id": "1",
         "url": "https://x.com",

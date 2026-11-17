@@ -12,3 +12,5 @@ dist/
 node_modules/
 scratch_*.py
 sanket-context.md
+# Local scrape credentials for the observability profile (docs/deploy.md).
+ops/observability/secrets/

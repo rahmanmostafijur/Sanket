@@ -1,0 +1,42 @@
+{
+  "first_page": {
+    "jobs": [
+      {
+        "id": 101,
+        "url": "https://jobicy.com/jobs/101-backend-api-developer",
+        "jobTitle": "Backend &amp; API Developer",
+        "companyName": "Foo Labs",
+        "jobGeo": "Anywhere",
+        "jobDescription": "<p>Design REST APIs.</p>",
+        "salaryMin": 70000,
+        "salaryMax": 90000,
+        "salaryCurrency": "USD",
+        "salaryPeriod": "year",
+        "pubDate": "2026-11-10 09:00:00"
+      },
+      {
+        "id": 102,
+        "url": "https://jobicy.com/jobs/102-minimal",
+        "jobTitle": "Minimal Posting"
+      },
+      {
+        "id": 103,
+        "jobTitle": "Posting without a url"
+      }
+    ],
+    "hasMore": true,
+    "nextCursor": "cursor-2"
+  },
+  "second_page": {
+    "jobs": [
+      {
+        "id": 104,
+        "url": "https://jobicy.com/jobs/104-support",
+        "jobTitle": "Support Engineer",
+        "jobGeo": "",
+        "pubDate": "2026-11-09T08:30:00+02:00"
+      }
+    ],
+    "hasMore": false
+  }
+}

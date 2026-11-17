@@ -15,13 +15,36 @@ dependencies = [
     "httpx>=0.28,<1",
     "ftfy>=6.3",
     "google-genai>=1.0",
-    ]
+    "pydantic-extra-types>=2.11",
+    "pycountry>=24.6",
+    "tzdata>=2024.1",
+    "pgvector>=0.4",
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.30,<1",
+    "rq>=3.0,<4",
+    "redis>=5,<9",
+    "pyjwt[crypto]>=2.9,<3",
+    "prometheus-client>=0.20,<1",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.3", "ruff>=0.7"]
+# Tracing (docs/adr/0010-observability.md); the API runs without it.
+otel = [
+    "opentelemetry-sdk>=1.27",
+    "opentelemetry-exporter-otlp-proto-http>=1.27",
+    "opentelemetry-instrumentation-fastapi>=0.48b0",
+    "opentelemetry-instrumentation-sqlalchemy>=0.48b0",
+]
+dev = [
+    "pytest>=8.3",
+    "httpx2>=2",
+    "ruff>=0.16,<0.17",
+    "mypy>=2.4,<3",
+    "fakeredis[lua]>=2.40,<3",
+]
 
 [tool.ruff]
 line-length = 100
@@ -29,3 +52,54 @@ target-version = "py311"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Test modules import their helpers as `tests.*`; tests/ is not a package, so put backend/ on
+# sys.path explicitly instead of relying on `python -m pytest` adding the working directory.
+pythonpath = ["."]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src", "tests"]
+mypy_path = ["src", "."]
+explicit_package_bases = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+# Strictness is opt-in per module: the rest of the code base is checked leniently, new modules
+# should start strict. To add one, list its dotted name (or a glob such as "sanket.new.*")
+# below and run `mypy`; fix what it reports before merging. (`strict = true` is not accepted in a
+# per-module section, so the strict flags are spelled out.)
+[[tool.mypy.overrides]]
+module = [
+    "sanket.config",
+    "sanket.db",
+    "sanket.canonical.*",
+    "sanket.sources.ashby",
+    "sanket.sources.jobtech_se",
+    "sanket.sources.usajobs",
+    "sanket.extraction.prompt",
+    "sanket.extraction.schema",
+    "sanket.indexing.*",
+    "sanket.embeddings.*",
+    "sanket.search.*",
+    "sanket.api.*",
+    "sanket.smoke",
+    "sanket.queue.*",
+    "sanket.profiles.*",
+    "sanket.matching.*",
+    "sanket.feed.*",
+    "sanket.worker.*",
+    "sanket.runtime_checks",
+    "sanket.auth.*",
+    "sanket.observability.*",
+    "sanket.ratelimit.*",
+]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+disallow_untyped_calls = true
+disallow_any_generics = true
+disallow_subclassing_any = true
+check_untyped_defs = true
+no_implicit_reexport = true
+warn_return_any = true

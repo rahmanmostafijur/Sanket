@@ -1,0 +1,22 @@
+[
+  {"legal": "API terms of service: link back to Remote OK and name it as the source."},
+  {
+    "id": "9001",
+    "url": "https://remoteok.com/remote-jobs/9001-backend-dev",
+    "position": "Backend Dev",
+    "company": "CafÃ© Co",
+    "location": "Worldwide",
+    "description": "<p>Work on services.</p> Please mention the word **BANANA** when applying to show you read this",
+    "date": "2026-11-10T09:00:00+00:00",
+    "salary_min": 60000,
+    "salary_max": 90000
+  },
+  {
+    "id": "9002",
+    "url": "https://remoteok.com/remote-jobs/9002-no-salary",
+    "position": "No Salary Role",
+    "date": "2026-11-10T09:00:00+00:00",
+    "salary_min": 0,
+    "salary_max": 0
+  }
+]

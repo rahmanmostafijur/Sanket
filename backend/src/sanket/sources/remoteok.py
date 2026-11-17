@@ -1,24 +1,32 @@
-import httpx
+from datetime import timedelta
+
 from ftfy import fix_encoding
 
-from sanket.sources.base import NormalizedPosting
+from sanket.sources.base import FetchResult, NormalizedPosting, convert_items
+from sanket.sources.http import Fetcher
 
 URL = "https://remoteok.com/api"
-USER_AGENT = "Sanket/0.1.0 (github.com/rahmanmostafijur/Sanket)"
 ANTI_SPAM_MARKER = "Please mention the word"
 
 
-def fetch_remoteok_jobs():
-    response = httpx.get(
-        URL,
-        headers={"User-Agent": USER_AGENT},
-        timeout=httpx.Timeout(10.0, connect=5.0),
-    )
-    response.raise_for_status()
-    data = response.json()
+class RemoteOkSource:
+    """Remote OK public API. Terms: link back (do-follow) and name "Remote OK" as source."""
 
-    jobs = [item for item in data if "id" in item]
-    return jobs
+    name = "remoteok"
+    max_requests_per_day: int | None = 12
+    max_attempts = 3
+    min_interval: timedelta | None = None
+
+    def fetch(self, http: Fetcher) -> FetchResult:
+        postings, failed = convert_items(self.name, fetch_remoteok_jobs(http), to_posting)
+        return FetchResult(postings, failed=failed)
+
+
+def fetch_remoteok_jobs(http: Fetcher) -> list[dict]:
+    data = http.get(URL).json()
+    # The first element is the API legal notice, not a job. Anything else that is not a
+    # JSON object cannot be a job either.
+    return [item for item in data if isinstance(item, dict) and "id" in item]
 
 
 def _fix_encoding(text: str | None) -> str | None:
@@ -33,7 +41,8 @@ def to_posting(item: dict) -> NormalizedPosting:
         source="remoteok",
         source_id=item["id"],
         url=item["url"],
-        title=_fix_encoding(item["position"]),
+        # A missing position gives None, which pydantic rejects so the item is skipped.
+        title=_fix_encoding(item["position"]),  # type: ignore[arg-type]
         raw=item,
         company=_fix_encoding(item.get("company")) or None,
         location=_fix_encoding(item.get("location")) or None,

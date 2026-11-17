@@ -1,0 +1,22 @@
+# OpenTelemetry collector for local use: receives OTLP/HTTP from the API and prints spans.
+# Replace the exporter with your tracing backend (Tempo, Jaeger, a hosted service) in a real
+# deployment.
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch: {}
+
+exporters:
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
