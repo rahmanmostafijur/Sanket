@@ -150,8 +150,8 @@ Getting started). Every writing command is a dry run unless `--apply` is passed.
 | LLM extraction | `python -m sanket.extraction.runner` | `GEMINI_API_KEY` |
 | Canonical jobs | `python -m sanket.canonicalise [--apply]` | PostgreSQL |
 | Search index | `python -m sanket.indexing [--apply]` | `GEMINI_API_KEY` to apply |
-| API (`/search`, `/profiles`, docs at `/docs`) | `python -m sanket.api` | PostgreSQL |
-| Queue worker | `python -m sanket.worker [--burst]` | `REDIS_URL`, `GEMINI_API_KEY` |
+| API (`/search`, `/profiles`, the live match stream, docs at `/docs`) | `python -m sanket.api` | PostgreSQL |
+| Queue worker (also publishes new matches to the feed) | `python -m sanket.worker [--burst]` | `REDIS_URL`, `GEMINI_API_KEY` |
 | Matching, again | `python -m sanket.matching embed-profiles\|rematch [--apply] [--inline]` | PostgreSQL; `--inline` needs no Redis |
 | Dead-lettered tasks | `python -m sanket.queue.dlq list\|requeue\|purge` | `REDIS_URL` |
 | Smoke check of a running API | `python -m sanket.smoke [--base-url URL]` | the API running locally |
@@ -164,18 +164,22 @@ python -m sanket.ingest                    # postings, then canonical jobs
 python -m sanket.extraction.runner         # structured fields (needs GEMINI_API_KEY)
 python -m sanket.indexing --apply          # full-text vectors and embeddings
 python -m sanket.api &                     # http://127.0.0.1:8000/docs
-python -m sanket.worker                    # in a second terminal: embeds and matches profiles
-python -m sanket.smoke                     # search, create a profile, list its matches
+python -m sanket.worker                    # in a second terminal: embeds and matches profiles, publishes new matches
+python -m sanket.smoke                     # search, create a profile, list its matches, open its stream
 ```
 
 `python -m sanket.smoke` creates one profile named `smoke-...` and deletes it again, so
 use it against a development database only. It reports endpoints that do not exist yet as
 `skipped` instead of failing. The whole chain is also covered by an end-to-end test with
-recorded payloads and fakes (`backend/tests/e2e`), which runs with the normal `pytest`.
+recorded payloads and fakes (`backend/tests/e2e`), including the live feed on a fake Redis,
+which runs with the normal `pytest`.
 `scripts/collect_status.py` regenerates the mechanical parts of
 [docs/STATUS.md](docs/STATUS.md).
 
-<!-- TODO-ORCH: link the live feed guide and the deployment and operations docs here (phases 7 and 8) -->
+The live feed is described in [Live match feed](#live-match-feed) below and in
+[docs/feed.md](docs/feed.md).
+
+<!-- TODO-ORCH: link the deployment and operations docs here (phase 8) -->
 
 ## LLM extraction (M2)
 
