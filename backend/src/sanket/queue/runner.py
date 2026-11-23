@@ -18,6 +18,7 @@ from typing import Any
 
 from rq import get_current_job
 
+from sanket.observability.tracing import task_span
 from sanket.queue.base import PermanentTaskError, TaskContext, TaskRegistry
 from sanket.queue.stats import Outcome, record_outcome, task_label
 
@@ -103,7 +104,8 @@ def execute_task(task_name: str, payload_json: str) -> None:
             raise PermanentTaskError("no task registry is active in this process")
         handler = _active_registry.get(task_name)
         payload = _parse_payload(payload_json)
-        handler(payload, context)
+        with task_span(task_name, context.key, context.attempt):
+            handler(payload, context)
     except PermanentTaskError as error:
         logger.error(
             "Task %s (key %s) failed permanently on attempt %d: %s",

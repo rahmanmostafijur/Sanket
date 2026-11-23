@@ -12,16 +12,17 @@ the best matches happened to be excluded. Values come from two places:
 Everything user supplied is a bound parameter (`icontains(..., autoescape=True)` escapes the
 LIKE wildcards of the location filter, so `%` and `_` match themselves).
 
-Not filterable, on purpose: salary. Extracted amounts come with an optional period and no
-conversion to one currency or one period, so a minimum salary could not be compared fairly
-across jobs; the amounts are returned with each result instead.
+Salary is filtered only within one currency: the extracted amount (the maximum, else the
+minimum) is annualised by its period and compared with an annual minimum given together with
+its currency. Amounts are never converted between currencies, and a salary without a period
+cannot be annualised, so such jobs never pass a minimum salary filter.
 """
 
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import ColumnElement, Select, exists, func, select, true
+from sqlalchemy import ColumnElement, Float, Select, case, cast, exists, func, select, true
 
 from sanket.extraction.runner import STATUS_OK
 from sanket.models import Job, JobEmbedding, Posting, PostingExtraction
@@ -41,6 +42,10 @@ class SearchFilters:
     location: str | None = None
     posted_after: datetime | None = None
     skills: tuple[str, ...] = ()
+    # An annual minimum in `salary_currency` (both or neither); see the module docstring.
+    salary_min: float | None = None
+    salary_currency: str | None = None
+    has_salary: bool = False
 
     @property
     def needs_extraction(self) -> bool:
@@ -50,7 +55,13 @@ class SearchFilters:
             or self.employment_types
             or self.countries
             or self.skills
+            or self.salary_min is not None
+            or self.has_salary
         )
+
+
+# How many of each period make a year (a 40-hour week, 260 working days).
+PERIODS_PER_YEAR: dict[str, int] = {"hour": 2080, "day": 260, "week": 52, "month": 12, "year": 1}
 
 
 def latest_extraction_lateral() -> Any:
@@ -79,6 +90,29 @@ def _has_skill(extraction: Any, skill: str) -> ColumnElement[bool]:
     )
 
 
+def _salary_amount(extraction: Any) -> ColumnElement[Any]:
+    salary = extraction.c.data["salary"]
+    return func.coalesce(
+        cast(salary["max_amount"].astext, Float), cast(salary["min_amount"].astext, Float)
+    )
+
+
+def _has_salary(extraction: Any) -> ColumnElement[bool]:
+    return _salary_amount(extraction).is_not(None)
+
+
+def _salary_at_least(extraction: Any, minimum: float, currency: str) -> ColumnElement[bool]:
+    salary = extraction.c.data["salary"]
+    factor = case(
+        *((salary["period"].astext == period, n) for period, n in PERIODS_PER_YEAR.items()),
+        else_=None,
+    )
+    condition: ColumnElement[bool] = (salary["currency"].astext == currency.upper()) & (
+        _salary_amount(extraction) * factor >= minimum
+    )
+    return condition
+
+
 def _published_at() -> ColumnElement[Any]:
     """When the job was posted: its representative posting's date, else when we first saw it."""
     posted = (
@@ -87,6 +121,11 @@ def _published_at() -> ColumnElement[Any]:
         .scalar_subquery()
     )
     return func.coalesce(posted, Job.first_seen_at)
+
+
+def posted_at() -> ColumnElement[Any]:
+    """When a job was posted, for ordering: see `_published_at`."""
+    return _published_at()
 
 
 def _any_posting_from(sources: tuple[str, ...]) -> ColumnElement[bool]:
@@ -104,6 +143,10 @@ def _conditions(filters: SearchFilters, extraction: Any) -> list[ColumnElement[b
         if values:
             conditions.append(_field_in(extraction, field, values))
     conditions.extend(_has_skill(extraction, skill) for skill in filters.skills)
+    if filters.has_salary:
+        conditions.append(_has_salary(extraction))
+    if filters.salary_min is not None and filters.salary_currency:
+        conditions.append(_salary_at_least(extraction, filters.salary_min, filters.salary_currency))
     if filters.sources:
         conditions.append(_any_posting_from(filters.sources))
     if filters.company:

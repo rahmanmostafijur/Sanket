@@ -9,6 +9,7 @@ from sqlalchemy import Engine
 from sanket.canonical.service import canonicalise
 from sanket.config import Settings, settings
 from sanket.db import engine
+from sanket.extraction.tasks import enqueue_after_ingest
 from sanket.observability.logs import configure_logging
 from sanket.sources.ashby import AshbySource
 from sanket.sources.base import Source, SourceNotConfiguredError
@@ -162,6 +163,7 @@ def main() -> None:
     for summary in summaries:
         logger.info(summary.line())
     canonicalise_postings_after_ingest(settings.canonicalise_after_ingest)
+    enqueue_after_ingest(settings)
 
     failed = [summary.name for summary in summaries if summary.status == STATUS_FAILED]
     if failed:

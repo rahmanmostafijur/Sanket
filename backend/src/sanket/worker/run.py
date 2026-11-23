@@ -28,8 +28,11 @@ from sqlalchemy import Engine
 from sanket.config import Settings
 from sanket.db import engine
 from sanket.embeddings.client import EmbeddingClient
+from sanket.extraction.runner import config_from_settings as extraction_config_from_settings
+from sanket.extraction.tasks import gemini_client_from_settings, register_extraction
 from sanket.matching.notify import MatchNotifier
 from sanket.matching.tasks import registry_from_settings
+from sanket.observability.tracing import setup_worker_tracing
 from sanket.queue.base import TaskRegistry
 from sanket.queue.config import config_from_settings
 from sanket.queue.connection import redis_connection
@@ -83,17 +86,23 @@ def run_worker(
     """
     redis = _connect(config, connection)
     queue = RqTaskQueue(redis, config_from_settings(config))
-    set_registry(
-        registry
-        or registry_from_settings(
+    if registry is None:
+        registry = registry_from_settings(
             config, queue=queue, embedder=embedder, notifier=notifier, db_engine=db_engine
         )
-    )
+        register_extraction(
+            registry,
+            gemini_client_from_settings(config),
+            extraction_config_from_settings(config),
+            db_engine,
+        )
+    set_registry(registry)
     worker_class = choose_worker_class(simple=simple)
     mode = "simple" if worker_class is SimpleWorker else "fork"
     logger.info(
         "worker starting queue=%s mode=%s burst=%s", queue.cfg.queue_name, mode, str(burst).lower()
     )
+    setup_worker_tracing(db_engine, config)
     # A forked task must not inherit a connection of this process.
     db_engine.dispose()
     worker = worker_class([queue.queue], connection=redis)

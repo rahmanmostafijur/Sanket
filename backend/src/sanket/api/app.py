@@ -28,8 +28,10 @@ from sanket.api.limits import RateLimit
 from sanket.api.middleware import RequestContextMiddleware
 from sanket.api.routers import auth as auth_router
 from sanket.api.routers import feed as feed_router
+from sanket.api.routers import jobs as jobs_router
 from sanket.api.routers import ops as ops_router
 from sanket.api.routers import profiles as profiles_router
+from sanket.api.routers import saved as saved_router
 from sanket.api.routers import search as search_router
 from sanket.auth.authenticator import authenticator_from_settings
 from sanket.auth.stream_token import StreamTokens
@@ -154,7 +156,9 @@ def create_app(
     guard = list(dependencies)
     standard = [Depends(RateLimit("default")), *guard]
     app.include_router(search_router.router, dependencies=[Depends(RateLimit("search")), *guard])
+    app.include_router(jobs_router.router, dependencies=[Depends(RateLimit("search")), *guard])
     app.include_router(profiles_router.router, dependencies=standard)
+    app.include_router(saved_router.router, dependencies=standard)
     app.include_router(auth_router.router, dependencies=standard)
     # Streams are exempt from the per-request rate limit; the feed caps open streams instead.
     app.include_router(feed_router.router, dependencies=guard)

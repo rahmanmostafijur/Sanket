@@ -12,6 +12,7 @@ from sqlalchemy import Engine
 
 from sanket.config import Settings
 from sanket.embeddings.fake import FakeEmbeddingClient
+from sanket.extraction.tasks import TASK_EXTRACT_POSTING
 from sanket.queue import runner
 from sanket.queue.base import TaskRegistry
 from sanket.queue.config import config_from_settings
@@ -73,7 +74,7 @@ def test_a_burst_drains_the_queue_with_the_registry_it_installs(clean_db: Engine
     assert (health.depth, health.running, health.dead_letters) == (0, 0, 0)
     assert runner._active_registry is not None
     assert runner._active_registry.names() == sorted(
-        [TASK_EMBED_PROFILE, TASK_MATCH_JOB, TASK_MATCH_PROFILE]
+        [TASK_EMBED_PROFILE, TASK_EXTRACT_POSTING, TASK_MATCH_JOB, TASK_MATCH_PROFILE]
     )
 
 

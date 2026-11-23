@@ -5,10 +5,23 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 
 from sanket.api.deps import ApiContext, get_context, require_search_access
-from sanket.api.schemas import SearchParams, SearchResponse, response_from_page
+from sanket.api.schemas import (
+    SearchMode,
+    SearchParams,
+    SearchResponse,
+    SearchSort,
+    response_from_page,
+)
+from sanket.search.retrieval import SearchMode as RetrievalMode
 from sanket.search.service import search
 
 router = APIRouter(tags=["search"], dependencies=[Depends(require_search_access)])
+
+RETRIEVAL_MODES = {
+    SearchMode.HYBRID: RetrievalMode.HYBRID,
+    SearchMode.KEYWORD: RetrievalMode.TEXT,
+    SearchMode.SEMANTIC: RetrievalMode.VECTOR,
+}
 
 
 @router.get(
@@ -17,8 +30,9 @@ router = APIRouter(tags=["search"], dependencies=[Depends(require_search_access)
     summary="Search jobs",
     description=(
         "Hybrid search: full-text and vector candidates (each pre-filtered) are fused by "
-        "reciprocal rank. If the query cannot be embedded, results come from full text only "
-        "and `degraded` is true. Show `attribution` and link to `url` with every result."
+        "reciprocal rank; `mode` picks keyword only or semantic only instead. If the query "
+        "cannot be embedded, results come from full text only (none in semantic mode) and "
+        "`degraded` is true. Show `attribution` and link to `url` with every result."
     ),
 )
 def search_jobs(
@@ -32,6 +46,8 @@ def search_jobs(
         context.embedding_client,
         limit=params.limit,
         offset=params.offset,
+        mode=RETRIEVAL_MODES[params.mode],
+        newest=params.sort is SearchSort.NEWEST,
         cache=context.query_cache,
         db_engine=context.db_engine,
     )
