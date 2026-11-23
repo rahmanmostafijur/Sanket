@@ -3,7 +3,6 @@ import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { ApiError, errorMessage } from '@/api/client'
 import { cn } from '@/lib/cn'
-import { useSession } from '@/stores/session'
 import { Button } from './Button'
 
 interface EmptyStateProps {
@@ -30,7 +29,6 @@ export function EmptyState({ icon, title, description, action, className }: Empt
 /** Error panel that tells unreachable, unauthorised and other failures apart. */
 export function ErrorState({ error, onRetry, className }: { error: unknown; onRetry?: () => void; className?: string }) {
   const navigate = useNavigate()
-  const setMode = useSession((s) => s.setMode)
   const apiError = error instanceof ApiError ? error : null
   if (apiError?.isUnauthorized) {
     return (
@@ -38,8 +36,8 @@ export function ErrorState({ error, onRetry, className }: { error: unknown; onRe
         className={className}
         icon={<KeyRound />}
         title="Authentication required"
-        description="The Sanket API needs a credential. Add an API key or a JWT to continue."
-        action={<Button variant="primary" size="sm" onClick={() => navigate('/integrations')}>Add credential</Button>}
+        description="Sanket needs a credential. Add an API key or sign-in token in Settings, under Developers."
+        action={<Button variant="primary" size="sm" onClick={() => navigate('/settings')}>Add credential</Button>}
       />
     )
   }
@@ -48,14 +46,9 @@ export function ErrorState({ error, onRetry, className }: { error: unknown; onRe
       <EmptyState
         className={className}
         icon={<Unplug />}
-        title="The Sanket API is not reachable"
-        description="Start the API (python -m sanket.api) or check its address, or explore the interface with labelled demo data."
-        action={
-          <>
-            {onRetry ? <Button size="sm" onClick={onRetry}>Try again</Button> : null}
-            <Button variant="primary" size="sm" onClick={() => setMode('demo')}>Use demo data</Button>
-          </>
-        }
+        title="Sanket is not reachable"
+        description="Sanket is not answering right now. Try again in a moment, or check the connection address in Settings."
+        action={onRetry ? <Button size="sm" onClick={onRetry}>Try again</Button> : undefined}
       />
     )
   }

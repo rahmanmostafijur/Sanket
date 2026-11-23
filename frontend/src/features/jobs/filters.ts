@@ -1,4 +1,4 @@
-import type { EmploymentType, Job, Seniority, WorkMode } from '@/api/types'
+import type { EmploymentType, Job, JobFilterParams, Seniority, WorkMode } from '@/api/types'
 import { monthlyUsd } from '@/lib/format'
 
 /**
@@ -59,6 +59,19 @@ export function passesSalary(job: Job, minMonthlyUsd: number | null): boolean {
   if (!minMonthlyUsd) return true
   const monthly = monthlyUsd(job.extracted?.salary)
   return monthly != null && monthly >= minMonthlyUsd
+}
+
+const MONTHS_PER_YEAR = 12
+
+/** The filters the API applies. The monthly USD floor is sent as an annual amount in USD. */
+export function filtersToApi(filters: JobFilters): JobFilterParams {
+  return {
+    work_mode: filters.workModes,
+    seniority: filters.seniorities,
+    employment_type: filters.employmentTypes,
+    source: filters.sources,
+    ...(filters.minMonthlyUsd ? { salary_min: filters.minMonthlyUsd * MONTHS_PER_YEAR, salary_currency: 'USD' } : {}),
+  }
 }
 
 const PARAM = {

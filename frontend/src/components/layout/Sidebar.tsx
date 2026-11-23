@@ -77,7 +77,6 @@ function NavEntry({ item, collapsed, onNavigate }: { item: NavItem; collapsed: b
 /** The slot the reference uses for an upsell shows where the data comes from instead. */
 function DataSourceCard() {
   const mode = useSession((s) => s.mode)
-  const setMode = useSession((s) => s.setMode)
   const health = useHealth()
   const navigate = useNavigate()
   const demo = mode === 'demo'
@@ -93,17 +92,14 @@ function DataSourceCard() {
           ? 'Sample data in your browser. Nothing here comes from the Sanket API.'
           : reachable
             ? 'Search, matches and the live feed come from the Sanket API.'
-            : 'Start the API, or explore with labelled demo data.'}
+            : 'Sanket is not answering right now. Check the connection in Settings.'}
       </p>
-      <Button
-        variant={demo || !reachable ? 'primary' : 'secondary'}
-        size="sm"
-        className="mt-3.5 w-full"
-        onClick={() => (demo ? setMode('api') : reachable ? navigate('/integrations') : setMode('demo'))}
-      >
-        {demo ? 'Connect to API' : reachable ? 'Manage access' : 'Use demo data'}
-        <ChevronRight className="size-4" />
-      </Button>
+      {reachable ? null : (
+        <Button variant="primary" size="sm" className="mt-3.5 w-full" onClick={() => navigate('/settings')}>
+          Data source settings
+          <ChevronRight className="size-4" />
+        </Button>
+      )}
     </div>
   )
 }
@@ -113,11 +109,12 @@ function UserRow({ collapsed }: { collapsed: boolean }) {
   const token = useSession((s) => s.token)
   const identity = describeIdentity(mode, token)
   const navigate = useNavigate()
+  if (identity.kind === 'none') return null
   return (
     <button
       type="button"
       onClick={() => navigate('/settings')}
-      className={cn('flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-elevated/60', collapsed && 'justify-center')}
+      className={cn('flex w-full items-center gap-3 rounded-xl border-t border-line p-2 pt-3 text-left transition-colors hover:bg-elevated/60', collapsed && 'justify-center')}
     >
       <Avatar initials={identity.initials} />
       {collapsed ? null : (
@@ -182,9 +179,7 @@ export function Sidebar({ inDrawer = false, onNavigate }: SidebarProps) {
               {collapsed ? null : 'Collapse'}
             </button>
           )}
-          <div className="border-t border-line pt-3">
-            <UserRow collapsed={collapsed} />
-          </div>
+          <UserRow collapsed={collapsed} />
         </div>
       </motion.nav>
     </Tooltip.Provider>

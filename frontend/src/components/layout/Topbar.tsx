@@ -1,4 +1,4 @@
-import { Bell, Database, KeyRound, LogOut, Menu, Settings, UserRound, Zap } from 'lucide-react'
+import { Bell, LogOut, Menu, Settings, Zap } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { DropdownMenu, Popover } from 'radix-ui'
 import { useState, type ReactNode } from 'react'
@@ -108,8 +108,10 @@ function MenuItem({ icon, children, onSelect }: { icon: ReactNode; children: Rea
 function UserMenu() {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
-  const { mode, token, setMode, clearToken } = useSession()
+  const { mode, token, clearToken } = useSession()
   const identity = describeIdentity(mode, token)
+  // Nobody is signed in (the server lets requests through without a credential): no account to show.
+  if (identity.kind === 'none') return null
   return (
     <DropdownMenu.Root open={open} onOpenChange={setOpen} modal={false}>
       <DropdownMenu.Trigger asChild>
@@ -127,13 +129,7 @@ function UserMenu() {
                   <p className="truncate text-[12px] text-muted">{identity.detail}</p>
                 </div>
                 <DropdownMenu.Separator className="my-1 h-px bg-line" />
-                <MenuItem icon={<UserRound />} onSelect={() => navigate('/profile')}>My Profile</MenuItem>
-                <MenuItem icon={<KeyRound />} onSelect={() => navigate('/integrations')}>API & Integrations</MenuItem>
                 <MenuItem icon={<Settings />} onSelect={() => navigate('/settings')}>Settings</MenuItem>
-                <DropdownMenu.Separator className="my-1 h-px bg-line" />
-                <MenuItem icon={<Database />} onSelect={() => setMode(mode === 'demo' ? 'api' : 'demo')}>
-                  {mode === 'demo' ? 'Switch to the Sanket API' : 'Explore demo data'}
-                </MenuItem>
                 {token && mode === 'api' ? <MenuItem icon={<LogOut />} onSelect={clearToken}>Forget credential</MenuItem> : null}
               </motion.div>
             </DropdownMenu.Content>

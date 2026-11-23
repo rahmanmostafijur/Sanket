@@ -30,51 +30,77 @@ export function employmentLabel(value: string | null | undefined): string | null
   return value ? (EMPLOYMENT_LABELS[value] ?? null) : null
 }
 
-const CURRENCY_SYMBOLS: Record<string, string> = { USD: '$', EUR: '€', GBP: '£', CAD: 'C$', AUD: 'A$', INR: '₹', BDT: '৳', SEK: 'kr ' }
-const PERIOD_LABELS: Record<string, string> = {
-  hour: 'hour',
-  day: 'day',
-  week: 'week',
-  month: 'month',
-  year: 'year',
+const CURRENCY_SYMBOLS: Record<string, string> = { USD: '$', EUR: '€', GBP: '£', INR: '₹', BDT: '৳' }
+type PayPeriod = 'hour' | 'day' | 'week' | 'month' | 'year'
+/** Period words as sources and the extraction write them, mapped to one noun. */
+const PERIOD_ALIASES: Record<string, PayPeriod> = {
+  hour: 'hour', hours: 'hour', hourly: 'hour', hr: 'hour', 'per-hour-wage': 'hour',
+  day: 'day', days: 'day', daily: 'day',
+  week: 'week', weeks: 'week', weekly: 'week',
+  month: 'month', months: 'month', monthly: 'month', mo: 'month',
+  year: 'year', years: 'year', yearly: 'year', annual: 'year', annually: 'year', annum: 'year', yr: 'year', 'per-year-salary': 'year',
 }
 const MAX_SALARY_TEXT = 42
+/** Posting text such as "115000-165000 USD per annual" or "36-43 USD per hourly". */
+const PLAIN_SALARY_TEXT = /^(\d+(?:\.\d+)?)(?:\s*-\s*(\d+(?:\.\d+)?))?\s+([A-Za-z]{3})(?:\s+per\s+(\S+))?$/
+
+/** "year" for yearly, annual, annually, per-year-salary and the like; null when unrecognised. */
+export function payPeriod(value: string | null | undefined): PayPeriod | null {
+  if (!value) return null
+  return PERIOD_ALIASES[value.trim().toLowerCase()] ?? null
+}
 
 function compactAmount(amount: number): string {
   if (amount >= 1_000_000) return `${trimZero(amount / 1_000_000)}M`
   if (amount >= 1_000) return `${trimZero(amount / 1_000)}k`
-  return trimZero(amount)
+  return String(Math.round(amount * 100) / 100)
 }
 
 function trimZero(value: number): string {
   return value.toFixed(1).replace(/\.0$/, '')
 }
 
-function amountRange(salary: Salary): string | null {
-  const symbol = salary.currency ? (CURRENCY_SYMBOLS[salary.currency] ?? `${salary.currency} `) : ''
-  const { min_amount: min, max_amount: max } = salary
-  if (min != null && max != null && min !== max) {
-    return `${symbol}${compactAmount(min)} – ${symbol}${compactAmount(max)}`
-  }
-  const single = min ?? max
-  if (single == null) return null
-  return min == null ? `Up to ${symbol}${compactAmount(single)}` : `${symbol}${compactAmount(single)}`
+function money(currency: string | null, amount: number): string {
+  const code = currency?.toUpperCase() ?? null
+  if (!code) return compactAmount(amount)
+  const symbol = CURRENCY_SYMBOLS[code]
+  return symbol ? `${symbol}${compactAmount(amount)}` : `${code} ${compactAmount(amount)}`
 }
 
-/** "$4k – $6k / month" from the extraction, else the posting's own salary text, else null. */
-export function formatSalary(job: Pick<Job, 'extracted' | 'salary_text'>): string | null {
-  const salary = job.extracted?.salary
-  const range = salary ? amountRange(salary) : null
-  if (range && salary) {
-    const period = salary.period ? PERIOD_LABELS[salary.period] : null
-    return period ? `${range} / ${period}` : range
+function amountRange(salary: Salary): string | null {
+  const { min_amount: min, max_amount: max, currency } = salary
+  if (min != null && max != null && min !== max) return `${money(currency, min)}–${money(currency, max)}`
+  const single = min ?? max
+  if (single == null) return null
+  return min == null ? `Up to ${money(currency, single)}` : money(currency, single)
+}
+
+function withPeriod(range: string, period: string | null | undefined): string {
+  const noun = payPeriod(period)
+  return noun ? `${range} / ${noun}` : range
+}
+
+/** The posting's own salary text, tidied when it is the plain "min-max CUR per period" form. */
+function salaryFromText(text: string): string {
+  const parsed = PLAIN_SALARY_TEXT.exec(text)
+  if (parsed) {
+    const [, low, high, currency, period] = parsed
+    const range = amountRange({ min_amount: Number(low), max_amount: high ? Number(high) : Number(low), currency: currency ?? null, period: null })
+    if (range && (!period || payPeriod(period))) return withPeriod(range, period)
   }
-  const text = job.salary_text?.trim()
-  if (!text) return null
   return text.length > MAX_SALARY_TEXT ? `${text.slice(0, MAX_SALARY_TEXT - 1)}…` : text
 }
 
-const MONTHS_PER_PERIOD: Record<string, number> = {
+/** "$220k–$290k / year" from the extraction, else the posting's own salary text, else null. */
+export function formatSalary(job: Pick<Job, 'extracted' | 'salary_text'>): string | null {
+  const salary = job.extracted?.salary
+  const range = salary ? amountRange(salary) : null
+  if (range && salary) return withPeriod(range, salary.period)
+  const text = job.salary_text?.trim()
+  return text ? salaryFromText(text) : null
+}
+
+const MONTHS_PER_PERIOD: Record<PayPeriod, number> = {
   hour: 160,
   day: 21,
   week: 52 / 12,
@@ -87,11 +113,11 @@ const MONTHS_PER_PERIOD: Record<string, number> = {
  * USD or has no period (amounts in other currencies are not converted).
  */
 export function monthlyUsd(salary: Salary | null | undefined): number | null {
-  if (!salary || salary.currency !== 'USD' || !salary.period) return null
-  const factor = MONTHS_PER_PERIOD[salary.period]
+  if (!salary || salary.currency !== 'USD') return null
+  const period = payPeriod(salary.period)
   const amount = salary.max_amount ?? salary.min_amount
-  if (factor === undefined || amount == null) return null
-  return amount * factor
+  if (period === null || amount == null) return null
+  return amount * MONTHS_PER_PERIOD[period]
 }
 
 const MINUTE = 60_000

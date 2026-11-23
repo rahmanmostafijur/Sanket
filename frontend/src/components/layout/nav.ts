@@ -1,8 +1,6 @@
 import {
   Bookmark,
   BriefcaseBusiness,
-  ChartNoAxesColumn,
-  Plug,
   Radar,
   Search,
   Settings,
@@ -22,8 +20,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { to: '/discover', label: 'Discover Jobs', icon: Search },
   { to: '/live', label: 'Live Matches', icon: Radar, badge: 'live' },
   { to: '/saved', label: 'Saved Jobs', icon: Bookmark },
-  { to: '/profile', label: 'My Profile', icon: UserRound },
-  { to: '/salary', label: 'Salary Insights', icon: ChartNoAxesColumn, badge: 'soon' },
-  { to: '/integrations', label: 'API & Integrations', icon: Plug },
+  { to: '/profile', label: 'Matching profile', icon: UserRound },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]

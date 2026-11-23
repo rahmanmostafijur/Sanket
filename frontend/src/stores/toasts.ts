@@ -14,6 +14,8 @@ interface ToastState {
   toasts: Toast[]
   push: (toast: Omit<Toast, 'id' | 'tone'> & { tone?: ToastTone }) => void
   dismiss: (id: number) => void
+  /** Remove every toast of one tone (match toasts when the data source changes). */
+  dismissTone: (tone: ToastTone) => void
 }
 
 const MAX_TOASTS = 4
@@ -26,6 +28,7 @@ export const useToasts = create<ToastState>()((set, get) => ({
     set({ toasts: [...get().toasts, entry].slice(-MAX_TOASTS) })
   },
   dismiss: (id) => set({ toasts: get().toasts.filter((toast) => toast.id !== id) }),
+  dismissTone: (tone) => set({ toasts: get().toasts.filter((toast) => toast.tone !== tone) }),
 }))
 
 /** Show a toast from outside React (mutation callbacks and the like). */

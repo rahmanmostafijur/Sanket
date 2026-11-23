@@ -1,6 +1,5 @@
 import { LayoutGrid, List, Trash } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router'
 import { errorMessage } from '@/api/client'
 import { Avatar } from '@/components/layout/Sidebar'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -14,6 +13,7 @@ import { describeIdentity } from '@/lib/identity'
 import { usePreferences, type ResultsView } from '@/stores/preferences'
 import { useSession, type DataMode } from '@/stores/session'
 import { toast } from '@/stores/toasts'
+import { DevelopersSection } from './DevelopersSection'
 
 const LOCAL_KEYS = ['sanket.session', 'sanket.saved', 'sanket.prefs']
 const SESSION_KEYS = ['sanket.token', 'sanket.jobs']
@@ -51,7 +51,6 @@ function resetLocalData(): void {
 }
 
 export default function SettingsPage() {
-  const navigate = useNavigate()
   const { mode, setMode, token, clearToken, rememberToken, setActiveProfileId } = useSession()
   const prefs = usePreferences()
   const savedCount = useSavedJobs().entries.length
@@ -62,17 +61,18 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-[900px]">
-      <PageHeader title="Settings" description="Account, preferences, notifications and the data this browser keeps." />
+      <PageHeader title="Settings" description="Account, preferences, notifications, the data this browser keeps and developer access." />
       <div className="space-y-5">
         <Section title="Account">
-          <div className="flex items-center gap-4 py-3.5">
-            <Avatar initials={identity.initials} className="size-12" />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[15px] font-semibold text-fg">{identity.name}</p>
-              <p className="truncate text-[13px] text-muted">{identity.detail}</p>
+          {identity.kind === 'none' ? null : (
+            <div className="flex items-center gap-4 py-3.5">
+              <Avatar initials={identity.initials} className="size-12" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[15px] font-semibold text-fg">{identity.name}</p>
+                <p className="truncate text-[13px] text-muted">{identity.detail}</p>
+              </div>
             </div>
-            <Button size="sm" variant="outline" onClick={() => navigate('/integrations')}>Manage access</Button>
-          </div>
+          )}
           <Row label="Data source" description={mode === 'demo' ? 'Labelled sample data in this browser.' : 'Live data from your Sanket API.'}>
             <Segmented<DataMode>
               id="settings-mode"
@@ -82,8 +82,8 @@ export default function SettingsPage() {
             />
           </Row>
           {profiles.length > 0 ? (
-            <Row label="Active profile" description="Used for matches, the live feed and match scores.">
-              <FilterMenu label="Profile" summary={profile?.name ?? 'Choose'} align="end" options={profiles.map((p) => ({ value: p.id, label: p.name }))} value={profile?.id ?? 0} onChange={(id) => setActiveProfileId(id)} />
+            <Row label="Matching profile" description="Used for matches, the live feed and match scores.">
+              <FilterMenu label="Matching profile" summary={profile?.name ?? 'Choose'} align="end" options={profiles.map((p) => ({ value: p.id, label: p.name }))} value={profile?.id ?? 0} onChange={(id) => setActiveProfileId(id)} />
             </Row>
           ) : null}
         </Section>
@@ -138,6 +138,8 @@ export default function SettingsPage() {
             )}
           </Row>
         </Section>
+
+        <DevelopersSection />
       </div>
     </div>
   )

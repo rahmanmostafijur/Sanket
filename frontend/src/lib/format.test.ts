@@ -9,7 +9,7 @@ const job = (s: Salary | null, text: string | null = null) => ({
 
 describe('formatSalary', () => {
   it('formats a range compactly with its period', () => {
-    expect(formatSalary(job(salary({ min_amount: 4000, max_amount: 6000 })))).toBe('$4k – $6k / month')
+    expect(formatSalary(job(salary({ min_amount: 4000, max_amount: 6000 })))).toBe('$4k–$6k / month')
   })
   it('handles a single bound and other currencies', () => {
     expect(formatSalary(job(salary({ min_amount: 90000, currency: 'EUR', period: 'year' })))).toBe('€90k / year')

@@ -2,14 +2,14 @@ import { ArrowRight, Info, LayoutGrid, List, LoaderCircle, Search, SearchX, Spar
 import { AnimatePresence, motion } from 'motion/react'
 import { useMemo, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router'
-import type { Job, JobFilterParams, SearchItem, SearchMode } from '@/api/types'
+import type { Job, SearchItem, SearchMode } from '@/api/types'
 import { FilterChips, type SortKey } from '@/components/jobs/FilterChips'
 import { JobCard, JobCardSkeleton } from '@/components/jobs/JobCard'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { EmptyState, ErrorState } from '@/components/ui/States'
 import { Segmented, UnderlineTabs } from '@/components/ui/Tabs'
-import { activeFilterCount, EMPTY_FILTERS, filtersFromParams, filtersToParams, type JobFilters } from '@/features/jobs/filters'
+import { activeFilterCount, EMPTY_FILTERS, filtersFromParams, filtersToApi, filtersToParams, type JobFilters } from '@/features/jobs/filters'
 import { useActiveProfile, useJobList, useMatchIndex, useSearch } from '@/hooks/data'
 import { cn } from '@/lib/cn'
 import { monthlyUsd } from '@/lib/format'
@@ -20,17 +20,6 @@ type Lens = 'all' | 'keyword' | 'semantic'
 const LENS_MODE: Record<Lens, SearchMode> = { all: 'hybrid', keyword: 'keyword', semantic: 'semantic' }
 const BROWSE_SORTS: readonly SortKey[] = ['newest', 'match', 'salary']
 const MONTHS_PER_YEAR = 12
-
-/** The filters the API applies. The monthly USD floor is sent as an annual amount in USD. */
-function serverFilters(filters: JobFilters): JobFilterParams {
-  return {
-    work_mode: filters.workModes,
-    seniority: filters.seniorities,
-    employment_type: filters.employmentTypes,
-    source: filters.sources,
-    ...(filters.minMonthlyUsd ? { salary_min: filters.minMonthlyUsd * MONTHS_PER_YEAR, salary_currency: 'USD' } : {}),
-  }
-}
 
 function useDiscoverQuery() {
   const [params, setParams] = useSearchParams()
@@ -121,7 +110,7 @@ export default function DiscoverPage() {
   const matchIndex = useMatchIndex(profile?.id)
   const browsing = !q
   const effectiveSort: SortKey = browsing && sort === 'relevance' ? 'newest' : sort
-  const apiFilters = useMemo(() => serverFilters(filters), [filters])
+  const apiFilters = useMemo(() => filtersToApi(filters), [filters])
 
   const searchQuery = useSearch({ q, mode: LENS_MODE[lens], sort: sort === 'newest' ? 'newest' : 'relevance', ...apiFilters })
   const browseQuery = useJobList({ sort: 'newest', ...apiFilters }, browsing)

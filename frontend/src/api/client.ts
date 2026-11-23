@@ -102,7 +102,7 @@ export async function apiRequest<T>(
 /** A message fit for the UI from anything a query or mutation threw. */
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiError) {
-    if (error.isUnauthorized) return 'Authentication required. Add an API key or token in API & Integrations.'
+    if (error.isUnauthorized) return 'Authentication required. Add an API key or token in Settings, under Developers.'
     return error.message
   }
   if (error instanceof Error) return error.message

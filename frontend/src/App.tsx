@@ -4,6 +4,7 @@ import { lazy } from 'react'
 import { createBrowserRouter, RouterProvider } from 'react-router'
 import { ApiError } from '@/api/client'
 import { AppShell } from '@/components/layout/AppShell'
+import { LiveFeedController } from '@/features/live/LiveFeedController'
 import { usePreferences } from '@/stores/preferences'
 
 const OverviewPage = lazy(() => import('@/pages/overview/OverviewPage'))
@@ -12,8 +13,6 @@ const JobDetailPage = lazy(() => import('@/pages/job/JobDetailPage'))
 const LiveMatchesPage = lazy(() => import('@/pages/live/LiveMatchesPage'))
 const SavedJobsPage = lazy(() => import('@/pages/saved/SavedJobsPage'))
 const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage'))
-const SalaryInsightsPage = lazy(() => import('@/pages/salary/SalaryInsightsPage'))
-const IntegrationsPage = lazy(() => import('@/pages/integrations/IntegrationsPage'))
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 
@@ -39,8 +38,6 @@ const router = createBrowserRouter([
       { path: 'live', element: <LiveMatchesPage /> },
       { path: 'saved', element: <SavedJobsPage /> },
       { path: 'profile', element: <ProfilePage /> },
-      { path: 'salary', element: <SalaryInsightsPage /> },
-      { path: 'integrations', element: <IntegrationsPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
@@ -53,6 +50,8 @@ export default function App() {
     <MotionConfig reducedMotion={motion === 'reduced' ? 'always' : 'user'}>
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
+        {/* Outside the router: the one live-feed connection outlives every route change. */}
+        <LiveFeedController />
       </QueryClientProvider>
     </MotionConfig>
   )

@@ -143,6 +143,16 @@ export function useJobList(params: JobListQuery, enabled = true) {
   return query
 }
 
+/** How many listed jobs pass `params` (`GET /jobs` with one item; its `total` counts them all). */
+export function useJobTotal(params: JobListQuery, enabled = true) {
+  const { source, key } = useDataSource()
+  return useQuery({
+    queryKey: ['jobs-total', key, params],
+    queryFn: ({ signal }) => source.listJobs({ ...params, limit: 1, offset: 0 }, signal).then((page) => page.total),
+    enabled,
+  })
+}
+
 /** A 404 with the API's error envelope: the job does not exist or is no longer listed. */
 export function isNotFound(error: unknown): boolean {
   return error instanceof ApiError && error.status === 404 && !error.isUnavailable

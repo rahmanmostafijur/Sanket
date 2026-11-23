@@ -158,9 +158,9 @@ export function JobCard({ job, match, matchedBy, variant = 'list', index = 0 }: 
             {tags.map((tag) => <Chip key={tag}>{tag}</Chip>)}
             {salary ? <span className="text-[13px] text-fg-2 sm:hidden">{salary}</span> : null}
           </div>
-          <div className="mt-4 flex items-center gap-4">
+          {skills.length || score !== null || matchedBy ? <div className="mt-4 flex items-center gap-4">
             <p className="min-w-0 flex-1 truncate text-[13.5px] text-fg-2">
-              {skills.length ? <>Skills: {skills.slice(0, 5).join(', ')}</> : <span className="text-subtle">No skills extracted</span>}
+              {skills.length ? <>Skills: {skills.slice(0, 5).join(', ')}</> : null}
             </p>
             {score !== null ? (
               <div className="flex w-[44%] max-w-[320px] items-center gap-4">
@@ -170,7 +170,7 @@ export function JobCard({ job, match, matchedBy, variant = 'list', index = 0 }: 
             ) : matchedBy ? (
               <span className="shrink-0 rounded-md border border-line px-2 py-0.5 text-[11.5px] text-muted">{MATCHED_BY_LABEL[matchedBy]}</span>
             ) : null}
-          </div>
+          </div> : null}
         </div>
       </div>
     </motion.article>

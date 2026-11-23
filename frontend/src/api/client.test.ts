@@ -52,7 +52,7 @@ describe('apiRequest', () => {
 
 describe('errorMessage', () => {
   it('points at the credential settings for 401', () => {
-    expect(errorMessage(new ApiError(401, 'unauthorized', 'nope'))).toMatch(/API & Integrations/)
+    expect(errorMessage(new ApiError(401, 'unauthorized', 'nope'))).toMatch(/Settings, under Developers/)
   })
 })
 

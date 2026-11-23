@@ -9,7 +9,7 @@ import { useJobRegistry } from '@/stores/jobRegistry'
 import { useLiveFeed } from '@/stores/liveFeed'
 import { usePreferences } from '@/stores/preferences'
 import { useApiConfig, useSession } from '@/stores/session'
-import { toast } from '@/stores/toasts'
+import { toast, useToasts } from '@/stores/toasts'
 import { INITIAL_STREAM_STATE, MatchStreamClient } from './streamClient'
 
 const TOKENS_DISABLED = 'stream tokens are not enabled'
@@ -30,11 +30,23 @@ const TOAST_BATCH_MS = 600
 let pendingToasts: MatchEvent[] = []
 let toastTimer: ReturnType<typeof setTimeout> | null = null
 
+/** Demo events belong to demo mode only; they must never surface while the API is the source. */
+function isCurrentSource(simulated: boolean): boolean {
+  return (useSession.getState().mode === 'demo') === simulated
+}
+
+function dropPendingToasts(): void {
+  if (toastTimer !== null) clearTimeout(toastTimer)
+  toastTimer = null
+  pendingToasts = []
+}
+
 /** One toast per event, or one summary when a reconnect replays several at once. */
 function flushToasts(simulated: boolean): void {
   const events = pendingToasts
   pendingToasts = []
   toastTimer = null
+  if (!isCurrentSource(simulated)) return
   const prefix = simulated ? 'Demo · ' : ''
   const [first] = events
   if (!first) return
@@ -51,6 +63,7 @@ function flushToasts(simulated: boolean): void {
 }
 
 function announce(event: MatchEvent, simulated: boolean): void {
+  if (!isCurrentSource(simulated)) return
   useJobRegistry.getState().remember(event.job ? [event.job] : [])
   useLiveFeed.getState().push(event)
   if (!usePreferences.getState().notifyOnMatch || !event.job) return
@@ -94,7 +107,10 @@ function startDemoFeed(profileId: number): () => void {
   }
 }
 
-/** Owns the one match-feed connection of the app, for the active profile. Renders nothing. */
+/**
+ * Owns the one match-feed connection of the app, for the active matching profile. Mounted once
+ * above the router, so route changes never close or reopen it. Renders nothing.
+ */
 export function LiveFeedController(): null {
   const mode = useSession((s) => s.mode)
   const config = useApiConfig()
@@ -114,6 +130,8 @@ export function LiveFeedController(): null {
     const stop = mode === 'demo' ? startDemoFeed(profileId) : startApiFeed(config, profileId, () => highestId.current)
     return () => {
       stop()
+      dropPendingToasts()
+      useToasts.getState().dismissTone('match')
       useLiveFeed.getState().setRetry(null)
     }
   }, [mode, config, profileId])

@@ -70,6 +70,47 @@ function Fact({ icon, label, value }: { icon: ReactNode; label: string; value: R
   )
 }
 
+type DescriptionBlock = { kind: 'p'; text: string } | { kind: 'ul'; items: string[] }
+
+const BULLET = /^\s*[-•*]\s+/
+
+/** Plain-text description as paragraphs and bullet lists ("- ", "• " or "* " lines). */
+function descriptionBlocks(text: string): DescriptionBlock[] {
+  return text.split(/\n\s*\n/).flatMap((paragraph) => {
+    const blocks: DescriptionBlock[] = []
+    for (const line of paragraph.split('\n')) {
+      if (!line.trim()) continue
+      const last = blocks[blocks.length - 1]
+      if (BULLET.test(line)) {
+        const item = line.replace(BULLET, '').trim()
+        if (last?.kind === 'ul') blocks[blocks.length - 1] = { kind: 'ul', items: [...last.items, item] }
+        else blocks.push({ kind: 'ul', items: [item] })
+      } else if (last?.kind === 'p') {
+        blocks[blocks.length - 1] = { kind: 'p', text: `${last.text}\n${line.trim()}` }
+      } else {
+        blocks.push({ kind: 'p', text: line.trim() })
+      }
+    }
+    return blocks
+  })
+}
+
+function Description({ text }: { text: string }) {
+  return (
+    <div className="mt-2 space-y-3 break-words text-[14px] leading-relaxed text-fg-2">
+      {descriptionBlocks(text).map((block, index) =>
+        block.kind === 'ul' ? (
+          <ul key={index} className="list-disc space-y-1 pl-5 marker:text-subtle">
+            {block.items.map((item, itemIndex) => <li key={itemIndex}>{item}</li>)}
+          </ul>
+        ) : (
+          <p key={index} className="whitespace-pre-line">{block.text}</p>
+        ),
+      )}
+    </div>
+  )
+}
+
 function DetailsTab({ job, detail, detailLoading }: { job: Job; detail: JobDetail | null; detailLoading: boolean }) {
   const url = externalUrl(job)
   const ex = job.extracted
@@ -84,7 +125,7 @@ function DetailsTab({ job, detail, detailLoading }: { job: Job; detail: JobDetai
           <div className="mt-3 space-y-2"><Skeleton className="h-4 w-full rounded" /><Skeleton className="h-4 w-5/6 rounded" /><Skeleton className="h-4 w-2/3 rounded" /></div>
         ) : description ? (
           <>
-            <p className="mt-2 whitespace-pre-line break-words text-[14px] leading-relaxed text-fg-2">{description}</p>
+            <Description text={description} />
             <p className="mt-3 text-[12.5px] text-subtle">
               Description from the listing on {source}{job.attribution ? `. ${job.attribution}` : ''}. Responsibilities and how to apply are on the original listing.
             </p>
