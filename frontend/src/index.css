@@ -1,0 +1,121 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
+
+/*
+ * Sanket design tokens. One dark theme: the product is designed dark-first (see the design
+ * references), so there is no light variant to keep in sync.
+ */
+@theme {
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, SFMono-Regular, monospace;
+
+  --color-bg: #090e17;
+  --color-sidebar: #0a1019;
+  --color-surface: #0f1722;
+  --color-surface-2: #111925;
+  --color-elevated: #172231;
+  --color-hover: #1a2636;
+  --color-line: #1b2636;
+  --color-line-strong: #283649;
+
+  --color-fg: #e7edf5;
+  --color-fg-2: #c5cfdc;
+  --color-muted: #94a3b8;
+  --color-subtle: #66758a;
+
+  --color-accent: #b8f36b;
+  --color-accent-strong: #c9ff7f;
+  --color-accent-ink: #0c1606;
+  --color-info: #8aa8ff;
+  --color-violet: #a98bff;
+  --color-amber: #f5c451;
+  --color-danger: #f87171;
+
+  --radius-card: 14px;
+
+  --shadow-card: 0 1px 0 0 rgb(255 255 255 / 0.02) inset, 0 10px 30px -18px rgb(0 0 0 / 0.8);
+  --shadow-pop: 0 18px 50px -12px rgb(0 0 0 / 0.75), 0 0 0 1px var(--color-line-strong);
+  --shadow-glow: 0 0 0 1px rgb(184 243 107 / 0.35), 0 0 24px -4px rgb(184 243 107 / 0.35);
+
+  --animate-pulse-dot: pulse-dot 2s ease-in-out infinite;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+
+  @keyframes pulse-dot {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 rgb(184 243 107 / 0.55);
+    }
+    50% {
+      box-shadow: 0 0 0 5px rgb(184 243 107 / 0);
+    }
+  }
+  @keyframes shimmer {
+    from {
+      background-position: -200% 0;
+    }
+    to {
+      background-position: 200% 0;
+    }
+  }
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  html,
+  body {
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    overflow-x: hidden;
+  }
+  ::selection {
+    background: rgb(184 243 107 / 0.28);
+    color: var(--color-fg);
+  }
+  :focus-visible {
+    outline: 2px solid rgb(184 243 107 / 0.7);
+    outline-offset: 2px;
+  }
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-subtle);
+  }
+}
+
+@layer components {
+  /* Thin, quiet scrollbars that match the surfaces. */
+  .scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--color-elevated) 0%,
+      var(--color-hover) 50%,
+      var(--color-elevated) 100%
+    );
+    background-size: 200% 100%;
+    animation: var(--animate-shimmer);
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}

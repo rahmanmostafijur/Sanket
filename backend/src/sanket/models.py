@@ -345,3 +345,22 @@ class JobMatch(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class SavedJob(Base):
+    """A job an owner bookmarked. Removing the job removes the bookmark."""
+
+    __tablename__ = "saved_job"
+    __table_args__ = (
+        UniqueConstraint("owner_id", "job_id"),
+        Index("ix_saved_job_owner_id_created_at", "owner_id", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    owner_id: Mapped[str] = mapped_column(Text, nullable=False)
+    job_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("job.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

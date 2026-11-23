@@ -89,6 +89,14 @@ class Settings(BaseSettings):
     # Remote OK reserves AI training on its data; on the Gemini free tier, API inputs may be
     # used to improve Google's models, so Remote OK postings are not sent by default.
     extraction_excluded_sources: CommaList = ["remoteok"]
+    # Index a job again (full-text vector and embedding) as soon as its representative
+    # posting is extracted, so search text and embeddings carry the new fields.
+    index_after_extraction: bool = True
+    # Backlog runs (`python -m sanket.extract_backfill`): postings sent per minute and per UTC
+    # day. The day's count is kept in Redis, so a restarted run respects it. A posting is
+    # usually one model request; a repaired answer takes up to three.
+    extract_backfill_rpm: int = Field(default=10, ge=1, le=1000)
+    extract_backfill_daily_cap: int = Field(default=500, ge=1)
 
     # Indexing and embeddings (see docs/adr/0003-job-indexing.md). The vector column is fixed
     # at 768 dimensions by migration; EMBEDDING_DIMENSIONS must match it, which the indexing

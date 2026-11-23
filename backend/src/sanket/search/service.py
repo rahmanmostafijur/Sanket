@@ -12,6 +12,7 @@ from sqlalchemy import Engine
 from sanket.db import engine
 from sanket.embeddings.client import EmbeddingClient
 from sanket.indexing.filters import SearchFilters
+from sanket.search.browse import newest_first
 from sanket.search.cache import QueryEmbeddingCache
 from sanket.search.details import JobDetails, load_details
 from sanket.search.retrieval import SearchConfig, SearchMode, matched_by, retrieve
@@ -45,12 +46,19 @@ def search(
     limit: int,
     offset: int,
     mode: SearchMode = SearchMode.HYBRID,
+    newest: bool = False,
     cache: QueryEmbeddingCache | None = None,
     db_engine: Engine = engine,
 ) -> SearchPage:
+    """`newest` orders the whole candidate list by posting date before paging (the candidates
+    are still the best matches; only their order changes)."""
     retrieval = retrieve(query, filters, cfg, client, mode=mode, cache=cache, db_engine=db_engine)
-    total = len(retrieval.items)
-    page = retrieval.items[offset : offset + limit]
+    items = retrieval.items
+    if newest:
+        by_id = {item.job_id: item for item in items}
+        items = [by_id[job_id] for job_id in newest_first(list(by_id), db_engine)]
+    total = len(items)
+    page = items[offset : offset + limit]
     details = load_details([item.job_id for item in page], db_engine)
     # A job deleted between retrieval and loading its details is left out of the page.
     hits = [
