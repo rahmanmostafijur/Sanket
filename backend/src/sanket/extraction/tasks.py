@@ -3,8 +3,10 @@
 The key is the posting id plus its content hash, so a posting is queued once per content: an
 unchanged posting is never pending (the hash gate in `is_pending`) and never reaches the model,
 and a changed one gets a new key. The handler re-checks that the posting is still pending, so a
-stale or duplicate task is a cheap no-op. A provider error raises, so the queue retries with
-backoff instead of using up the posting's attempts.
+stale or duplicate task is a cheap no-op. A rate limit is first waited out in the client
+(`BackoffLlmClient`); a provider error that remains raises, so the queue retries with backoff
+instead of using up the posting's attempts. After an ok result the job the posting represents
+is indexed again (`sanket.extraction.reindex`).
 
 `python -m sanket.extraction.tasks [--limit N]` queues the pending postings (ingest does the same
 after each run when REDIS_URL is set).
@@ -12,7 +14,7 @@ after each run when REDIS_URL is set).
 
 import argparse
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -20,7 +22,7 @@ from sqlalchemy import Engine, select
 
 from sanket.config import Settings, settings
 from sanket.db import engine
-from sanket.extraction.llm import GeminiClient, LlmClient
+from sanket.extraction.llm import BackoffLlmClient, GeminiClient, LlmClient
 from sanket.extraction.runner import (
     ExtractionConfig,
     Outcome,
@@ -53,13 +55,17 @@ def extract_posting_key(posting_id: int, content_hash: str) -> str:
     return f"{TASK_EXTRACT_POSTING}:{posting_id}:{content_hash}"
 
 
-def gemini_client_from_settings(config: Settings) -> GeminiClient | None:
+def gemini_client_from_settings(config: Settings) -> BackoffLlmClient | None:
+    """The paced Gemini client, waiting out rate limits (`BackoffLlmClient`) so a 429 does not
+    fail the task at once."""
     if config.gemini_api_key is None:
         return None
-    return GeminiClient(
-        config.gemini_api_key,
-        config.gemini_model,
-        requests_per_minute=config.gemini_requests_per_minute,
+    return BackoffLlmClient(
+        GeminiClient(
+            config.gemini_api_key,
+            config.gemini_model,
+            requests_per_minute=config.gemini_requests_per_minute,
+        )
     )
 
 
@@ -68,9 +74,11 @@ def register_extraction(
     client: LlmClient | None,
     cfg: ExtractionConfig,
     db_engine: Engine = engine,
+    on_extracted: Callable[[Sequence[int]], None] | None = None,
 ) -> None:
     """Add the `extract_posting` handler. Without a client the task fails into the retries
-    and then the dead-letter store, as a misconfiguration should."""
+    and then the dead-letter store, as a misconfiguration should. `on_extracted` is called
+    with the posting id after an ok result is stored (`sanket.extraction.reindex`)."""
 
     def handler(payload: Mapping[str, Any], context: TaskContext) -> None:
         task = ExtractPostingPayload.model_validate(payload)
@@ -80,6 +88,8 @@ def register_extraction(
         if outcome is Outcome.PROVIDER_ERROR:
             raise ProviderUnavailableError(f"provider error on posting {task.posting_id}")
         logger.info("Extraction of posting %d: %s", task.posting_id, outcome.value)
+        if outcome is Outcome.OK and on_extracted is not None:
+            on_extracted([task.posting_id])
 
     registry.register(TASK_EXTRACT_POSTING, handler)
 

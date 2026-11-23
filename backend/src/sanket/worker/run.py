@@ -28,6 +28,7 @@ from sqlalchemy import Engine
 from sanket.config import Settings
 from sanket.db import engine
 from sanket.embeddings.client import EmbeddingClient
+from sanket.extraction.reindex import reindexer_from_settings
 from sanket.extraction.runner import config_from_settings as extraction_config_from_settings
 from sanket.extraction.tasks import gemini_client_from_settings, register_extraction
 from sanket.matching.notify import MatchNotifier
@@ -95,6 +96,7 @@ def run_worker(
             gemini_client_from_settings(config),
             extraction_config_from_settings(config),
             db_engine,
+            on_extracted=reindexer_from_settings(config, db_engine, embedder),
         )
     set_registry(registry)
     worker_class = choose_worker_class(simple=simple)

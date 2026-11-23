@@ -7,7 +7,7 @@ re-checks that the posting is still pending, so duplicate or stale jobs are chea
 import logging
 from collections import Counter
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 
 from sqlalchemy import (
@@ -35,6 +35,7 @@ from sqlalchemy.sql.base import ColumnCollection
 from sanket.config import Settings, settings
 from sanket.db import engine
 from sanket.extraction.extract import ExtractionResult, extract
+from sanket.extraction.facts import fill_work_mode, source_facts
 from sanket.extraction.llm import GeminiClient, LlmClient, LlmError
 from sanket.extraction.prompt import PROMPT_VERSION, PostingInput, build_posting_text
 from sanket.extraction.schema import SCHEMA_VERSION
@@ -107,6 +108,8 @@ def load_pending_posting(conn: Connection, posting_id: int, cfg: ExtractionConfi
         Posting.location,
         Posting.salary_text,
         Posting.description,
+        Posting.source,
+        Posting.raw,
     ).where(Posting.id == posting_id, is_pending(cfg))
     return conn.execute(stmt).one_or_none()
 
@@ -217,7 +220,10 @@ def extract_posting(
     if row is None:
         return Outcome.SKIPPED
 
-    posting = PostingInput(row.title, row.company, row.location, row.salary_text, row.description)
+    facts = source_facts(row.source, row.raw)
+    posting = PostingInput(
+        row.title, row.company, row.location, row.salary_text, row.description, facts.lines()
+    )
     text = build_posting_text(posting, cfg.max_description_chars)
     try:
         result = extract(client, text)
@@ -226,6 +232,8 @@ def extract_posting(
         # attempts; it stays pending for the next run.
         logger.warning("Posting %d: provider error: %s", posting_id, error)
         return Outcome.PROVIDER_ERROR
+    if result.data is not None:
+        result = replace(result, data=fill_work_mode(result.data, facts, row.location))
 
     with db_engine.begin() as conn:
         written = save_extraction(conn, row.id, row.content_hash, cfg, result)
