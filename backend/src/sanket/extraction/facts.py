@@ -113,9 +113,7 @@ def stated_work_mode(facts: SourceFacts, location: str | None) -> WorkMode | Non
     return None
 
 
-def fill_work_mode(
-    data: JobExtraction, facts: SourceFacts, location: str | None
-) -> JobExtraction:
+def fill_work_mode(data: JobExtraction, facts: SourceFacts, location: str | None) -> JobExtraction:
     """`data`, with an "unknown" work mode replaced by the one the source states."""
     if data.work_mode is not WorkMode.UNKNOWN:
         return data

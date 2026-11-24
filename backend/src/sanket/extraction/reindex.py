@@ -33,9 +33,7 @@ Reindexer = Callable[[Sequence[int]], None]
 def represented_jobs(posting_ids: Sequence[int], db_engine: Engine = engine) -> list[int]:
     """Ids of the jobs whose representative posting is one of `posting_ids`."""
     stmt = (
-        select(Job.id)
-        .where(Job.representative_posting_id.in_(list(posting_ids)))
-        .order_by(Job.id)
+        select(Job.id).where(Job.representative_posting_id.in_(list(posting_ids))).order_by(Job.id)
     )
     with db_engine.connect() as conn:
         return list(conn.scalars(stmt))
