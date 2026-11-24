@@ -97,6 +97,11 @@ class Settings(BaseSettings):
     # usually one model request; a repaired answer takes up to three.
     extract_backfill_rpm: int = Field(default=10, ge=1, le=1000)
     extract_backfill_daily_cap: int = Field(default=500, ge=1)
+    # A backlog run stops before its estimated model cost would pass this many US dollars.
+    # The estimate uses the prices below (USD per million tokens; output includes thinking).
+    extract_backfill_max_cost_usd: float = Field(default=5.0, ge=0)
+    extraction_input_usd_per_mtok: float = Field(default=0.30, ge=0)
+    extraction_output_usd_per_mtok: float = Field(default=2.50, ge=0)
 
     # Indexing and embeddings (see docs/adr/0003-job-indexing.md). The vector column is fixed
     # at 768 dimensions by migration; EMBEDDING_DIMENSIONS must match it, which the indexing

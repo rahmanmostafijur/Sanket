@@ -24,6 +24,7 @@ LIST_ITEM = re.compile(r"<\s*li\b[^>]*>", re.IGNORECASE)
 ANY_TAG = re.compile(r"<[^>]+>")
 SPACES = re.compile(r"[ \t\r\f\v]+")
 BLANK_LINES = re.compile(r"\n\s*\n+")
+LIST_MARKER = "-"
 
 
 class BrowseSort(StrEnum):
@@ -88,11 +89,27 @@ def plain_text(markup: str | None) -> str | None:
     """Posting descriptions arrive as HTML or text; return readable plain text, never markup."""
     if not markup:
         return None
-    text = LIST_ITEM.sub("\n- ", BLOCK_TAGS.sub("\n", markup))
+    text = LIST_ITEM.sub(f"\n{LIST_MARKER} ", BLOCK_TAGS.sub("\n", markup))
     text = html.unescape(ANY_TAG.sub("", text))
-    lines = (SPACES.sub(" ", line).strip() for line in text.split("\n"))
-    cleaned = BLANK_LINES.sub("\n\n", "\n".join(lines)).strip()
+    lines = [SPACES.sub(" ", line).strip() for line in text.split("\n")]
+    cleaned = BLANK_LINES.sub("\n\n", "\n".join(_attach_markers(lines))).strip()
     return cleaned or None
+
+
+def _attach_markers(lines: list[str]) -> list[str]:
+    """Join a list marker left on a line of its own (markup such as `<li>\\n<p>Text`) to the
+    item's text on the next non-empty line; drop a marker with no text before the next item."""
+    out: list[str] = []
+    pending = False
+    for line in lines:
+        if line == LIST_MARKER:
+            pending = True
+        elif pending and line:
+            out.append(line if line.startswith(f"{LIST_MARKER} ") else f"{LIST_MARKER} {line}")
+            pending = False
+        elif not pending:
+            out.append(line)
+    return out
 
 
 def load_job(job_id: int, db_engine: Engine = engine) -> JobView | None:
