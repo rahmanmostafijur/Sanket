@@ -6,6 +6,7 @@ import { Link, useLocation, useOutlet } from 'react-router'
 import { Button } from '@/components/ui/Button'
 import { Toaster } from '@/components/ui/Toaster'
 import { useHealth } from '@/hooks/data'
+import { IS_DEV } from '@/lib/env'
 import { useSession } from '@/stores/session'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
@@ -21,7 +22,7 @@ function ConnectionBanner() {
         <span className="min-w-0 flex-1">
           <span className="font-semibold text-amber">Demo data.</span> You are exploring sample listings in your browser. Nothing here comes from Sanket.
         </span>
-        <Link to="/settings" className="font-medium text-amber hover:underline">Data source settings</Link>
+        {IS_DEV ? <Link to="/settings" className="font-medium text-amber hover:underline">Data source settings</Link> : null}
       </div>
     )
   }

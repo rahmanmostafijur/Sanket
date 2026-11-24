@@ -24,13 +24,26 @@ export class ApiError extends Error {
   readonly status: number
   readonly code: ApiErrorCode
   readonly requestId: string | null
+  /** How long the server asked us to wait (a 429's or 503's `Retry-After`), or null. */
+  readonly retryAfterMs: number | null
 
-  constructor(status: number, code: ApiErrorCode, message: string, requestId: string | null = null) {
+  constructor(
+    status: number,
+    code: ApiErrorCode,
+    message: string,
+    requestId: string | null = null,
+    retryAfterMs: number | null = null,
+  ) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.code = code
     this.requestId = requestId
+    this.retryAfterMs = retryAfterMs
+  }
+
+  get isRateLimited(): boolean {
+    return this.status === 429
   }
 
   get isUnauthorized(): boolean {
@@ -61,11 +74,26 @@ function isErrorBody(value: unknown): value is ApiErrorBody {
   return typeof error === 'object' && error !== null && 'message' in error
 }
 
+const MS_PER_SECOND = 1000
+
+/** `Retry-After` as milliseconds: either delay-seconds or an HTTP date. Null when absent or invalid. */
+export function parseRetryAfter(value: string | null, now: number = Date.now()): number | null {
+  if (!value) return null
+  const trimmed = value.trim()
+  if (/^\d+(\.\d+)?$/.test(trimmed)) return Math.round(Number(trimmed) * MS_PER_SECOND)
+  const date = Date.parse(trimmed)
+  return Number.isNaN(date) ? null : Math.max(0, date - now)
+}
+
 async function errorFrom(response: Response): Promise<ApiError> {
   const body: unknown = await response.json().catch(() => null)
+  const retryAfterMs = parseRetryAfter(response.headers.get('Retry-After'))
   if (isErrorBody(body)) {
     const { code, message, request_id: requestId } = body.error
-    return new ApiError(response.status, code, message, requestId ?? null)
+    return new ApiError(response.status, code, message, requestId ?? null, retryAfterMs)
+  }
+  if (response.status === 429) {
+    return new ApiError(429, 'rate_limited', 'Too many requests. Please wait a moment.', null, retryAfterMs)
   }
   // No Sanket error envelope: a proxy answered because the API is down or not mounted there.
   if (response.status >= 500 || response.status === 404) {
@@ -102,7 +130,11 @@ export async function apiRequest<T>(
 /** A message fit for the UI from anything a query or mutation threw. */
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiError) {
-    if (error.isUnauthorized) return 'Authentication required. Add an API key or token in Settings, under Developers.'
+    if (error.isUnauthorized) {
+      return import.meta.env.DEV
+        ? 'Authentication required. Add an API key or token in Settings, under Developers.'
+        : 'Sanket could not authorise this request.'
+    }
     return error.message
   }
   if (error instanceof Error) return error.message

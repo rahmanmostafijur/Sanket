@@ -5,6 +5,7 @@ import { useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Button } from '@/components/ui/Button'
 import { DemoTag } from '@/components/ui/primitives'
+import { IS_DEV } from '@/lib/env'
 import { percent, relativeTime } from '@/lib/format'
 import { describeIdentity } from '@/lib/identity'
 import { useLiveFeed } from '@/stores/liveFeed'
@@ -130,7 +131,7 @@ function UserMenu() {
                 </div>
                 <DropdownMenu.Separator className="my-1 h-px bg-line" />
                 <MenuItem icon={<Settings />} onSelect={() => navigate('/settings')}>Settings</MenuItem>
-                {token && mode === 'api' ? <MenuItem icon={<LogOut />} onSelect={clearToken}>Forget credential</MenuItem> : null}
+                {IS_DEV && token && mode === 'api' ? <MenuItem icon={<LogOut />} onSelect={clearToken}>Forget credential</MenuItem> : null}
               </motion.div>
             </DropdownMenu.Content>
           </DropdownMenu.Portal>

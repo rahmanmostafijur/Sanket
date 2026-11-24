@@ -11,6 +11,7 @@ import { Card, Chip, Skeleton } from '@/components/ui/primitives'
 import { EmptyState, ErrorState } from '@/components/ui/States'
 import { UnderlineTabs } from '@/components/ui/Tabs'
 import { isNotFound, useActiveProfile, useJobDetail, useMatchIndex, useMatches } from '@/hooks/data'
+import { descriptionBlocks } from '@/lib/description'
 import { employmentLabel, externalUrl, formatSalary, jobDate, jobLocation, percent, relativeTime, seniorityLabel, workModeLabel } from '@/lib/format'
 import { sourceMeta } from '@/lib/sources'
 import { useRegisteredJob } from '@/stores/jobRegistry'
@@ -70,43 +71,29 @@ function Fact({ icon, label, value }: { icon: ReactNode; label: string; value: R
   )
 }
 
-type DescriptionBlock = { kind: 'p'; text: string } | { kind: 'ul'; items: string[] }
-
-const BULLET = /^\s*[-•*]\s+/
-
-/** Plain-text description as paragraphs and bullet lists ("- ", "• " or "* " lines). */
-function descriptionBlocks(text: string): DescriptionBlock[] {
-  return text.split(/\n\s*\n/).flatMap((paragraph) => {
-    const blocks: DescriptionBlock[] = []
-    for (const line of paragraph.split('\n')) {
-      if (!line.trim()) continue
-      const last = blocks[blocks.length - 1]
-      if (BULLET.test(line)) {
-        const item = line.replace(BULLET, '').trim()
-        if (last?.kind === 'ul') blocks[blocks.length - 1] = { kind: 'ul', items: [...last.items, item] }
-        else blocks.push({ kind: 'ul', items: [item] })
-      } else if (last?.kind === 'p') {
-        blocks[blocks.length - 1] = { kind: 'p', text: `${last.text}\n${line.trim()}` }
-      } else {
-        blocks.push({ kind: 'p', text: line.trim() })
-      }
-    }
-    return blocks
-  })
-}
-
 function Description({ text }: { text: string }) {
   return (
     <div className="mt-2 space-y-3 break-words text-[14px] leading-relaxed text-fg-2">
-      {descriptionBlocks(text).map((block, index) =>
-        block.kind === 'ul' ? (
-          <ul key={index} className="list-disc space-y-1 pl-5 marker:text-subtle">
-            {block.items.map((item, itemIndex) => <li key={itemIndex}>{item}</li>)}
-          </ul>
-        ) : (
-          <p key={index} className="whitespace-pre-line">{block.text}</p>
-        ),
-      )}
+      {descriptionBlocks(text).map((block, index) => {
+        switch (block.kind) {
+          case 'ul':
+            return (
+              <ul key={index} className="list-disc space-y-1 pl-5 marker:text-subtle">
+                {block.items.map((item, itemIndex) => <li key={itemIndex}>{item}</li>)}
+              </ul>
+            )
+          case 'ol':
+            return (
+              <ol key={index} className="list-decimal space-y-1 pl-5 marker:text-subtle">
+                {block.items.map((item, itemIndex) => <li key={itemIndex}>{item}</li>)}
+              </ol>
+            )
+          case 'h':
+            return <h3 key={index} className="pt-1 text-[14.5px] font-semibold text-fg">{block.text}</h3>
+          default:
+            return <p key={index} className="whitespace-pre-line">{block.text}</p>
+        }
+      })}
     </div>
   )
 }

@@ -72,7 +72,7 @@ export default function SavedJobsPage() {
     <div className="mx-auto max-w-[1180px]">
       <PageHeader
         title="Saved Jobs"
-        description={mode === 'api' ? 'Opportunities you bookmarked, kept with your Sanket account.' : 'Opportunities you bookmarked. Demo saves are kept in this browser.'}
+        description={mode === 'api' ? 'Opportunities you bookmarked.' : 'Opportunities you bookmarked. Demo saves are kept in this browser.'}
         actions={
           all.length ? (
             confirmClear ? (

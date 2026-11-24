@@ -66,7 +66,9 @@ export const useSession = create<SessionState>()(
       }),
       merge: (persisted, current) => {
         const saved = (persisted ?? {}) as Partial<SessionState>
-        return { ...current, ...saved, token: saved.token ?? current.token }
+        // The data-source switch only exists in development builds, so a stored demo choice must not stick in production.
+        const mode: DataMode = import.meta.env.DEV ? (saved.mode ?? current.mode) : 'api'
+        return { ...current, ...saved, mode, token: saved.token ?? current.token }
       },
     },
   ),

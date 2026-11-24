@@ -21,8 +21,12 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 60_000,
       refetchOnWindowFocus: false,
-      // Retrying cannot fix a refused credential or a request the API rejected.
-      retry: (count, error) => !(error instanceof ApiError && error.status >= 400 && error.status < 500) && count < 2,
+      // Retrying cannot fix a refused credential or a request the API rejected; a 429 can wait.
+      retry: (count, error) =>
+        count < 2 && !(error instanceof ApiError && error.status >= 400 && error.status < 500 && !error.isRateLimited),
+      // After a 429, wait as long as the server asked (Retry-After); otherwise the usual backoff.
+      retryDelay: (count, error) =>
+        error instanceof ApiError && error.retryAfterMs !== null ? error.retryAfterMs : Math.min(1000 * 2 ** count, 30_000),
     },
   },
 })

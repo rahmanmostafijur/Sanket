@@ -9,6 +9,7 @@ import { FilterMenu } from '@/components/ui/FilterMenu'
 import { Card } from '@/components/ui/primitives'
 import { Segmented } from '@/components/ui/Tabs'
 import { useActiveProfile, useClearSaved, useSavedJobs } from '@/hooks/data'
+import { IS_DEV } from '@/lib/env'
 import { describeIdentity } from '@/lib/identity'
 import { usePreferences, type ResultsView } from '@/stores/preferences'
 import { useSession, type DataMode } from '@/stores/session'
@@ -61,8 +62,9 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-[900px]">
-      <PageHeader title="Settings" description="Account, preferences, notifications, the data this browser keeps and developer access." />
+      <PageHeader title="Settings" description={IS_DEV ? 'Account, preferences, notifications, the data this browser keeps and developer access.' : 'Preferences, notifications and the data this browser keeps.'} />
       <div className="space-y-5">
+        {IS_DEV || identity.kind !== 'none' || profiles.length > 0 ? (
         <Section title="Account">
           {identity.kind === 'none' ? null : (
             <div className="flex items-center gap-4 py-3.5">
@@ -73,20 +75,23 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
-          <Row label="Data source" description={mode === 'demo' ? 'Labelled sample data in this browser.' : 'Live data from your Sanket API.'}>
-            <Segmented<DataMode>
-              id="settings-mode"
-              value={mode}
-              onChange={setMode}
-              items={[{ value: 'api', label: 'Sanket API' }, { value: 'demo', label: 'Demo data' }]}
-            />
-          </Row>
+          {IS_DEV ? (
+            <Row label="Data source" description={mode === 'demo' ? 'Labelled sample data in this browser.' : 'Live data from your Sanket API.'}>
+              <Segmented<DataMode>
+                id="settings-mode"
+                value={mode}
+                onChange={setMode}
+                items={[{ value: 'api', label: 'Sanket API' }, { value: 'demo', label: 'Demo data' }]}
+              />
+            </Row>
+          ) : null}
           {profiles.length > 0 ? (
             <Row label="Matching profile" description="Used for matches, the live feed and match scores.">
               <FilterMenu label="Matching profile" summary={profile?.name ?? 'Choose'} align="end" options={profiles.map((p) => ({ value: p.id, label: p.name }))} value={profile?.id ?? 0} onChange={(id) => setActiveProfileId(id)} />
             </Row>
           ) : null}
         </Section>
+        ) : null}
 
         <Section title="Preferences">
           <Row label="Default job view">
@@ -111,13 +116,15 @@ export default function SettingsPage() {
         </Section>
 
         <Section title="Security and privacy" description="What this browser stores. Nothing here is sent anywhere except the Sanket API.">
-          <Row label="Credential" description={token ? (rememberToken ? 'Remembered on this device.' : 'Kept for this tab only.') : 'None stored.'}>
-            <Button size="sm" variant="outline" disabled={!token} onClick={clearToken}>Forget</Button>
-          </Row>
+          {IS_DEV ? (
+            <Row label="Credential" description={token ? (rememberToken ? 'Remembered on this device.' : 'Kept for this tab only.') : 'None stored.'}>
+              <Button size="sm" variant="outline" disabled={!token} onClick={clearToken}>Forget</Button>
+            </Row>
+          ) : null}
           <Row label="Recent searches" description={`${prefs.recentSearches.length} kept for suggestions.`}>
             <Button size="sm" variant="outline" disabled={!prefs.recentSearches.length} onClick={prefs.clearRecentSearches}>Clear</Button>
           </Row>
-          <Row label="Saved jobs" description={mode === 'api' ? `${savedCount} saved with your Sanket account.` : `${savedCount} demo jobs saved in this browser.`}>
+          <Row label="Saved jobs" description={mode === 'api' ? `${savedCount} saved.` : `${savedCount} demo jobs saved in this browser.`}>
             <Button
               size="sm"
               variant="outline"
@@ -139,7 +146,7 @@ export default function SettingsPage() {
           </Row>
         </Section>
 
-        <DevelopersSection />
+        {IS_DEV ? <DevelopersSection /> : null}
       </div>
     </div>
   )

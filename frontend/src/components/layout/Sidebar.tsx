@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { StatusDot } from '@/components/ui/primitives'
 import { useHealth } from '@/hooks/data'
 import { cn } from '@/lib/cn'
+import { IS_DEV } from '@/lib/env'
 import { describeIdentity } from '@/lib/identity'
 import { useLiveFeed } from '@/stores/liveFeed'
 import { usePreferences } from '@/stores/preferences'
@@ -167,7 +168,7 @@ export function Sidebar({ inDrawer = false, onNavigate }: SidebarProps) {
           ))}
         </div>
         <div className="mt-auto flex flex-col gap-3 p-4">
-          {collapsed ? null : <DataSourceCard />}
+          {collapsed || !IS_DEV ? null : <DataSourceCard />}
           {inDrawer ? null : (
             <button
               type="button"

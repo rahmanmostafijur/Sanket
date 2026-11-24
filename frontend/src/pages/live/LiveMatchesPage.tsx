@@ -14,6 +14,7 @@ import { useFeedEntries } from '@/hooks/useFeedEntries'
 import { useLiveStatus } from '@/hooks/useLiveStatus'
 import { useNow } from '@/hooks/useNow'
 import { cn } from '@/lib/cn'
+import { IS_DEV } from '@/lib/env'
 import { percent, relativeTime } from '@/lib/format'
 import { useLiveFeed } from '@/stores/liveFeed'
 
@@ -93,12 +94,20 @@ function MatchRow({ match, isNew }: { match: Match; isNew: boolean }) {
   )
 }
 
+function startOfLocalDay(epochMs: number): number {
+  const date = new Date(epochMs)
+  date.setHours(0, 0, 0, 0)
+  return date.getTime()
+}
+
+/** Matches per local calendar day, oldest first, so the last entry is "today". */
 function useDailyCounts(matches: readonly Match[]): number[] {
   const now = useNow()
   return useMemo(() => {
     const counts = Array.from({ length: DAYS }, () => 0)
+    const today = startOfLocalDay(now)
     for (const match of matches) {
-      const age = Math.floor((now - Date.parse(match.created_at)) / DAY_MS)
+      const age = Math.round((today - startOfLocalDay(Date.parse(match.created_at))) / DAY_MS)
       if (age >= 0 && age < DAYS) counts[DAYS - 1 - age] = (counts[DAYS - 1 - age] ?? 0) + 1
     }
     return counts
@@ -128,13 +137,15 @@ function FeedStats({ matches }: { matches: readonly Match[] }) {
   const daily = useDailyCounts(matches)
   const today = daily[DAYS - 1] ?? 0
   const average = matches.length ? matches.reduce((sum, m) => sum + m.score, 0) / matches.length : 0
+  const latest = matches.reduce((max, m) => Math.max(max, Date.parse(m.created_at)), 0)
+  const latestNote = today === 0 && latest > 0 ? `Latest match ${relativeTime(new Date(latest).toISOString())}` : null
   return (
     <Card className="p-5">
       <h2 className="text-[15.5px] font-semibold text-fg">Live Feed Stats</h2>
-      <p className="mt-1 text-[12px] text-subtle">Matches per day, last {DAYS} days</p>
+      <p className="mt-1 text-[12px] text-subtle">Matches per day, last {DAYS} days (your local time)</p>
       <Sparkline values={daily} />
       <div className="mt-2 grid grid-cols-2 gap-4">
-        <div><p className="text-[22px] font-semibold text-fg tabular">{today}</p><p className="text-[12.5px] text-muted">New today</p></div>
+        <div><p className="text-[22px] font-semibold text-fg tabular">{today}</p><p className="text-[12.5px] text-muted">New today</p>{latestNote ? <p className="mt-0.5 text-[11.5px] text-subtle">{latestNote}</p> : null}</div>
         <div><p className="text-[22px] font-semibold text-accent tabular">{matches.length ? `${percent(average)}%` : '—'}</p><p className="text-[12.5px] text-muted">Average match</p></div>
       </div>
     </Card>
@@ -149,8 +160,12 @@ function ConnectionCard() {
   const rows: [string, string][] = [
     ['Status', view.label],
     ['Connected since', stream.connectedAt && stream.status === 'open' ? relativeTime(new Date(stream.connectedAt).toISOString()) : '—'],
-    ['Last event id', stream.lastEventId != null ? String(stream.lastEventId) : '—'],
-    ['Reconnect attempts', String(stream.attempt)],
+    ...(IS_DEV
+      ? ([
+          ['Last event id', stream.lastEventId != null ? String(stream.lastEventId) : '—'],
+          ['Reconnect attempts', String(stream.attempt)],
+        ] as [string, string][])
+      : []),
   ]
   return (
     <Card className="p-5">

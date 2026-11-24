@@ -209,7 +209,9 @@ export class MatchStreamClient {
       return
     }
     const { baseDelayMs, maxDelayMs, random } = this.options
-    const delay = Math.min(maxDelayMs, baseDelayMs * 2 ** (attempt - 1)) * (0.8 + random() * 0.4)
+    const backoff = Math.min(maxDelayMs, baseDelayMs * 2 ** (attempt - 1)) * (0.8 + random() * 0.4)
+    // A 429 says how long to wait; never come back sooner than that.
+    const delay = Math.max(backoff, error instanceof ApiError ? (error.retryAfterMs ?? 0) : 0)
     // navigator.onLine can be wrong (VPNs, containers), so keep the timer and use it for the label only.
     const offline = !this.options.isOnline()
     this.update({ status: offline ? 'offline' : 'reconnecting', attempt, error: offline ? 'You are offline.' : message, retryAt: Date.now() + delay })

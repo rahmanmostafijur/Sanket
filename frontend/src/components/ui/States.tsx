@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { ApiError, errorMessage } from '@/api/client'
 import { cn } from '@/lib/cn'
+import { IS_DEV } from '@/lib/env'
 import { Button } from './Button'
 
 interface EmptyStateProps {
@@ -36,8 +37,14 @@ export function ErrorState({ error, onRetry, className }: { error: unknown; onRe
         className={className}
         icon={<KeyRound />}
         title="Authentication required"
-        description="Sanket needs a credential. Add an API key or sign-in token in Settings, under Developers."
-        action={<Button variant="primary" size="sm" onClick={() => navigate('/settings')}>Add credential</Button>}
+        description={IS_DEV ? 'Sanket needs a credential. Add an API key or sign-in token in Settings, under Developers.' : 'Sanket could not authorise this request. Try again in a moment.'}
+        action={
+          IS_DEV ? (
+            <Button variant="primary" size="sm" onClick={() => navigate('/settings')}>Add credential</Button>
+          ) : onRetry ? (
+            <Button size="sm" onClick={onRetry}>Try again</Button>
+          ) : undefined
+        }
       />
     )
   }
@@ -47,7 +54,7 @@ export function ErrorState({ error, onRetry, className }: { error: unknown; onRe
         className={className}
         icon={<Unplug />}
         title="Sanket is not reachable"
-        description="Sanket is not answering right now. Try again in a moment, or check the connection address in Settings."
+        description={IS_DEV ? 'Sanket is not answering right now. Try again in a moment, or check the connection address in Settings.' : 'Sanket is not answering right now. Try again in a moment.'}
         action={onRetry ? <Button size="sm" onClick={onRetry}>Try again</Button> : undefined}
       />
     )

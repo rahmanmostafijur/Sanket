@@ -16,12 +16,23 @@ const TOKENS_DISABLED = 'stream tokens are not enabled'
 const DEMO_FIRST_EVENT_MS = 6_000
 const DEMO_INTERVAL_MS = 22_000
 
-/** A stream token, or null when the server has tokens switched off (the dev bypass then admits). */
+/** API addresses whose server answered that stream tokens are off; they are not asked again. */
+const tokensDisabledAt = new Set<string>()
+
+/**
+ * A stream token, or null when none is needed or available: without a credential there is nothing
+ * to exchange (the dev bypass admits the stream), and a server with tokens switched off says so
+ * once with a 404, which is remembered for its address.
+ */
 async function tokenFor(config: ApiConfig, profileId: number): Promise<StreamToken | null> {
+  if (!config.token || tokensDisabledAt.has(config.baseUrl)) return null
   try {
     return await mintStreamToken(config, profileId)
   } catch (error: unknown) {
-    if (error instanceof ApiError && error.status === 404 && error.message === TOKENS_DISABLED) return null
+    if (error instanceof ApiError && error.status === 404 && error.message === TOKENS_DISABLED) {
+      tokensDisabledAt.add(config.baseUrl)
+      return null
+    }
     throw error
   }
 }
