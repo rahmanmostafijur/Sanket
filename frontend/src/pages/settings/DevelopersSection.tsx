@@ -5,11 +5,21 @@ import { errorMessage } from '@/api/client'
 import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Field'
 import { Card } from '@/components/ui/primitives'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useNow } from '@/hooks/useNow'
 import { cn } from '@/lib/cn'
 import { describeIdentity, jwtExpiry } from '@/lib/identity'
 import { DEFAULT_API_BASE, useSession } from '@/stores/session'
 import { toast } from '@/stores/toasts'
+
+function Tip({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  )
+}
 
 const ENDPOINTS: [string, string, string][] = [
   ['GET', '/search', 'Job search: hybrid, keyword or semantic, with filters and sort'],
@@ -130,8 +140,12 @@ function CredentialBlock() {
         <div className="space-y-3">
           <div className="flex items-center gap-2 rounded-xl border border-line bg-bg/40 py-2 pl-4 pr-2">
             <code className="min-w-0 flex-1 truncate font-mono text-[13px] text-fg-2">{reveal ? token : mask(token)}</code>
-            <Button size="icon-sm" variant="ghost" aria-label={reveal ? 'Hide credential' : 'Show credential'} onClick={() => setReveal((v) => !v)}>{reveal ? <EyeOff /> : <Eye />}</Button>
-            <Button size="icon-sm" variant="ghost" aria-label="Copy credential" onClick={() => copy(token)}>{copied ? <Check className="text-accent" /> : <Copy />}</Button>
+            <Tip label={reveal ? 'Hide credential' : 'Show credential'}>
+              <Button size="icon-sm" variant="ghost" aria-label={reveal ? 'Hide credential' : 'Show credential'} onClick={() => setReveal((v) => !v)}>{reveal ? <EyeOff /> : <Eye />}</Button>
+            </Tip>
+            <Tip label="Copy credential">
+              <Button size="icon-sm" variant="ghost" aria-label="Copy credential" onClick={() => copy(token)}>{copied ? <Check className="text-accent" /> : <Copy />}</Button>
+            </Tip>
           </div>
           <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-[13px] sm:grid-cols-3">
             <div><dt className="text-subtle">Type</dt><dd className="text-fg-2">{identity.kind === 'jwt' ? 'Sign-in token' : 'API key'}</dd></div>
@@ -174,7 +188,9 @@ function EndpointsBlock() {
       </ul>
       <div className="relative mt-4">
         <pre className="scroll-thin overflow-x-auto rounded-xl border border-line bg-[#070b12] p-4 pr-12 font-mono text-[12.5px] leading-relaxed text-fg-2">{example}</pre>
-        <Button size="icon-sm" variant="ghost" aria-label="Copy example" className="absolute right-2 top-2" onClick={() => copy(example)}>{copied ? <Check className="text-accent" /> : <Copy />}</Button>
+        <Tip label="Copy example">
+          <Button size="icon-sm" variant="ghost" aria-label="Copy example" className="absolute right-2 top-2" onClick={() => copy(example)}>{copied ? <Check className="text-accent" /> : <Copy />}</Button>
+        </Tip>
       </div>
       <p className="mt-2 text-[12px] text-subtle">Set SANKET_TOKEN in your shell; the example never contains your credential.</p>
     </Block>
