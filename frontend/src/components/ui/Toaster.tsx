@@ -1,68 +1,62 @@
-import { CircleCheck, CircleX, Info, X, Zap } from 'lucide-react'
-import { AnimatePresence, motion } from 'motion/react'
-import { useEffect } from 'react'
-import { Link } from 'react-router'
-import { cn } from '@/lib/cn'
+import { Zap } from 'lucide-react'
+import { useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router'
+import { toast as sonnerToast } from 'sonner'
+import { Toaster as SonnerToaster } from '@/components/ui/sonner'
 import { useToasts, type Toast } from '@/stores/toasts'
 
 const DISMISS_AFTER_MS = 5500
+const MAX_VISIBLE = 4
 
-const ICONS = {
-  default: <Info className="size-4 text-info" />,
-  success: <CircleCheck className="size-4 text-accent" />,
-  error: <CircleX className="size-4 text-danger" />,
-  match: <Zap className="size-4 text-accent" />,
-} as const
-
-function ToastCard({ toast }: { toast: Toast }) {
-  const dismiss = useToasts((s) => s.dismiss)
-  useEffect(() => {
-    const timer = setTimeout(() => dismiss(toast.id), DISMISS_AFTER_MS)
-    return () => clearTimeout(timer)
-  }, [toast.id, dismiss])
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 16, scale: 0.96 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, x: 40, transition: { duration: 0.18 } }}
-      transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-      role="status"
-      className={cn(
-        'pointer-events-auto flex w-[340px] max-w-[calc(100vw-32px)] items-start gap-3 rounded-xl border bg-[#121b27]/95 p-3.5 shadow-[var(--shadow-pop)] backdrop-blur',
-        toast.tone === 'match' ? 'border-accent/30' : 'border-line-strong',
-      )}
-    >
-      <span className="mt-0.5">{ICONS[toast.tone]}</span>
-      <div className="min-w-0 flex-1">
-        <p className="text-[13.5px] font-semibold text-fg">{toast.title}</p>
-        {toast.description ? <p className="mt-0.5 truncate text-[13px] text-muted">{toast.description}</p> : null}
-        {toast.action ? (
-          <Link
-            to={toast.action.href}
-            onClick={() => dismiss(toast.id)}
-            className="mt-2 inline-flex text-[13px] font-medium text-accent hover:underline"
-          >
-            {toast.action.label} →
-          </Link>
-        ) : null}
-      </div>
-      <button type="button" aria-label="Dismiss" onClick={() => dismiss(toast.id)} className="text-subtle hover:text-fg">
-        <X className="size-4" />
-      </button>
-    </motion.div>
-  )
-}
-
+/**
+ * Renders the toast store through Sonner. The store stays the single entry point (`toast()`),
+ * so callers do not change; each new entry is shown once and removed from Sonner when the store
+ * drops it (for example `dismissTone`).
+ */
 export function Toaster() {
   const toasts = useToasts((s) => s.toasts)
-  return (
-    <div aria-live="polite" className="pointer-events-none fixed bottom-4 right-4 z-[60] flex flex-col items-end gap-2">
-      <AnimatePresence initial={false}>
-        {toasts.map((toast) => (
-          <ToastCard key={toast.id} toast={toast} />
-        ))}
-      </AnimatePresence>
-    </div>
-  )
+  const dismiss = useToasts((s) => s.dismiss)
+  const navigate = useNavigate()
+  const shown = useRef(new Set<number>())
+
+  useEffect(() => {
+    const live = new Set(toasts.map((t) => t.id))
+    for (const id of shown.current) {
+      if (!live.has(id)) {
+        sonnerToast.dismiss(id)
+        shown.current.delete(id)
+      }
+    }
+    for (const entry of toasts) {
+      if (shown.current.has(entry.id)) continue
+      shown.current.add(entry.id)
+      show(entry, navigate, () => dismiss(entry.id))
+    }
+  }, [toasts, dismiss, navigate])
+
+  return <SonnerToaster position="bottom-right" visibleToasts={MAX_VISIBLE} closeButton />
+}
+
+function show(entry: Toast, navigate: (to: string) => void | Promise<void>, onGone: () => void): void {
+  const action = entry.action
+  const options = {
+    id: entry.id,
+    description: entry.description,
+    duration: DISMISS_AFTER_MS,
+    onDismiss: onGone,
+    onAutoClose: onGone,
+    action: action
+      ? {
+          label: `${action.label} →`,
+          onClick: () => {
+            void navigate(action.href)
+          },
+        }
+      : undefined,
+  }
+  if (entry.tone === 'success') sonnerToast.success(entry.title, options)
+  else if (entry.tone === 'error') sonnerToast.error(entry.title, options)
+  else if (entry.tone === 'match') {
+    sonnerToast(entry.title, { ...options, icon: <Zap className="size-4 text-accent" />, className: 'border-accent/30' })
+  } else sonnerToast.info(entry.title, options)
 }

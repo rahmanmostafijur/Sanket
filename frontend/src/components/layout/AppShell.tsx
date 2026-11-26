@@ -1,10 +1,10 @@
-import { Database, RotateCw, Unplug, X } from 'lucide-react'
+import { Database, RotateCw, Unplug } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Dialog } from 'radix-ui'
 import { Suspense, useState } from 'react'
 import { Link, useLocation, useOutlet } from 'react-router'
-import { Button } from '@/components/ui/Button'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { Toaster } from '@/components/ui/Toaster'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { useHealth } from '@/hooks/data'
 import { IS_DEV } from '@/lib/env'
 import { useSession } from '@/stores/session'
@@ -44,32 +44,16 @@ function ConnectionBanner() {
 
 function MobileNav({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <AnimatePresence>
-        {open ? (
-          <Dialog.Portal forceMount>
-            <Dialog.Overlay asChild forceMount>
-              <motion.div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm lg:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
-            </Dialog.Overlay>
-            <Dialog.Content asChild forceMount>
-              <motion.div
-                className="fixed inset-y-0 left-0 z-50 border-r border-line lg:hidden"
-                initial={{ x: '-100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '-100%' }}
-                transition={{ type: 'spring', stiffness: 420, damping: 40 }}
-              >
-                <Dialog.Title className="sr-only">Navigation</Dialog.Title>
-                <Dialog.Close asChild>
-                  <Button variant="ghost" size="icon-sm" aria-label="Close navigation" className="absolute right-3 top-7 z-10"><X /></Button>
-                </Dialog.Close>
-                <Sidebar inDrawer onNavigate={() => onOpenChange(false)} />
-              </motion.div>
-            </Dialog.Content>
-          </Dialog.Portal>
-        ) : null}
-      </AnimatePresence>
-    </Dialog.Root>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="left"
+        aria-describedby={undefined}
+        className="w-auto max-w-none gap-0 border-line bg-sidebar p-0 data-[side=left]:sm:max-w-none lg:hidden"
+      >
+        <SheetTitle className="sr-only">Navigation</SheetTitle>
+        <Sidebar inDrawer onNavigate={() => onOpenChange(false)} />
+      </SheetContent>
+    </Sheet>
   )
 }
 
@@ -82,6 +66,7 @@ export function AppShell() {
   const location = useLocation()
   const outlet = useOutlet()
   return (
+    <TooltipProvider>
     <div className="flex min-h-dvh">
       <div className="sticky top-0 hidden h-dvh lg:block">
         <Sidebar />
@@ -106,5 +91,6 @@ export function AppShell() {
       <MobileNav open={menuOpen} onOpenChange={setMenuOpen} />
       <Toaster />
     </div>
+    </TooltipProvider>
   )
 }
