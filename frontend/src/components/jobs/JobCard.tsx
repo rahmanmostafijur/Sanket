@@ -35,6 +35,8 @@ export function SaveButton({ job, score, className }: { job: Job; score: number 
   const { setSaved, isPending } = useSetSaved()
   const Icon = saved ? BookmarkCheck : Bookmark
   return (
+    <Tooltip>
+      <TooltipTrigger asChild>
     <motion.button
       type="button"
       whileTap={{ scale: 0.85 }}
@@ -58,6 +60,9 @@ export function SaveButton({ job, score, className }: { job: Job; score: number 
     >
       <Icon className={cn('size-[19px]', saved && 'fill-accent/20')} />
     </motion.button>
+      </TooltipTrigger>
+      <TooltipContent>{saved ? 'Remove from saved' : 'Save job'}</TooltipContent>
+    </Tooltip>
   )
 }
 

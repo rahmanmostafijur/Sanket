@@ -9,6 +9,7 @@ import { MatchRing } from '@/components/match/MatchVisuals'
 import { Button } from '@/components/ui/Button'
 import { Card, Chip, Skeleton } from '@/components/ui/primitives'
 import { EmptyState, ErrorState } from '@/components/ui/States'
+import { Separator } from '@/components/ui/separator'
 import { UnderlineTabs } from '@/components/ui/Tabs'
 import { isNotFound, useActiveProfile, useJobDetail, useMatchIndex, useMatches } from '@/hooks/data'
 import { descriptionBlocks } from '@/lib/description'
@@ -128,6 +129,7 @@ function DetailsTab({ job, detail, detailLoading }: { job: Job; detail: JobDetai
           </a>
         ) : null}
       </section>
+      <Separator className="bg-line" />
       <section>
         <h2 className="text-[16px] font-semibold text-fg">Key details</h2>
         <dl className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -141,6 +143,7 @@ function DetailsTab({ job, detail, detailLoading }: { job: Job; detail: JobDetai
           <Fact icon={<Radar />} label="First seen by Sanket" value={relativeTime(job.first_seen_at)} />
         </dl>
       </section>
+      <Separator className="bg-line" />
       <section>
         <h2 className="text-[16px] font-semibold text-fg">Key requirements</h2>
         {ex?.skills.length ? (
