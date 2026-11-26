@@ -1,7 +1,12 @@
 import { Check, ChevronDown } from 'lucide-react'
-import { AnimatePresence, motion } from 'motion/react'
-import { DropdownMenu } from 'radix-ui'
 import { useState, type ReactNode } from 'react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/cn'
 
 export interface MenuOption<T extends string | number> {
@@ -35,13 +40,6 @@ interface SingleProps<T extends string | number> extends BaseProps<T> {
 
 export type FilterMenuProps<T extends string | number> = MultiProps<T> | SingleProps<T>
 
-const MENU_MOTION = {
-  initial: { opacity: 0, y: -4, scale: 0.98 },
-  animate: { opacity: 1, y: 0, scale: 1 },
-  exit: { opacity: 0, y: -4, scale: 0.98 },
-  transition: { duration: 0.14, ease: [0.22, 1, 0.36, 1] },
-} as const
-
 function isChosen<T extends string | number>(props: FilterMenuProps<T>, value: T): boolean {
   return props.multiple ? props.value.includes(value) : props.value === value
 }
@@ -62,8 +60,8 @@ export function FilterMenu<T extends string | number>(props: FilterMenuProps<T>)
   }
 
   return (
-    <DropdownMenu.Root open={open} onOpenChange={setOpen} modal={false}>
-      <DropdownMenu.Trigger asChild>
+    <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
+      <DropdownMenuTrigger asChild>
         <button
           type="button"
           className={cn(
@@ -79,48 +77,41 @@ export function FilterMenu<T extends string | number>(props: FilterMenuProps<T>)
           ) : null}
           <ChevronDown className={cn('size-3.5 text-muted transition-transform', open && 'rotate-180')} />
         </button>
-      </DropdownMenu.Trigger>
-      <AnimatePresence>
-        {open ? (
-          <DropdownMenu.Portal forceMount>
-            <DropdownMenu.Content asChild align={align} sideOffset={6} forceMount>
-              <motion.div
-                {...MENU_MOTION}
-                className="z-50 min-w-[200px] rounded-xl border border-line-strong bg-[#121b27] p-1.5 shadow-[var(--shadow-pop)]"
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align={align}
+        sideOffset={6}
+        className="w-auto min-w-[200px] rounded-xl border border-line-strong bg-popover p-1.5 shadow-[var(--shadow-pop)] ring-0"
+      >
+        <DropdownMenuLabel className="px-2.5 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-subtle">
+          {label}
+        </DropdownMenuLabel>
+        {options.map((option) => {
+          const chosen = isChosen(props, option.value)
+          return (
+            <DropdownMenuItem
+              key={String(option.value)}
+              onSelect={(event) => {
+                if (props.multiple) event.preventDefault()
+                choose(option.value)
+              }}
+              className="cursor-pointer gap-2.5 rounded-lg px-2.5 py-2 text-[13.5px] text-fg-2"
+            >
+              <span
+                className={cn(
+                  'grid size-4 place-items-center rounded border',
+                  chosen ? 'border-accent bg-accent text-accent-ink' : 'border-line-strong',
+                  !props.multiple && 'rounded-full',
+                )}
               >
-                <DropdownMenu.Label className="px-2.5 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-subtle">
-                  {label}
-                </DropdownMenu.Label>
-                {options.map((option) => {
-                  const chosen = isChosen(props, option.value)
-                  return (
-                    <DropdownMenu.Item
-                      key={String(option.value)}
-                      onSelect={(event) => {
-                        if (props.multiple) event.preventDefault()
-                        choose(option.value)
-                      }}
-                      className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13.5px] text-fg-2 outline-none data-[highlighted]:bg-elevated data-[highlighted]:text-fg"
-                    >
-                      <span
-                        className={cn(
-                          'grid size-4 place-items-center rounded border',
-                          chosen ? 'border-accent bg-accent text-accent-ink' : 'border-line-strong',
-                          !props.multiple && 'rounded-full',
-                        )}
-                      >
-                        {chosen ? <Check className="size-3" strokeWidth={3} /> : null}
-                      </span>
-                      <span className="flex-1">{option.label}</span>
-                      {option.hint ? <span className="text-xs text-subtle">{option.hint}</span> : null}
-                    </DropdownMenu.Item>
-                  )
-                })}
-              </motion.div>
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
-        ) : null}
-      </AnimatePresence>
-    </DropdownMenu.Root>
+                {chosen ? <Check className="size-3" strokeWidth={3} /> : null}
+              </span>
+              <span className="flex-1">{option.label}</span>
+              {option.hint ? <span className="text-xs text-subtle">{option.hint}</span> : null}
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

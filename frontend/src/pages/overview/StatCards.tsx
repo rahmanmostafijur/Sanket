@@ -2,7 +2,10 @@ import { BriefcaseBusiness, Target, TrendingUp, Zap, type LucideIcon } from 'luc
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from 'motion/react'
 import { useEffect, useMemo, type ReactNode } from 'react'
 import type { Match } from '@/api/types'
-import { Card, Skeleton } from '@/components/ui/primitives'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { percent } from '@/lib/format'
 import { useNow } from '@/hooks/useNow'
 import { sourceMeta } from '@/lib/sources'
@@ -35,7 +38,7 @@ interface StatProps {
 
 function Stat({ icon: Icon, iconClass, value, suffix, label, aside }: StatProps) {
   return (
-    <Card className="flex items-center gap-4 px-5 py-5 transition-colors hover:border-line-strong sm:px-6">
+    <Card className="flex-row items-center gap-4 rounded-[var(--radius-card)] px-5 py-5 shadow-[var(--shadow-card)] ring-line transition-shadow hover:ring-line-strong sm:px-6">
       <Icon className={`size-8 shrink-0 ${iconClass}`} strokeWidth={1.7} />
       <div className="min-w-0 flex-1">
         <p className="text-[26px] font-semibold leading-none tracking-tight text-fg tabular"><CountUp value={value} suffix={suffix} /></p>
@@ -69,7 +72,18 @@ export function StatCards({ matches, isLoading }: { matches: readonly Match[]; i
         iconClass="text-info"
         value={stats.total}
         label="Active matches"
-        aside={stats.today > 0 ? <span title="New in the last 24 hours" className="flex items-center gap-1 text-[13px] font-medium text-accent tabular"><TrendingUp className="size-3.5" />{stats.today} new</span> : undefined}
+        aside={
+          stats.today > 0 ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="h-6 gap-1 border-accent/30 bg-accent/10 text-[12.5px] text-accent tabular">
+                  <TrendingUp />{stats.today} new
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>New in the last 24 hours</TooltipContent>
+            </Tooltip>
+          ) : undefined
+        }
       />
       <Stat icon={Target} iconClass="text-accent" value={percent(stats.top)} suffix="%" label="Top match" />
       <Stat
