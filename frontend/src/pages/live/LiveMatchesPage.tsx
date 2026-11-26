@@ -7,8 +7,10 @@ import { CompanyAvatar } from '@/components/jobs/CompanyAvatar'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { MatchRing } from '@/components/match/MatchVisuals'
 import { Button } from '@/components/ui/Button'
+import { Badge } from '@/components/ui/badge'
 import { Card, DemoTag, Skeleton, StatusDot } from '@/components/ui/primitives'
 import { EmptyState, ErrorState } from '@/components/ui/States'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useActiveProfile, useMatches } from '@/hooks/data'
 import { useFeedEntries } from '@/hooks/useFeedEntries'
 import { useLiveStatus } from '@/hooks/useLiveStatus'
@@ -26,10 +28,15 @@ function StatusBadge() {
   const color = { accent: 'text-accent border-accent/25 bg-accent/[0.07]', amber: 'text-amber border-amber/25 bg-amber/[0.07]', danger: 'text-danger border-danger/30 bg-danger/[0.07]', muted: 'text-muted border-line-strong bg-elevated' }[view.tone]
   const label = view.label === 'Live' ? 'Live connection active' : view.label
   return (
-    <span title={view.description} className={cn('inline-flex h-7 items-center gap-2 rounded-full border px-3 text-[12.5px] font-medium', color)}>
-      <StatusDot tone={view.tone} pulse={view.pulse} />
-      {label}
-    </span>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge variant="outline" className={cn('h-7 gap-2 px-3 text-[12.5px]', color)}>
+          <StatusDot tone={view.tone} pulse={view.pulse} />
+          {label}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent>{view.description}</TooltipContent>
+    </Tooltip>
   )
 }
 
