@@ -16,8 +16,6 @@ import { descriptionBlocks } from '@/lib/description'
 import { employmentLabel, externalUrl, formatSalary, jobDate, jobLocation, percent, relativeTime, seniorityLabel, workModeLabel } from '@/lib/format'
 import { sourceMeta } from '@/lib/sources'
 import { useRegisteredJob } from '@/stores/jobRegistry'
-import { useSavedJob } from '@/stores/saved'
-import { useSession } from '@/stores/session'
 
 type Tab = 'details' | 'why' | 'source'
 
@@ -36,18 +34,15 @@ interface JobView {
 
 /** The job from `GET /jobs/{id}`; jobs this tab has already seen stand in while it loads. */
 function useJob(jobId: number): JobView {
-  const mode = useSession((s) => s.mode)
   const { profile, isLoading: profileLoading } = useActiveProfile()
   const matchesQuery = useMatches(profile?.id)
   const index = useMatchIndex(profile?.id)
   const detailQuery = useJobDetail(jobId)
   const fromRegistry = useRegisteredJob(jobId)
-  const fromSaved = useSavedJob(jobId)
   const match = index.get(jobId) ?? null
   const notFound = isNotFound(detailQuery.error)
   const detail = detailQuery.data ?? null
-  // Demo live-feed jobs are not fixtures, so in demo mode a 404 still falls back to what was seen.
-  const fallback = notFound && mode === 'api' ? null : (match?.job ?? fromRegistry ?? fromSaved)
+  const fallback = notFound ? null : (match?.job ?? fromRegistry)
   return {
     job: detail ?? fallback,
     detail,
@@ -293,7 +288,7 @@ export default function JobDetailPage() {
               </div>
             ) : null}
             <div className="flex items-center gap-2">
-              <SaveButton job={job} score={match?.score ?? null} className="size-10 border border-line-strong" />
+              <SaveButton job={job} className="size-10 border border-line-strong" />
               {url ? (
                 <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-accent px-4 text-sm font-semibold text-accent-ink hover:bg-accent-strong">
                   View original <ExternalLink className="size-4" />

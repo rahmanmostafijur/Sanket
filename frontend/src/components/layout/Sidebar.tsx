@@ -1,13 +1,10 @@
-import { ChevronRight, Database, PanelLeftClose, PanelLeftOpen, Unplug } from 'lucide-react'
+import { ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { motion } from 'motion/react'
 import { Tooltip } from 'radix-ui'
 import { NavLink, useNavigate } from 'react-router'
 import { Logo } from '@/components/brand/Logo'
-import { Button } from '@/components/ui/Button'
 import { StatusDot } from '@/components/ui/primitives'
-import { useHealth } from '@/hooks/data'
 import { cn } from '@/lib/cn'
-import { IS_DEV } from '@/lib/env'
 import { describeIdentity } from '@/lib/identity'
 import { useLiveFeed } from '@/stores/liveFeed'
 import { usePreferences } from '@/stores/preferences'
@@ -75,40 +72,9 @@ function NavEntry({ item, collapsed, onNavigate }: { item: NavItem; collapsed: b
   )
 }
 
-/** The slot the reference uses for an upsell shows where the data comes from instead. */
-function DataSourceCard() {
-  const mode = useSession((s) => s.mode)
-  const health = useHealth()
-  const navigate = useNavigate()
-  const demo = mode === 'demo'
-  const reachable = !demo && health.isSuccess
-  return (
-    <div className="rounded-2xl border border-line bg-gradient-to-b from-[#111a25] to-surface p-4">
-      <p className="flex items-center gap-2 text-[13.5px] font-semibold text-fg">
-        {demo ? <Database className="size-4 text-amber" /> : reachable ? <StatusDot pulse /> : <Unplug className="size-4 text-danger" />}
-        {demo ? 'Demo data' : reachable ? 'Connected to API' : health.isLoading ? 'Checking API…' : 'API unreachable'}
-      </p>
-      <p className="mt-2 text-[12.5px] leading-relaxed text-muted">
-        {demo
-          ? 'Sample data in your browser. Nothing here comes from the Sanket API.'
-          : reachable
-            ? 'Search, matches and the live feed come from the Sanket API.'
-            : 'Sanket is not answering right now. Check the connection in Settings.'}
-      </p>
-      {reachable ? null : (
-        <Button variant="primary" size="sm" className="mt-3.5 w-full" onClick={() => navigate('/settings')}>
-          Data source settings
-          <ChevronRight className="size-4" />
-        </Button>
-      )}
-    </div>
-  )
-}
-
 function UserRow({ collapsed }: { collapsed: boolean }) {
-  const mode = useSession((s) => s.mode)
   const token = useSession((s) => s.token)
-  const identity = describeIdentity(mode, token)
+  const identity = describeIdentity(token)
   const navigate = useNavigate()
   if (identity.kind === 'none') return null
   return (
@@ -131,9 +97,9 @@ function UserRow({ collapsed }: { collapsed: boolean }) {
   )
 }
 
-export function Avatar({ initials, className }: { initials: string; className?: string }) {
+function Avatar({ initials }: { initials: string }) {
   return (
-    <span className={cn('grid size-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#2a3b55] to-[#18222f] text-[13px] font-semibold text-fg ring-2 ring-line-strong', className)}>
+    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#2a3b55] to-[#18222f] text-[13px] font-semibold text-fg ring-2 ring-line-strong">
       {initials}
     </span>
   )
@@ -168,7 +134,6 @@ export function Sidebar({ inDrawer = false, onNavigate }: SidebarProps) {
           ))}
         </div>
         <div className="mt-auto flex flex-col gap-3 p-4">
-          {collapsed || !IS_DEV ? null : <DataSourceCard />}
           {inDrawer ? null : (
             <button
               type="button"

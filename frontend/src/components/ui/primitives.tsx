@@ -72,17 +72,3 @@ export function StatusDot({ tone = 'accent', pulse = false, className }: { tone?
 export function SectionLabel({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
   return <p className={cn('text-[13px] font-medium text-fg-2', className)} {...props} />
 }
-
-/** Pill that marks content as demo data, so it is never mistaken for real data. */
-export function DemoTag({ className }: { className?: string }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex h-5 items-center rounded-full border border-amber/35 bg-amber/10 px-2 text-[10.5px] font-semibold uppercase tracking-wide text-amber',
-        className,
-      )}
-    >
-      Demo data
-    </span>
-  )
-}

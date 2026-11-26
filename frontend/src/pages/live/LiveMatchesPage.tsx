@@ -8,7 +8,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { MatchRing } from '@/components/match/MatchVisuals'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/badge'
-import { Card, DemoTag, Skeleton, StatusDot } from '@/components/ui/primitives'
+import { Card, Skeleton, StatusDot } from '@/components/ui/primitives'
 import { EmptyState, ErrorState } from '@/components/ui/States'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useActiveProfile, useMatches } from '@/hooks/data'
@@ -161,7 +161,6 @@ function FeedStats({ matches }: { matches: readonly Match[] }) {
 
 function ConnectionCard() {
   const stream = useLiveFeed((s) => s.stream)
-  const simulated = useLiveFeed((s) => s.simulated)
   const retry = useLiveFeed((s) => s.retry)
   const view = useLiveStatus()
   const rows: [string, string][] = [
@@ -176,10 +175,7 @@ function ConnectionCard() {
   ]
   return (
     <Card className="p-5">
-      <div className="flex items-center justify-between">
-        <h2 className="text-[15.5px] font-semibold text-fg">Connection</h2>
-        {simulated ? <DemoTag /> : null}
-      </div>
+      <h2 className="text-[15.5px] font-semibold text-fg">Connection</h2>
       <p className="mt-2 text-[13px] leading-relaxed text-muted">{view.description}</p>
       <dl className="mt-4 space-y-2.5">
         {rows.map(([label, value]) => (

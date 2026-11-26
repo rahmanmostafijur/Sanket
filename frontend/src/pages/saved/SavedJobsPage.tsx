@@ -14,7 +14,6 @@ import { EmptyState, ErrorState } from '@/components/ui/States'
 import { activeFilterCount, EMPTY_FILTERS, matchesFilters, type JobFilters } from '@/features/jobs/filters'
 import { useActiveProfile, useClearSaved, useMatchIndex, useSavedJobs, useSetSaved, type SavedEntry } from '@/hooks/data'
 import { jobDate, monthlyUsd, relativeTime } from '@/lib/format'
-import { useSession } from '@/stores/session'
 import { toast } from '@/stores/toasts'
 
 type ListedEntry = SavedEntry & { job: Job }
@@ -44,7 +43,6 @@ function RemovedJob({ entry }: { entry: SavedEntry }) {
 
 export default function SavedJobsPage() {
   const navigate = useNavigate()
-  const mode = useSession((s) => s.mode)
   const { entries: all, isLoading, error, refetch } = useSavedJobs()
   const clear = useClearSaved()
   const { profile } = useActiveProfile()
@@ -56,7 +54,7 @@ export default function SavedJobsPage() {
   const listed = useMemo(() => all.filter((entry): entry is ListedEntry => entry.job !== null), [all])
   const removed = useMemo(() => all.filter((entry) => entry.job === null), [all])
   const shown = useMemo(() => {
-    const score = (entry: ListedEntry) => entry.matchScore ?? matchIndex.get(entry.jobId)?.score ?? -1
+    const score = (entry: ListedEntry) => matchIndex.get(entry.jobId)?.score ?? -1
     return listed.filter((entry) => matchesFilters(entry.job, filters)).sort(sorter(sort, score))
   }, [listed, filters, sort, matchIndex])
 
@@ -73,7 +71,7 @@ export default function SavedJobsPage() {
     <div className="mx-auto max-w-[1180px]">
       <PageHeader
         title="Saved Jobs"
-        description={mode === 'api' ? 'Opportunities you bookmarked.' : 'Opportunities you bookmarked. Demo saves are kept in this browser.'}
+        description="Opportunities you bookmarked."
         actions={
           all.length ? (
             <>

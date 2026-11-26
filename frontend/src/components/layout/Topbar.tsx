@@ -1,18 +1,13 @@
-import { Bell, LogOut, Menu, Settings, Zap } from 'lucide-react'
+import { Bell, Menu, Zap } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { DropdownMenu, Popover } from 'radix-ui'
-import { useState, type ReactNode } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Popover } from 'radix-ui'
+import { useState } from 'react'
+import { Link } from 'react-router'
 import { Button } from '@/components/ui/Button'
-import { DemoTag } from '@/components/ui/primitives'
-import { IS_DEV } from '@/lib/env'
 import { percent, relativeTime } from '@/lib/format'
-import { describeIdentity } from '@/lib/identity'
 import { useLiveFeed } from '@/stores/liveFeed'
-import { useSession } from '@/stores/session'
 import { GlobalSearch } from './GlobalSearch'
 import { LiveStatusPill } from './LiveStatus'
-import { Avatar } from './Sidebar'
 
 const POP = {
   initial: { opacity: 0, y: -6, scale: 0.98 },
@@ -26,7 +21,6 @@ function Notifications() {
   const received = useLiveFeed((s) => s.received)
   const unread = useLiveFeed((s) => s.unread)
   const markRead = useLiveFeed((s) => s.markRead)
-  const simulated = useLiveFeed((s) => s.simulated)
   return (
     <Popover.Root
       open={open}
@@ -57,9 +51,8 @@ function Notifications() {
           <Popover.Portal forceMount>
             <Popover.Content asChild align="end" sideOffset={10} forceMount>
               <motion.div {...POP} className="z-50 w-[360px] max-w-[calc(100vw-24px)] rounded-2xl border border-line-strong bg-[#111a26] shadow-[var(--shadow-pop)]">
-                <div className="flex items-center justify-between border-b border-line px-4 py-3">
+                <div className="border-b border-line px-4 py-3">
                   <p className="text-sm font-semibold text-fg">Notifications</p>
-                  {simulated ? <DemoTag /> : null}
                 </div>
                 <div className="scroll-thin max-h-[360px] overflow-y-auto p-1.5">
                   {received.length === 0 ? (
@@ -97,50 +90,6 @@ function Notifications() {
   )
 }
 
-function MenuItem({ icon, children, onSelect }: { icon: ReactNode; children: ReactNode; onSelect: () => void }) {
-  return (
-    <DropdownMenu.Item onSelect={onSelect} className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13.5px] text-fg-2 outline-none data-[highlighted]:bg-elevated data-[highlighted]:text-fg [&_svg]:size-4 [&_svg]:text-muted">
-      {icon}
-      {children}
-    </DropdownMenu.Item>
-  )
-}
-
-function UserMenu() {
-  const [open, setOpen] = useState(false)
-  const navigate = useNavigate()
-  const { mode, token, clearToken } = useSession()
-  const identity = describeIdentity(mode, token)
-  // Nobody is signed in (the server lets requests through without a credential): no account to show.
-  if (identity.kind === 'none') return null
-  return (
-    <DropdownMenu.Root open={open} onOpenChange={setOpen} modal={false}>
-      <DropdownMenu.Trigger asChild>
-        <button type="button" aria-label="Account menu" className="rounded-full transition-shadow hover:ring-2 hover:ring-accent/30">
-          <Avatar initials={identity.initials} className="size-11" />
-        </button>
-      </DropdownMenu.Trigger>
-      <AnimatePresence>
-        {open ? (
-          <DropdownMenu.Portal forceMount>
-            <DropdownMenu.Content asChild align="end" sideOffset={10} forceMount>
-              <motion.div {...POP} className="z-50 w-64 rounded-2xl border border-line-strong bg-[#111a26] p-1.5 shadow-[var(--shadow-pop)]">
-                <div className="px-2.5 py-2.5">
-                  <p className="truncate text-sm font-semibold text-fg">{identity.name}</p>
-                  <p className="truncate text-[12px] text-muted">{identity.detail}</p>
-                </div>
-                <DropdownMenu.Separator className="my-1 h-px bg-line" />
-                <MenuItem icon={<Settings />} onSelect={() => navigate('/settings')}>Settings</MenuItem>
-                {IS_DEV && token && mode === 'api' ? <MenuItem icon={<LogOut />} onSelect={clearToken}>Forget credential</MenuItem> : null}
-              </motion.div>
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
-        ) : null}
-      </AnimatePresence>
-    </DropdownMenu.Root>
-  )
-}
-
 export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   return (
     <header className="sticky top-0 z-30 border-b border-line/60 bg-bg/80 backdrop-blur-xl lg:border-none lg:bg-bg/70">
@@ -152,7 +101,6 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
         <div className="ml-auto flex items-center gap-2 sm:gap-5">
           <LiveStatusPill className="hidden sm:inline-flex" />
           <Notifications />
-          <UserMenu />
         </div>
       </div>
     </header>

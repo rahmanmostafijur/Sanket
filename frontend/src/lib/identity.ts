@@ -1,11 +1,8 @@
-import { DEMO_PERSONA } from '@/data/demo'
-import type { DataMode } from '@/stores/session'
-
 export interface Identity {
   name: string
   detail: string
   initials: string
-  kind: 'demo' | 'jwt' | 'api_key' | 'none'
+  kind: 'jwt' | 'api_key' | 'none'
 }
 
 /** Seconds-since-epoch `exp` of a JWT, for display only; null for API keys or no expiry. */
@@ -46,10 +43,7 @@ function initialsOf(name: string): string {
  * Who to show as signed in. The API has no "me" endpoint: a JWT's own claims are read for
  * display only (never trusted for anything), an API key is shown as such.
  */
-export function describeIdentity(mode: DataMode, token: string | null): Identity {
-  if (mode === 'demo') {
-    return { name: DEMO_PERSONA.name, detail: DEMO_PERSONA.email, initials: initialsOf(DEMO_PERSONA.name), kind: 'demo' }
-  }
+export function describeIdentity(token: string | null): Identity {
   if (!token) return { name: 'Not signed in', detail: 'No credential set', initials: '?', kind: 'none' }
   const payload = decodeJwtPayload(token)
   if (payload) {
@@ -62,7 +56,7 @@ export function describeIdentity(mode: DataMode, token: string | null): Identity
 
 /** First name for the greeting, or null when there is no person to greet. */
 export function firstName(identity: Identity): string | null {
-  if (identity.kind === 'demo' || identity.kind === 'jwt') {
+  if (identity.kind === 'jwt') {
     const first = identity.name.split(/\s+/)[0]
     return first && !first.includes('@') ? first : null
   }

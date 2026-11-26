@@ -1,7 +1,5 @@
-import { Check, Copy, Eye, EyeOff, KeyRound, LogOut, PlugZap, Server, ShieldCheck } from 'lucide-react'
+import { Check, Copy, Eye, EyeOff, KeyRound, LogOut, PlugZap, ShieldCheck } from 'lucide-react'
 import { useId, useState, type FormEvent, type ReactNode } from 'react'
-import { getHealth } from '@/api/endpoints'
-import { errorMessage } from '@/api/client'
 import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Field'
 import { Card } from '@/components/ui/primitives'
@@ -81,41 +79,6 @@ function Block({ icon, title, description, children }: { icon: ReactNode; title:
   )
 }
 
-function ConnectionBlock() {
-  const { apiBaseUrl, setApiBaseUrl, token } = useSession()
-  const [draft, setDraft] = useState(apiBaseUrl)
-  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null)
-  const [testing, setTesting] = useState(false)
-  const inputId = useId()
-  const test = async (event: FormEvent) => {
-    event.preventDefault()
-    setTesting(true)
-    const started = performance.now()
-    try {
-      await getHealth({ baseUrl: draft.trim() || DEFAULT_API_BASE, token })
-      setApiBaseUrl(draft)
-      setResult({ ok: true, text: `Reachable in ${Math.round(performance.now() - started)} ms. Address saved.` })
-    } catch (failure: unknown) {
-      setResult({ ok: false, text: errorMessage(failure) })
-    } finally {
-      setTesting(false)
-    }
-  }
-  return (
-    <Block icon={<Server />} title="Connection address" description="Where this app reaches Sanket. Keep the default unless you were given another address.">
-      <form onSubmit={test} className="space-y-3">
-        <Field label="Address" htmlFor={inputId} hint={`A path on this site (default ${DEFAULT_API_BASE}) or a full address on this same site.`}>
-          <div className="flex gap-2">
-            <Input id={inputId} value={draft} onChange={(e) => setDraft(e.target.value)} className="font-mono text-[13px]" spellCheck={false} />
-            <Button type="submit" disabled={testing}><PlugZap /> {testing ? 'Testing…' : 'Test & save'}</Button>
-          </div>
-        </Field>
-        {result ? <p className={cn('text-[13px]', result.ok ? 'text-accent' : 'text-danger')}>{result.text}</p> : null}
-      </form>
-    </Block>
-  )
-}
-
 function CredentialBlock() {
   const { token, rememberToken, setToken, clearToken } = useSession()
   const [draft, setDraft] = useState('')
@@ -123,7 +86,7 @@ function CredentialBlock() {
   const [reveal, setReveal] = useState(false)
   const [copied, copy] = useCopy()
   const inputId = useId()
-  const identity = describeIdentity('api', token)
+  const identity = describeIdentity(token)
   const now = useNow()
   const expiry = token ? jwtExpiry(token) : null
   const expired = expiry !== null && expiry.getTime() < now
@@ -171,9 +134,8 @@ function CredentialBlock() {
 }
 
 function EndpointsBlock() {
-  const baseUrl = useSession((s) => s.apiBaseUrl)
   const [copied, copy] = useCopy()
-  const origin = baseUrl.startsWith('http') ? baseUrl : `${window.location.origin}${baseUrl}`
+  const origin = DEFAULT_API_BASE.startsWith('http') ? DEFAULT_API_BASE : `${window.location.origin}${DEFAULT_API_BASE}`
   const example = `curl -H "Authorization: Bearer $SANKET_TOKEN" \\\n  "${origin}/search?q=python+backend&work_mode=remote"`
   return (
     <Block icon={<PlugZap />} title="Endpoints" description="What this app calls. Every result links to its original listing and names its source.">
@@ -197,14 +159,13 @@ function EndpointsBlock() {
   )
 }
 
-/** Connection address, credential and the endpoint list, for people who script against Sanket. */
+/** Credential and the endpoint list, for people who script against Sanket. */
 export function DevelopersSection() {
   return (
     <Card id="developers" className="p-5 sm:p-6">
       <h2 className="text-[16px] font-semibold text-fg">Developers</h2>
-      <p className="mt-1 text-[13.5px] text-muted">How this app connects to Sanket, and how to call it yourself.</p>
+      <p className="mt-1 text-[13.5px] text-muted">The credential this app sends to Sanket, and how to call it yourself.</p>
       <div className="mt-2 divide-y divide-line">
-        <ConnectionBlock />
         <CredentialBlock />
         <EndpointsBlock />
       </div>

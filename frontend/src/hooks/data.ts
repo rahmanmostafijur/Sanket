@@ -7,11 +7,9 @@ import {
 import { useEffect, useMemo } from 'react'
 import { ApiError } from '@/api/client'
 import type { Job, JobListParams, Match, Profile, ProfileWrite, SavedJobList, SearchParams } from '@/api/types'
-import { demoSource } from '@/data/demo'
 import { apiSource, type DataSource } from '@/data/source'
 import { useJobRegistry } from '@/stores/jobRegistry'
 import { useLiveFeed } from '@/stores/liveFeed'
-import { savedKey, useSaved, useSavedEntries } from '@/stores/saved'
 import { useApiConfig, useSession } from '@/stores/session'
 
 const SEARCH_PAGE = 20
@@ -23,17 +21,10 @@ function fingerprint(text: string | null): string {
   return value.toString(36)
 }
 
-/** The active data source and a key that changes whenever the source or credential does. */
-export function useDataSource(): { source: DataSource; key: string } {
-  const mode = useSession((s) => s.mode)
+/** The API source and a key that changes whenever the credential does. */
+function useDataSource(): { source: DataSource; key: string } {
   const config = useApiConfig()
-  return useMemo(
-    () =>
-      mode === 'demo'
-        ? { source: demoSource, key: 'demo' }
-        : { source: apiSource(config), key: `api|${config.baseUrl}|${fingerprint(config.token)}` },
-    [mode, config],
-  )
+  return useMemo(() => ({ source: apiSource(config), key: `${config.baseUrl}|${fingerprint(config.token)}` }), [config])
 }
 
 export function useHealth() {
@@ -42,7 +33,7 @@ export function useHealth() {
     queryKey: ['health', key],
     queryFn: ({ signal }) => source.health(signal).then(() => true),
     retry: 1,
-    refetchInterval: source.kind === 'api' ? 30_000 : false,
+    refetchInterval: 30_000,
   })
 }
 
@@ -168,14 +159,12 @@ export function useJobDetail(jobId: number) {
   })
 }
 
-/** A saved job, from the server in API mode or from this browser in demo mode. */
+/** A saved job, as the server lists it. */
 export interface SavedEntry {
   jobId: number
   /** null when the job was removed after it was saved. */
   job: Job | null
   savedAt: string
-  /** The match score recorded when it was saved (demo mode only). */
-  matchScore: number | null
 }
 
 function useSavedQuery() {
@@ -184,32 +173,26 @@ function useSavedQuery() {
   const query = useQuery({
     queryKey,
     queryFn: ({ signal }) => source.listSavedJobs(signal),
-    enabled: source.kind === 'api',
   })
   return { source, queryKey, query }
 }
 
-/** Saved jobs of the current data mode, newest first. */
+/** Saved jobs, newest first as the server returns them. */
 export function useSavedJobs(): {
   entries: SavedEntry[]
   isLoading: boolean
   error: unknown
   refetch: () => void
 } {
-  const { source, query } = useSavedQuery()
-  const local = useSavedEntries()
-  const entries = useMemo<SavedEntry[]>(() => {
-    if (source.kind === 'demo') {
-      return local
-        .map((entry) => ({ jobId: entry.job.job_id, job: entry.job, savedAt: entry.savedAt, matchScore: entry.matchScore }))
-        .sort((a, b) => Date.parse(b.savedAt) - Date.parse(a.savedAt))
-    }
-    return (query.data?.items ?? []).map((item) => ({ jobId: item.job_id, job: item.job, savedAt: item.saved_at, matchScore: null }))
-  }, [source.kind, local, query.data])
+  const { query } = useSavedQuery()
+  const entries = useMemo<SavedEntry[]>(
+    () => (query.data?.items ?? []).map((item) => ({ jobId: item.job_id, job: item.job, savedAt: item.saved_at })),
+    [query.data],
+  )
   return {
     entries,
-    isLoading: source.kind === 'api' && query.isLoading,
-    error: source.kind === 'api' ? query.error : null,
+    isLoading: query.isLoading,
+    error: query.error,
     refetch: () => void query.refetch(),
   }
 }
@@ -223,19 +206,12 @@ interface SaveInput {
   jobId: number
   job: Job | null
   save: boolean
-  matchScore?: number | null
 }
 
-/**
- * Saves or removes a job. API mode writes to the server with an optimistic update that is rolled
- * back on failure; demo mode writes to this browser.
- */
+/** Saves or removes a job on the server, with an optimistic update that is rolled back on failure. */
 export function useSetSaved() {
   const { source, queryKey } = useSavedQuery()
   const client = useQueryClient()
-  const localItems = useSaved((s) => s.items)
-  const toggleLocal = useSaved((s) => s.toggle)
-  const removeLocal = useSaved((s) => s.remove)
   const mutation = useMutation({
     mutationFn: async ({ jobId, save }: SaveInput) => {
       if (save) await source.saveJob(jobId)
@@ -253,23 +229,15 @@ export function useSetSaved() {
     onError: (_error, _input, context) => client.setQueryData(queryKey, context?.previous),
     onSettled: () => void client.invalidateQueries({ queryKey }),
   })
-  const setSaved = async (input: SaveInput): Promise<void> => {
-    if (source.kind === 'api') return mutation.mutateAsync(input)
-    const isSaved = savedKey('demo', input.jobId) in localItems
-    if (input.save && !isSaved && input.job) toggleLocal(input.job, input.matchScore ?? null)
-    if (!input.save && isSaved) removeLocal(input.jobId)
-  }
-  return { setSaved, isPending: mutation.isPending }
+  return { setSaved: mutation.mutateAsync, isPending: mutation.isPending }
 }
 
-/** Removes every saved job of the current data mode. */
+/** Removes every saved job. */
 export function useClearSaved() {
   const { source, queryKey } = useSavedQuery()
   const client = useQueryClient()
   const { entries } = useSavedJobs()
-  const clearLocal = useSaved((s) => s.clear)
   return async (): Promise<void> => {
-    if (source.kind === 'demo') return clearLocal()
     try {
       await Promise.all(entries.map((entry) => source.unsaveJob(entry.jobId)))
     } finally {

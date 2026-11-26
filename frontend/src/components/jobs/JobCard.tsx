@@ -30,7 +30,7 @@ function jobTags(job: Job): string[] {
   )
 }
 
-export function SaveButton({ job, score, className }: { job: Job; score: number | null; className?: string }) {
+export function SaveButton({ job, className }: { job: Job; className?: string }) {
   const saved = useIsSaved(job.job_id)
   const { setSaved, isPending } = useSetSaved()
   const Icon = saved ? BookmarkCheck : Bookmark
@@ -47,7 +47,7 @@ export function SaveButton({ job, score, className }: { job: Job; score: number 
         event.preventDefault()
         event.stopPropagation()
         const save = !saved
-        setSaved({ jobId: job.job_id, job, save, matchScore: score }).then(
+        setSaved({ jobId: job.job_id, job, save }).then(
           () => toast({ tone: 'success', title: save ? 'Saved to your list' : 'Removed from saved jobs', description: job.title }),
           (error: unknown) => toast({ tone: 'error', title: save ? 'Could not save this job' : 'Could not remove this job', description: errorMessage(error) }),
         )
@@ -121,7 +121,7 @@ export function JobCard({ job, match, matchedBy, variant = 'list', index = 0 }: 
             </h3>
             <p className="mt-1 truncate text-[13px] text-muted">{job.company}</p>
           </div>
-          <SaveButton job={job} score={score} className="-mr-1.5 -mt-1" />
+          <SaveButton job={job} className="-mr-1.5 -mt-1" />
         </div>
         <div className="flex flex-wrap gap-1.5">
           {tags.map((tag) => <Chip key={tag}>{tag}</Chip>)}
@@ -158,7 +158,7 @@ export function JobCard({ job, match, matchedBy, variant = 'list', index = 0 }: 
             <div className="flex shrink-0 flex-col items-end gap-2.5">
               <div className="flex items-center gap-2">
                 {score !== null ? <MatchBadge score={score} className="hidden sm:inline-flex" /> : null}
-                <SaveButton job={job} score={score} />
+                <SaveButton job={job} />
               </div>
               {salary ? <p className="hidden text-[14px] text-fg-2 tabular sm:block">{salary}</p> : null}
             </div>

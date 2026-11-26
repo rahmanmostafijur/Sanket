@@ -13,12 +13,8 @@ import type {
   SearchResponse,
 } from '@/api/types'
 
-/**
- * Where the UI reads its data: the Sanket API, or the labelled demo data set. Pages only talk
- * to this interface, so the demo can never leak into API mode or the other way round.
- */
+/** Where the UI reads its data: the Sanket API. Pages only talk to this interface. */
 export interface DataSource {
-  kind: 'api' | 'demo'
   health: (signal?: AbortSignal) => Promise<void>
   search: (params: SearchParams, signal?: AbortSignal) => Promise<SearchResponse>
   /** Listed jobs without a query. */
@@ -42,7 +38,6 @@ const MAX_MATCH_PAGES = 10
 
 export function apiSource(config: ApiConfig): DataSource {
   return {
-    kind: 'api',
     health: async (signal) => {
       await api.getHealth(config, signal)
     },

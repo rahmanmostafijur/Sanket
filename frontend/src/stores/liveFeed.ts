@@ -15,13 +15,11 @@ interface LiveFeedState {
   received: ReceivedEvent[]
   unread: number
   stream: StreamState
-  /** True while the feed is the demo simulator rather than the API stream. */
-  simulated: boolean
   /** Reconnect now; set by the controller that owns the connection. */
   retry: (() => void) | null
   push: (event: MatchEvent) => void
   markRead: () => void
-  setStream: (stream: StreamState, simulated: boolean) => void
+  setStream: (stream: StreamState) => void
   setRetry: (retry: (() => void) | null) => void
   reset: () => void
 }
@@ -30,7 +28,6 @@ export const useLiveFeed = create<LiveFeedState>()((set, get) => ({
   received: [],
   unread: 0,
   stream: INITIAL_STREAM_STATE,
-  simulated: false,
   retry: null,
   push: (event) => {
     const rest = get().received.filter((item) => item.event.id !== event.id)
@@ -40,7 +37,7 @@ export const useLiveFeed = create<LiveFeedState>()((set, get) => ({
     })
   },
   markRead: () => set({ unread: 0 }),
-  setStream: (stream, simulated) => set({ stream, simulated }),
+  setStream: (stream) => set({ stream }),
   setRetry: (retry) => set({ retry }),
-  reset: () => set({ received: [], unread: 0, stream: INITIAL_STREAM_STATE, simulated: false }),
+  reset: () => set({ received: [], unread: 0, stream: INITIAL_STREAM_STATE }),
 }))

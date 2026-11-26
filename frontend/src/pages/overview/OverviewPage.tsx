@@ -30,9 +30,8 @@ const SORTERS: Record<SortKey, (a: Match, b: Match) => number> = {
 }
 
 function useGreetingName(): string | null {
-  const mode = useSession((s) => s.mode)
   const token = useSession((s) => s.token)
-  return firstName(describeIdentity(mode, token))
+  return firstName(describeIdentity(token))
 }
 
 export default function OverviewPage() {

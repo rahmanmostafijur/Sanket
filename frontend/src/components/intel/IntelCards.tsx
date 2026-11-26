@@ -7,10 +7,9 @@ import { CompanyAvatar } from '@/components/jobs/CompanyAvatar'
 import { useFeedEntries } from '@/hooks/useFeedEntries'
 import { useLiveStatus } from '@/hooks/useLiveStatus'
 import { MatchRing } from '@/components/match/MatchVisuals'
-import { Card, DemoTag, Skeleton, StatusDot } from '@/components/ui/primitives'
+import { Card, Skeleton, StatusDot } from '@/components/ui/primitives'
 import { cn } from '@/lib/cn'
 import { percent, relativeTime } from '@/lib/format'
-import { useLiveFeed } from '@/stores/liveFeed'
 
 function HeaderLink({ to, children }: { to: string; children: ReactNode }) {
   return (
@@ -23,7 +22,6 @@ function HeaderLink({ to, children }: { to: string; children: ReactNode }) {
 
 export function LiveFeedCard({ matches, isLoading, className }: { matches: readonly Match[]; isLoading: boolean; className?: string }) {
   const status = useLiveStatus()
-  const simulated = useLiveFeed((s) => s.simulated)
   const entries = useFeedEntries(matches, 4)
   return (
     <Card className={cn('p-5', className)}>
@@ -32,7 +30,7 @@ export function LiveFeedCard({ matches, isLoading, className }: { matches: reado
           <StatusDot tone={status.tone} pulse={status.pulse} className="size-2.5" />
           Live Match Feed
         </h2>
-        {simulated ? <DemoTag /> : <HeaderLink to="/live">See all</HeaderLink>}
+        <HeaderLink to="/live">See all</HeaderLink>
       </div>
       <div className="relative mt-5">
         {isLoading ? (

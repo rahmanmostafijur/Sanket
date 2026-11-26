@@ -1,19 +1,16 @@
 import { LayoutGrid, List, Trash } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { errorMessage } from '@/api/client'
-import { Avatar } from '@/components/layout/Sidebar'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { SwitchRow } from '@/components/ui/Field'
-import { FilterMenu } from '@/components/ui/FilterMenu'
 import { Card } from '@/components/ui/primitives'
 import { Segmented } from '@/components/ui/Tabs'
-import { useActiveProfile, useClearSaved, useSavedJobs } from '@/hooks/data'
+import { useClearSaved, useSavedJobs } from '@/hooks/data'
 import { IS_DEV } from '@/lib/env'
-import { describeIdentity } from '@/lib/identity'
 import { usePreferences, type ResultsView } from '@/stores/preferences'
-import { useSession, type DataMode } from '@/stores/session'
+import { useSession } from '@/stores/session'
 import { toast } from '@/stores/toasts'
 import { DevelopersSection } from './DevelopersSection'
 
@@ -53,47 +50,16 @@ function resetLocalData(): void {
 }
 
 export default function SettingsPage() {
-  const { mode, setMode, token, clearToken, rememberToken, setActiveProfileId } = useSession()
+  const { token, clearToken, rememberToken } = useSession()
   const prefs = usePreferences()
   const savedCount = useSavedJobs().entries.length
   const clearSaved = useClearSaved()
-  const { profile, profiles } = useActiveProfile()
   const [confirmReset, setConfirmReset] = useState(false)
-  const identity = describeIdentity(mode, token)
 
   return (
     <div className="mx-auto max-w-[900px]">
-      <PageHeader title="Settings" description={IS_DEV ? 'Account, preferences, notifications, the data this browser keeps and developer access.' : 'Preferences, notifications and the data this browser keeps.'} />
+      <PageHeader title="Settings" description={IS_DEV ? 'Preferences, notifications, the data this browser keeps and developer access.' : 'Preferences, notifications and the data this browser keeps.'} />
       <div className="space-y-5">
-        {IS_DEV || identity.kind !== 'none' || profiles.length > 0 ? (
-        <Section title="Account">
-          {identity.kind === 'none' ? null : (
-            <div className="flex items-center gap-4 py-3.5">
-              <Avatar initials={identity.initials} className="size-12" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[15px] font-semibold text-fg">{identity.name}</p>
-                <p className="truncate text-[13px] text-muted">{identity.detail}</p>
-              </div>
-            </div>
-          )}
-          {IS_DEV ? (
-            <Row label="Data source" description={mode === 'demo' ? 'Labelled sample data in this browser.' : 'Live data from your Sanket API.'}>
-              <Segmented<DataMode>
-                id="settings-mode"
-                value={mode}
-                onChange={setMode}
-                items={[{ value: 'api', label: 'Sanket API' }, { value: 'demo', label: 'Demo data' }]}
-              />
-            </Row>
-          ) : null}
-          {profiles.length > 0 ? (
-            <Row label="Matching profile" description="Used for matches, the live feed and match scores.">
-              <FilterMenu label="Matching profile" summary={profile?.name ?? 'Choose'} align="end" options={profiles.map((p) => ({ value: p.id, label: p.name }))} value={profile?.id ?? 0} onChange={(id) => setActiveProfileId(id)} />
-            </Row>
-          ) : null}
-        </Section>
-        ) : null}
-
         <Section title="Preferences">
           <Row label="Default job view">
             <Segmented<ResultsView>
@@ -125,7 +91,7 @@ export default function SettingsPage() {
           <Row label="Recent searches" description={`${prefs.recentSearches.length} kept for suggestions.`}>
             <Button size="sm" variant="outline" disabled={!prefs.recentSearches.length} onClick={prefs.clearRecentSearches}>Clear</Button>
           </Row>
-          <Row label="Saved jobs" description={mode === 'api' ? `${savedCount} saved.` : `${savedCount} demo jobs saved in this browser.`}>
+          <Row label="Saved jobs" description={`${savedCount} saved.`}>
             <Button
               size="sm"
               variant="outline"
