@@ -1,6 +1,8 @@
 @import 'tailwindcss';
 @import '@fontsource-variable/geist';
 @import '@fontsource-variable/geist-mono';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
 
 /*
  * Sanket design tokens. One dark theme: the product is designed dark-first (see the design
@@ -58,6 +60,31 @@
       background-position: 200% 0;
     }
   }
+}
+
+/*
+ * shadcn/ui names mapped onto the Sanket dark tokens. The app is always dark, so `dark:` classes
+ * always apply. `accent`, `muted` and `sidebar` keep their Sanket meaning; shadcn components that
+ * use `bg-accent` or `bg-muted` are adapted to `bg-hover` and `bg-elevated` when they are added.
+ */
+@custom-variant dark (&:where(:root, :root *));
+
+@theme inline {
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-fg);
+  --color-card: var(--color-surface);
+  --color-card-foreground: var(--color-fg);
+  --color-popover: var(--color-elevated);
+  --color-popover-foreground: var(--color-fg);
+  --color-primary: var(--color-accent);
+  --color-primary-foreground: var(--color-accent-ink);
+  --color-secondary: var(--color-elevated);
+  --color-secondary-foreground: var(--color-fg);
+  --color-muted-foreground: var(--color-muted);
+  --color-destructive: var(--color-danger);
+  --color-border: var(--color-line);
+  --color-input: var(--color-line-strong);
+  --color-ring: var(--color-accent);
 }
 
 @layer base {
