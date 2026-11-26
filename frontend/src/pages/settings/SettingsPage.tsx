@@ -4,6 +4,7 @@ import { errorMessage } from '@/api/client'
 import { Avatar } from '@/components/layout/Sidebar'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { SwitchRow } from '@/components/ui/Field'
 import { FilterMenu } from '@/components/ui/FilterMenu'
 import { Card } from '@/components/ui/primitives'
@@ -135,14 +136,16 @@ export default function SettingsPage() {
             </Button>
           </Row>
           <Row label="Reset this browser" description="Removes the credential, saved jobs, preferences and cached jobs, then reloads.">
-            {confirmReset ? (
-              <span className="flex gap-2">
-                <Button size="sm" variant="ghost" onClick={() => setConfirmReset(false)}>Cancel</Button>
-                <Button size="sm" variant="danger" onClick={resetLocalData}><Trash /> Reset everything</Button>
-              </span>
-            ) : (
-              <Button size="sm" variant="danger" onClick={() => setConfirmReset(true)}>Reset</Button>
-            )}
+            <Button size="sm" variant="danger" onClick={() => setConfirmReset(true)}>Reset</Button>
+            <ConfirmDialog
+              open={confirmReset}
+              onOpenChange={setConfirmReset}
+              title="Reset this browser?"
+              description="Removes the credential, saved jobs, preferences and cached jobs, then reloads."
+              cancelLabel="Cancel"
+              confirmLabel={<><Trash /> Reset everything</>}
+              onConfirm={resetLocalData}
+            />
           </Row>
         </Section>
 
