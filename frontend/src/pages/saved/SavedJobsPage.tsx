@@ -8,6 +8,7 @@ import { FilterChips, type SortKey } from '@/components/jobs/FilterChips'
 import { JobCard } from '@/components/jobs/JobCard'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Skeleton } from '@/components/ui/primitives'
 import { EmptyState, ErrorState } from '@/components/ui/States'
 import { activeFilterCount, EMPTY_FILTERS, matchesFilters, type JobFilters } from '@/features/jobs/filters'
@@ -75,14 +76,18 @@ export default function SavedJobsPage() {
         description={mode === 'api' ? 'Opportunities you bookmarked.' : 'Opportunities you bookmarked. Demo saves are kept in this browser.'}
         actions={
           all.length ? (
-            confirmClear ? (
-              <>
-                <Button variant="ghost" onClick={() => setConfirmClear(false)}>Keep them</Button>
-                <Button variant="danger" onClick={clearAll}><Trash /> Remove all {all.length}</Button>
-              </>
-            ) : (
+            <>
               <Button variant="outline" onClick={() => setConfirmClear(true)}><Trash /> Clear all</Button>
-            )
+              <ConfirmDialog
+                open={confirmClear}
+                onOpenChange={setConfirmClear}
+                title="Remove all saved jobs?"
+                description={`This removes all ${all.length} saved jobs from your list.`}
+                cancelLabel="Keep them"
+                confirmLabel={<><Trash /> Remove all {all.length}</>}
+                onConfirm={clearAll}
+              />
+            </>
           ) : undefined
         }
       />
