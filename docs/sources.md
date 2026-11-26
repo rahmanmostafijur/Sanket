@@ -79,11 +79,40 @@ change that.
 | Remote.co, JustRemote, DevITjobs | No official feed or API. | An official feed appears. |
 | Bdjobs | robots.txt on `www` disallows other bots. `api.bdjobs.com` has no published API or terms. | Written permission from Bdjobs. |
 | Chakri.com, Skill.Jobs, jobs.gov.bd and other Bangladeshi aggregators | No official API or RSS found. | An official feed appears. |
+| Talenthic (Bangladeshi aggregator, `talenthic.info/api/public/v1`) | Needs an API key from an account, and whether the key is free is not stated. Its terms say nothing on storing results, bulk or scheduled pulls, or embeddings and LLM extraction (they bar training a general-purpose model without a written agreement, and scraping the site). They require attribution and honouring employer takedowns. It re-lists other employers' postings and offers competing job discovery. Silence on storage means skipped under ADR 0001. | Talenthic confirms in writing: storage, LLM extraction, embeddings, scheduled pulls, the key terms. |
+| ReliefWeb API (`country=Bangladesh`) | Rechecked 27 Nov 2026: every call needs a pre-approved `appname`, the docs defer to terms that limit reuse, and the live terms page could not be read (403). An archived copy allowed personal, non-commercial use only. | OCHA approves an `appname` and permits our use. |
+| Ain o Salish Kendra vacancy RSS | The feed sits behind a JavaScript bot challenge, so neither the feed nor any terms could be read, and a challenge must not be bypassed. One NGO. | Terms and an open feed are published. |
+| Bikroy jobs, CSE/EEE Jobs BD, BRAC Careers, Devex, Impactpool | HTML pages only (or blocked to automated reads), no feed or API, no reuse terms found. | An official feed with terms appears. |
+| data.gov.bd, BCC, a2i and the per-agency government portals | No jobs dataset or unified API found; recruitment runs on per-agency HTML portals. | A jobs dataset with an open licence is published. |
+| Techmap Bangladesh data | Paid product (AWS Data Exchange). | Never, without a paid plan the owner approves. |
+| Careerjet (`en_BD`) | Terms read on 27 Nov 2026: they bar bulk collection and an independent job database, and need the end user's IP and agent on every call. | Careerjet confirms storage in writing. |
 
-**Bangladesh.** No permitted Bangladeshi source exists today. The practical
-route is the boards of Bangladesh-based employers on Greenhouse, Lever or
-Ashby (candidate slugs have not been verified), plus the permission requests
-below.
+**Bangladesh.** No Bangladeshi aggregator, government portal or open-data
+portal offers an official feed with reusable terms, so none is added. What
+does qualify is ADR 0001 condition 2, per-company boards. On 27 Nov 2026
+about 330 candidate slugs were probed on Greenhouse, Lever and Ashby. Every
+Bangladesh-headquartered company tried (Pathao, bKash, Brain Station 23,
+Selise, Cefalo, Therap, ShopUp, Chaldal, Tiger IT, BJIT, Enosis, Nagad, SSL
+Wireless, Pickaboo, Daraz and others) returned 404 on all three platforms, and
+about 100 global employers that do have boards list no Bangladesh job. Three
+boards with Bangladesh postings were verified live and added to the example
+company lists in `.env.example` (production lists are the repository
+variables `GREENHOUSE_BOARDS` and `LEVER_COMPANIES`, which the owner sets):
+
+| Board | Platform | Bangladesh jobs on 27 Nov 2026 | Note |
+|---|---|---|---|
+| `wppproduction` (WPP) | Greenhouse | 4 of 169, Dhaka | Multinational agency; the adapter takes the whole board, so most postings are outside Bangladesh. |
+| `applytopopulate` (Populate) | Greenhouse | 3 of 6, one Dhaka and two remote from Bangladesh | US company; its postings were last updated in February 2026 and may be stale. |
+| `fieldnation` (Field Nation) | Lever | 10 of 16, Dhaka | US company with a development and operations centre in Dhaka. |
+
+Greenhouse and Lever publish no reuse terms for these endpoints, and neither
+platform's documentation addresses AI processing. The hosted Lever pages
+(`jobs.lever.co`) carry a content signal that reserves AI training; it is not
+on the API host, and nothing here trains a model, but it is a reason to keep
+`lever` in mind if extraction exclusions are ever tightened. Ashby has no
+board with a Bangladesh job. Volume is small (17 Bangladesh postings), so more
+local coverage depends on the permission requests below or on finding more
+Dhaka-office employers (test each slug against the public endpoint first).
 
 ## Permission requests the owner can send
 
@@ -107,3 +136,8 @@ job board feed, no passing on to third parties, no model training.
 4. **NAV Norway** (if Norwegian postings become useful). Ask for the written
    acceptance their token process requires and a statement on AI processing
    and attribution.
+5. **Talenthic** (Bangladeshi postings). Ask for the use above plus scheduled
+   pulls, whether an API key is free, the hourly rate limit, and how employer
+   takedown requests reach us. Their terms ask for attribution of the employer
+   and bar training a general-purpose model, so confirm that embeddings and
+   LLM extraction fall inside the use they allow.
