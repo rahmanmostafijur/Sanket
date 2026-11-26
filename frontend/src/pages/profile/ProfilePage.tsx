@@ -4,6 +4,7 @@ import { errorMessage } from '@/api/client'
 import type { EmploymentType, Profile, ProfileWrite, Seniority, WorkMode } from '@/api/types'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Field, Input, SwitchRow, TagInput, Textarea, ToggleChips } from '@/components/ui/Field'
 import { FilterMenu } from '@/components/ui/FilterMenu'
 import { Card, Skeleton } from '@/components/ui/primitives'
@@ -250,14 +251,17 @@ function ProfileEditor({ profile, profiles, creating, setCreating }: EditorProps
               <h2 className="text-[15px] font-semibold text-fg">Delete this profile</h2>
               <p className="mt-1 text-[13px] text-muted">Deletes the profile and all of its matches. This cannot be undone.</p>
             </div>
-            {confirmDelete ? (
-              <div className="flex gap-2">
-                <Button variant="ghost" onClick={() => setConfirmDelete(false)}>Keep it</Button>
-                <Button variant="danger" onClick={destroy} disabled={remove.isPending}><Trash /> Yes, delete</Button>
-              </div>
-            ) : (
-              <Button variant="danger" onClick={() => setConfirmDelete(true)}><Trash /> Delete profile</Button>
-            )}
+            <Button variant="danger" onClick={() => setConfirmDelete(true)}><Trash /> Delete profile</Button>
+            <ConfirmDialog
+              open={confirmDelete}
+              onOpenChange={setConfirmDelete}
+              title="Delete this profile?"
+              description="Deletes the profile and all of its matches. This cannot be undone."
+              cancelLabel="Keep it"
+              confirmLabel={<><Trash /> Yes, delete</>}
+              onConfirm={destroy}
+              pending={remove.isPending}
+            />
           </Card>
         ) : null}
       </div>
