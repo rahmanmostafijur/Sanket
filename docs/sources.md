@@ -73,7 +73,8 @@ change that.
 | Hacker News "Who is hiring?" | Y Combinator's terms bar data mining and scraping, and the posts are free text under the authors' copyright. | Never. |
 | Recruitee | A token is required from 10 February 2027, and it is a per-company token. | Companies provide tokens. |
 | Workable | No terms found. | Terms are found. |
-| Reed, Careerjet, Jooble | Need a publisher key, and no readable terms permit storage or LLM use. Jooble bans bots. | Terms permitting our use are found. |
+| Careerjet (locale `en_BD`) | Terms read on 27 Nov 2026 (visible without an account; the key comes from a publisher account). They say nothing on storing results, attribution or numeric rate limits, and `en_BD` is not documented as supported (an unsupported locale returns HTTP 400). They bar using the API to "extract or collect job listings in bulk for purposes unrelated to displaying them to jobseekers" and to "build or maintain an independent job database, search index, or competing job search service". Every call must carry the real end user's `user_ip` and `user_agent`, the calling server's fixed IP must be declared first, and serverless or dynamic-IP hosting is not supported. That suits live per-user searches, not scheduled ingestion into our database. | Careerjet confirms in writing that storing and indexing results is allowed, and `en_BD` works. |
+| Reed, Jooble | Need a publisher key, and no readable terms permit storage or LLM use. Jooble bans bots. | Terms permitting our use are found. |
 | The Muse, Findwork.dev | Terms or documentation unreadable or behind a login. | Terms become readable. |
 | Remote.co, JustRemote, DevITjobs | No official feed or API. | An official feed appears. |
 | Bdjobs | robots.txt on `www` disallows other bots. `api.bdjobs.com` has no published API or terms. | Written permission from Bdjobs. |
