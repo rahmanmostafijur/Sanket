@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 import type { Job, Match, MatchedBy } from '@/api/types'
 import { MatchBadge, MatchBar, MatchRing } from '@/components/match/MatchVisuals'
 import { Chip } from '@/components/ui/primitives'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/cn'
 import { employmentLabel, externalUrl, formatSalary, jobDate, percent, relativeTime, seniorityLabel, workModeLabel } from '@/lib/format'
 import { errorMessage } from '@/api/client'
@@ -66,16 +67,20 @@ function SourceLine({ job }: { job: Job }) {
   return (
     <div className="flex min-w-0 items-center gap-2 text-[13.5px]">
       {url ? (
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={job.attribution ?? `Original listing on ${name}`}
-          onClick={(event) => event.stopPropagation()}
-          className="relative z-10 truncate font-medium text-info hover:underline"
-        >
-          {name}
-        </a>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(event) => event.stopPropagation()}
+              className="relative z-10 truncate font-medium text-info hover:underline"
+            >
+              {name}
+            </a>
+          </TooltipTrigger>
+          <TooltipContent>{job.attribution ?? `Original listing on ${name}`}</TooltipContent>
+        </Tooltip>
       ) : (
         <span className="truncate font-medium text-info">{name}</span>
       )}

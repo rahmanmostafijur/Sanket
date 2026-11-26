@@ -1,4 +1,6 @@
 import type { HTMLAttributes, ReactNode } from 'react'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton as ShadcnSkeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/cn'
 
 export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
@@ -31,11 +33,9 @@ export function CardHeader({ title, icon, action, className }: CardHeaderProps) 
 
 export function Chip({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
   return (
-    <span
-      className={cn(
-        'inline-flex h-6 items-center rounded-md bg-[#18222f] px-2.5 text-xs font-medium text-fg-2 ring-1 ring-inset ring-white/[0.03]',
-        className,
-      )}
+    <Badge
+      variant="secondary"
+      className={cn('h-6 rounded-md bg-[#18222f] px-2.5 text-xs text-fg-2 ring-1 ring-inset ring-white/[0.03]', className)}
       {...props}
     />
   )
@@ -54,7 +54,7 @@ export function Kbd({ className, ...props }: HTMLAttributes<HTMLElement>) {
 }
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div aria-hidden className={cn('skeleton rounded-md', className)} />
+  return <ShadcnSkeleton className={className} />
 }
 
 /** Small pulsing status dot. */
