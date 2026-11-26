@@ -81,6 +81,28 @@ jobs:
               sys.exit("Skipped or missing tests are not allowed in CI")
           PY
 
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Type check
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Test
+        run: npm test
+
   # Builds the backend image to prove the Dockerfile and the compose file stay valid. Nothing
   # is pushed and no secrets are used; the throwaway values below only satisfy the checks.
   image:
