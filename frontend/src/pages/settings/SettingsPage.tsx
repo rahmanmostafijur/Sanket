@@ -50,7 +50,7 @@ function resetLocalData(): void {
 }
 
 export default function SettingsPage() {
-  const { token, clearToken, rememberToken } = useSession()
+  const { token, clearToken } = useSession()
   const prefs = usePreferences()
   const savedCount = useSavedJobs().entries.length
   const clearSaved = useClearSaved()
@@ -84,7 +84,7 @@ export default function SettingsPage() {
 
         <Section title="Security and privacy" description="What this browser stores. Nothing here is sent anywhere except the Sanket API.">
           {IS_DEV ? (
-            <Row label="Credential" description={token ? (rememberToken ? 'Remembered on this device.' : 'Kept for this tab only.') : 'None stored.'}>
+            <Row label="Credential" description={token ? 'Kept for this tab only.' : 'None stored.'}>
               <Button size="sm" variant="outline" disabled={!token} onClick={clearToken}>Forget</Button>
             </Row>
           ) : null}

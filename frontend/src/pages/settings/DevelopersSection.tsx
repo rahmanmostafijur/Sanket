@@ -80,9 +80,8 @@ function Block({ icon, title, description, children }: { icon: ReactNode; title:
 }
 
 function CredentialBlock() {
-  const { token, rememberToken, setToken, clearToken } = useSession()
+  const { token, setToken, clearToken } = useSession()
   const [draft, setDraft] = useState('')
-  const [remember, setRemember] = useState(false)
   const [reveal, setReveal] = useState(false)
   const [copied, copy] = useCopy()
   const inputId = useId()
@@ -93,9 +92,9 @@ function CredentialBlock() {
   const save = (event: FormEvent) => {
     event.preventDefault()
     if (!draft.trim()) return
-    setToken(draft, remember)
+    setToken(draft)
     setDraft('')
-    toast({ tone: 'success', title: 'Credential saved', description: remember ? 'Remembered on this device.' : 'Kept for this browser tab only.' })
+    toast({ tone: 'success', title: 'Credential saved', description: 'Kept for this browser tab only.' })
   }
   return (
     <Block icon={<KeyRound />} title="Credential" description="An API key or sign-in token sent with every request. It never leaves this browser except to Sanket.">
@@ -112,7 +111,7 @@ function CredentialBlock() {
           </div>
           <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-[13px] sm:grid-cols-3">
             <div><dt className="text-subtle">Type</dt><dd className="text-fg-2">{identity.kind === 'jwt' ? 'Sign-in token' : 'API key'}</dd></div>
-            <div><dt className="text-subtle">Stored</dt><dd className="text-fg-2">{rememberToken ? 'On this device' : 'This tab only'}</dd></div>
+            <div><dt className="text-subtle">Stored</dt><dd className="text-fg-2">This tab only</dd></div>
             <div><dt className="text-subtle">Expires</dt><dd className={cn(expired ? 'text-danger' : 'text-fg-2')}>{expiry ? (expired ? 'Expired' : expiry.toLocaleString()) : 'Not stated'}</dd></div>
           </dl>
           <Button variant="danger" size="sm" onClick={clearToken}><LogOut /> Forget credential</Button>
@@ -122,11 +121,6 @@ function CredentialBlock() {
         <Field label={token ? 'Replace credential' : 'API key or sign-in token'} htmlFor={inputId}>
           <Input id={inputId} type="password" autoComplete="off" spellCheck={false} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Paste your key or token" className="font-mono text-[13px]" />
         </Field>
-        <label className="flex items-center gap-2.5 text-[13.5px] text-fg-2">
-          <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="size-4 accent-[var(--color-accent)]" />
-          Remember on this device
-        </label>
-        <p className="text-[12.5px] text-subtle">Only remember a credential on a device you trust; anything stored in the browser can be read by scripts on this site.</p>
         <Button type="submit" variant="primary" disabled={!draft.trim()}><ShieldCheck /> Save credential</Button>
       </form>
     </Block>

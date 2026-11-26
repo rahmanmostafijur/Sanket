@@ -1,4 +1,4 @@
-import { ApiError, apiRequest, buildUrl, errorMessage } from './client'
+import { ApiError, apiRequest, buildUrl, errorMessage, setUnauthorizedHandler } from './client'
 import { streamUrl } from './endpoints'
 
 const config = { baseUrl: '/api', token: 'secret-key' }
@@ -47,6 +47,38 @@ describe('apiRequest', () => {
   it('returns nothing for 204', async () => {
     respond(204, undefined)
     await expect(apiRequest(config, '/profiles/1', { method: 'DELETE' })).resolves.toBeUndefined()
+  })
+})
+
+describe('unauthorized handler', () => {
+  afterEach(() => setUnauthorizedHandler(null))
+
+  it('is called on a 401 and the request still rejects with the same ApiError', async () => {
+    const handler = vi.fn()
+    setUnauthorizedHandler(handler)
+    respond(401, { error: { code: 'unauthorized', message: 'invalid credential' } })
+    const error = await apiRequest(config, '/profiles').catch((e: unknown) => e)
+    expect(handler).toHaveBeenCalledTimes(1)
+    expect(error).toBeInstanceOf(ApiError)
+    expect(error).toMatchObject({ status: 401, code: 'unauthorized' })
+  })
+
+  it('still rejects with the ApiError when the handler throws', async () => {
+    setUnauthorizedHandler(() => {
+      throw new Error('handler failed')
+    })
+    respond(401, undefined)
+    const error = await apiRequest(config, '/profiles').catch((e: unknown) => e)
+    expect(error).toMatchObject({ name: 'ApiError', status: 401 })
+  })
+
+  it('is not called on a 403', async () => {
+    const handler = vi.fn()
+    setUnauthorizedHandler(handler)
+    respond(403, { error: { code: 'forbidden', message: 'missing scope' } })
+    const error = await apiRequest(config, '/profiles').catch((e: unknown) => e)
+    expect(handler).not.toHaveBeenCalled()
+    expect(error).toMatchObject({ status: 403 })
   })
 })
 

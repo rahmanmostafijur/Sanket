@@ -102,6 +102,21 @@ async function errorFrom(response: Response): Promise<ApiError> {
   return new ApiError(response.status, `http_${response.status}`, response.statusText || 'Request failed')
 }
 
+let unauthorizedHandler: (() => void) | null = null
+
+/** Registers what to do when the API answers 401 (a missing or refused credential); null removes it. */
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  unauthorizedHandler = handler
+}
+
+function notifyUnauthorized(): void {
+  try {
+    unauthorizedHandler?.()
+  } catch {
+    // A failing handler must never change what the caller sees: the request still rejects.
+  }
+}
+
 export async function apiRequest<T>(
   config: ApiConfig,
   path: string,
@@ -122,7 +137,11 @@ export async function apiRequest<T>(
     if (error instanceof DOMException && error.name === 'AbortError') throw error
     throw new ApiError(0, 'network_error', 'Could not connect to the Sanket API.')
   }
-  if (!response.ok) throw await errorFrom(response)
+  if (!response.ok) {
+    const error = await errorFrom(response)
+    if (response.status === 401) notifyUnauthorized()
+    throw error
+  }
   if (response.status === 204) return undefined as T
   return (await response.json()) as T
 }

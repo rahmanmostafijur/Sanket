@@ -8,6 +8,8 @@ import { useEffect, useMemo } from 'react'
 import { ApiError } from '@/api/client'
 import type { Job, JobListParams, Match, Profile, ProfileWrite, SavedJobList, SearchParams } from '@/api/types'
 import { apiSource, type DataSource } from '@/data/source'
+import { shouldRequireSignIn } from '@/lib/auth'
+import { IS_DEV } from '@/lib/env'
 import { useJobRegistry } from '@/stores/jobRegistry'
 import { useLiveFeed } from '@/stores/liveFeed'
 import { useApiConfig, useSession } from '@/stores/session'
@@ -39,7 +41,13 @@ export function useHealth() {
 
 export function useProfiles() {
   const { source, key } = useDataSource()
-  return useQuery({ queryKey: ['profiles', key], queryFn: ({ signal }) => source.listProfiles(signal) })
+  const token = useSession((s) => s.token)
+  // The live feed mounts outside the sign-in guard: do not ask for profiles before there is a credential.
+  return useQuery({
+    queryKey: ['profiles', key],
+    queryFn: ({ signal }) => source.listProfiles(signal),
+    enabled: !shouldRequireSignIn(token, IS_DEV),
+  })
 }
 
 /** The profile the app works with: the one picked in the session, else the first active one. */

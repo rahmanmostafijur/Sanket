@@ -10,11 +10,10 @@ const sessionTokens = safeStorage('session')
 
 interface SessionState {
   activeProfileId: number | null
+  /** The sign-in credential. Kept in memory and sessionStorage only, never in localStorage. */
   token: string | null
-  /** Keep the credential in localStorage across browser restarts (otherwise this tab only). */
-  rememberToken: boolean
   setActiveProfileId: (id: number | null) => void
-  setToken: (token: string, remember: boolean) => void
+  setToken: (token: string) => void
   clearToken: () => void
 }
 
@@ -23,9 +22,9 @@ function initialToken(): string | null {
   return typeof value === 'string' && value ? value : null
 }
 
-const REMOVED_KEYS = new Set(['mode', 'apiBaseUrl'])
+const REMOVED_KEYS = new Set(['mode', 'apiBaseUrl', 'token', 'rememberToken'])
 
-/** Drops the data-source choice and API address that earlier versions stored. */
+/** Drops the data-source choice and API address, and any credential an earlier version stored. */
 export function migrateSession(persisted: unknown): Partial<SessionState> {
   if (typeof persisted !== 'object' || persisted === null) return {}
   return Object.fromEntries(Object.entries(persisted).filter(([key]) => !REMOVED_KEYS.has(key))) as Partial<SessionState>
@@ -36,33 +35,28 @@ export const useSession = create<SessionState>()(
     (set) => ({
       activeProfileId: null,
       token: initialToken(),
-      rememberToken: false,
       setActiveProfileId: (id) => set({ activeProfileId: id }),
-      setToken: (token, remember) => {
+      setToken: (token) => {
         const value = token.trim()
-        if (remember) sessionTokens.removeItem(SESSION_TOKEN_KEY)
-        else sessionTokens.setItem(SESSION_TOKEN_KEY, value)
-        set({ token: value || null, rememberToken: remember })
+        if (value) sessionTokens.setItem(SESSION_TOKEN_KEY, value)
+        else sessionTokens.removeItem(SESSION_TOKEN_KEY)
+        set({ token: value || null })
       },
       clearToken: () => {
         sessionTokens.removeItem(SESSION_TOKEN_KEY)
-        set({ token: null, rememberToken: false })
+        set({ token: null })
       },
     }),
     {
       name: 'sanket.session',
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => safeStorage('local')),
       migrate: migrateSession,
-      // The credential is written to localStorage only when the user asked to remember it.
-      partialize: (state) => ({
-        activeProfileId: state.activeProfileId,
-        rememberToken: state.rememberToken,
-        ...(state.rememberToken ? { token: state.token } : {}),
-      }),
+      // Only non-secret state reaches localStorage; the credential never does.
+      partialize: (state) => ({ activeProfileId: state.activeProfileId }),
       merge: (persisted, current) => {
         const saved = (persisted ?? {}) as Partial<SessionState>
-        return { ...current, ...saved, token: saved.token ?? current.token }
+        return { ...current, ...saved, token: current.token }
       },
     },
   ),

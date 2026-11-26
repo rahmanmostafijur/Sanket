@@ -1,9 +1,12 @@
-import { ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { ChevronRight, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { motion } from 'motion/react'
 import { Tooltip } from 'radix-ui'
 import { NavLink, useNavigate } from 'react-router'
 import { Logo } from '@/components/brand/Logo'
 import { StatusDot } from '@/components/ui/primitives'
+import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { forgetSession } from '@/lib/auth'
 import { cn } from '@/lib/cn'
 import { describeIdentity } from '@/lib/identity'
 import { useLiveFeed } from '@/stores/liveFeed'
@@ -76,24 +79,44 @@ function UserRow({ collapsed }: { collapsed: boolean }) {
   const token = useSession((s) => s.token)
   const identity = describeIdentity(token)
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   if (identity.kind === 'none') return null
+  const signOut = () => {
+    forgetSession(queryClient)
+    navigate('/signin', { replace: true })
+  }
   return (
-    <button
-      type="button"
-      onClick={() => navigate('/settings')}
-      className={cn('flex w-full items-center gap-3 rounded-xl border-t border-line p-2 pt-3 text-left transition-colors hover:bg-elevated/60', collapsed && 'justify-center')}
-    >
-      <Avatar initials={identity.initials} />
-      {collapsed ? null : (
-        <>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[14px] font-medium text-fg">{identity.name}</span>
-            <span className="block truncate text-[12px] text-muted">{identity.detail}</span>
-          </span>
-          <ChevronRight className="size-4 text-muted" />
-        </>
-      )}
-    </button>
+    <div className={cn('flex gap-1 border-t border-line pt-3', collapsed ? 'flex-col items-center' : 'items-center')}>
+      <button
+        type="button"
+        onClick={() => navigate('/settings')}
+        className={cn('flex min-w-0 items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-elevated/60', collapsed ? 'justify-center' : 'flex-1')}
+      >
+        <Avatar initials={identity.initials} />
+        {collapsed ? null : (
+          <>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[14px] font-medium text-fg">{identity.name}</span>
+              <span className="block truncate text-[12px] text-muted">{identity.detail}</span>
+            </span>
+            <ChevronRight className="size-4 text-muted" />
+          </>
+        )}
+      </button>
+      <UiTooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={signOut}
+            aria-label="Sign out"
+            className="grid size-9 shrink-0 place-items-center rounded-lg text-muted transition-colors hover:bg-elevated/60 hover:text-fg"
+          >
+            <LogOut className="size-[18px]" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side={collapsed ? 'right' : 'top'}>Sign out</TooltipContent>
+      </UiTooltip>
+    </div>
   )
 }
 

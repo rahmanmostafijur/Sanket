@@ -1,10 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MotionConfig } from 'motion/react'
-import { lazy } from 'react'
+import { lazy, Suspense } from 'react'
 import { createBrowserRouter, RouterProvider } from 'react-router'
-import { ApiError } from '@/api/client'
+import { ApiError, setUnauthorizedHandler } from '@/api/client'
+import { RequireAuth } from '@/components/auth/RequireAuth'
 import { AppShell } from '@/components/layout/AppShell'
 import { LiveFeedController } from '@/features/live/LiveFeedController'
+import { forgetSession } from '@/lib/auth'
 import { usePreferences } from '@/stores/preferences'
 
 const OverviewPage = lazy(() => import('@/pages/overview/OverviewPage'))
@@ -15,6 +17,7 @@ const SavedJobsPage = lazy(() => import('@/pages/saved/SavedJobsPage'))
 const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage'))
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
+const SignInPage = lazy(() => import('@/pages/signin/SignInPage'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,8 +36,20 @@ const queryClient = new QueryClient({
 
 const router = createBrowserRouter([
   {
+    path: '/signin',
+    element: (
+      <Suspense fallback={null}>
+        <SignInPage />
+      </Suspense>
+    ),
+  },
+  {
     path: '/',
-    element: <AppShell />,
+    element: (
+      <RequireAuth>
+        <AppShell />
+      </RequireAuth>
+    ),
     children: [
       { index: true, element: <OverviewPage /> },
       { path: 'discover', element: <DiscoverPage /> },
@@ -47,6 +62,25 @@ const router = createBrowserRouter([
     ],
   },
 ])
+
+const SIGN_IN_PATH = '/signin'
+let redirecting = false
+
+/** A 401 means the credential is missing or no longer accepted: forget it and go to sign-in. */
+function handleUnauthorized(): void {
+  const { pathname, search, hash } = router.state.location
+  // The sign-in page shows its own error, and parallel failing requests must redirect only once.
+  if (pathname === SIGN_IN_PATH || redirecting) return
+  redirecting = true
+  forgetSession(queryClient)
+  void router
+    .navigate(SIGN_IN_PATH, { replace: true, state: { from: { pathname, search, hash } } })
+    .finally(() => {
+      redirecting = false
+    })
+}
+
+setUnauthorizedHandler(handleUnauthorized)
 
 export default function App() {
   const motion = usePreferences((s) => s.motion)
