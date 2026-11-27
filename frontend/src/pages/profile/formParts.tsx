@@ -13,13 +13,14 @@ export function Section({ title, description, children }: { title: string; descr
 }
 
 /**
- * Marks a field whose value came from the CV. The wrapper always renders and only its classes
- * change, so the input inside keeps focus when the mark goes away on the first edit.
+ * Marks a field whose value came from somewhere other than the user, such as a CV. The wrapper
+ * always renders and only its classes change, so the input inside keeps focus when the mark goes
+ * away on the first edit.
  */
-export function Filled({ on, children }: { on: boolean; children: ReactNode }) {
+export function Filled({ on, label = 'Filled from CV', children }: { on: boolean; label?: string; children: ReactNode }) {
   return (
     <div className={cn('relative rounded-lg', on && 'outline outline-1 outline-offset-4 outline-accent/45')}>
-      {on ? <span className="absolute right-0 top-0 text-[11px] font-medium text-accent">Filled from CV</span> : null}
+      {on ? <span className="absolute right-0 top-0 text-[11px] font-medium text-accent">{label}</span> : null}
       {children}
     </div>
   )

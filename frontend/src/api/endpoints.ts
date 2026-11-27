@@ -1,14 +1,18 @@
 import { apiRequest, buildUrl, type ApiConfig } from './client'
 import type {
   AccessToken,
+  Career,
+  CareerListInputs,
+  CareerListKey,
+  CareerPersonal,
   Credentials,
   CvProposal,
   JobDetail,
   JobListParams,
   JobListResponse,
   Me,
+  MatchingDraft,
   MatchList,
-  PersonalInfo,
   Profile,
   ProfileWrite,
   SavedJobItem,
@@ -39,8 +43,29 @@ export function getMe(config: ApiConfig, signal?: AbortSignal): Promise<Me> {
   return apiRequest(config, '/me', { signal })
 }
 
-export function updateMe(config: ApiConfig, info: PersonalInfo): Promise<Me> {
-  return apiRequest(config, '/me', { method: 'PUT', body: info })
+/** The whole career profile; a new account gets empty values, a credential that is not an account a 404. */
+export function getCareer(config: ApiConfig, signal?: AbortSignal): Promise<Career> {
+  return apiRequest(config, '/career', { signal })
+}
+
+/** Replaces every personal field. */
+export function saveCareerPersonal(config: ApiConfig, personal: CareerPersonal): Promise<CareerPersonal> {
+  return apiRequest(config, '/career/personal', { method: 'PUT', body: personal })
+}
+
+/** Replaces one whole list section in one step and returns it with ids. */
+export async function replaceCareerList<K extends CareerListKey>(
+  config: ApiConfig,
+  section: K,
+  items: CareerListInputs[K][],
+): Promise<(CareerListInputs[K] & { id: number })[]> {
+  const body = await apiRequest<{ items: (CareerListInputs[K] & { id: number })[] }>(config, `/career/${section}`, { method: 'PUT', body: { items } })
+  return body.items
+}
+
+/** Suggests a matching profile from the career profile. Saves nothing. */
+export function createMatchingDraft(config: ApiConfig): Promise<MatchingDraft> {
+  return apiRequest(config, '/career/matching-draft', { method: 'POST' })
 }
 
 /** Reads a PDF or DOCX and returns what it says. The API saves nothing. */

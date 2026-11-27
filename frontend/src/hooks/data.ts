@@ -6,7 +6,7 @@ import {
 } from '@tanstack/react-query'
 import { useEffect, useMemo } from 'react'
 import { ApiError } from '@/api/client'
-import type { CvProposal, Job, JobListParams, Match, PersonalInfo, Profile, ProfileWrite, SavedJobList, SearchParams } from '@/api/types'
+import type { CvProposal, Job, JobListParams, Match, Profile, ProfileWrite, SavedJobList, SearchParams } from '@/api/types'
 import { apiSource, type DataSource } from '@/data/source'
 import { useIsGuest } from '@/lib/auth'
 import { useJobRegistry } from '@/stores/jobRegistry'
@@ -23,7 +23,7 @@ function fingerprint(text: string | null): string {
 }
 
 /** The API source and a key that changes whenever the credential does. */
-function useDataSource(): { source: DataSource; key: string } {
+export function useDataSource(): { source: DataSource; key: string } {
   const config = useApiConfig()
   return useMemo(() => ({ source: apiSource(config), key: `${config.baseUrl}|${fingerprint(config.token)}` }), [config])
 }
@@ -39,7 +39,7 @@ export function useHealth() {
 }
 
 /**
- * The signed-in account (`GET /me`). `data` stays undefined for a credential that is not an
+ * The signed-in account (`GET /me`): its email and the name and headline of its career profile. `data` stays undefined for a credential that is not an
  * account (a 404, never retried) and for a visitor with no token, so callers can treat both
  * as "no account".
  */
@@ -50,16 +50,6 @@ export function useMe() {
     queryKey: ['me', key],
     queryFn: ({ signal }) => source.getMe(signal),
     enabled: Boolean(token),
-  })
-}
-
-/** Saves the personal details and puts the answer in the shared `me` cache, so the sidebar updates at once. */
-export function useUpdateMe() {
-  const { source, key } = useDataSource()
-  const client = useQueryClient()
-  return useMutation({
-    mutationFn: (info: PersonalInfo) => source.updateMe(info),
-    onSuccess: (saved) => client.setQueryData(['me', key], saved),
   })
 }
 

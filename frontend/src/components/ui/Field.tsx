@@ -1,7 +1,7 @@
 import { X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Switch as SwitchPrimitive } from 'radix-ui'
-import { forwardRef, useId, useState, type InputHTMLAttributes, type KeyboardEvent, type ReactNode, type TextareaHTMLAttributes } from 'react'
+import { forwardRef, useId, useState, type InputHTMLAttributes, type KeyboardEvent, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { cn } from '@/lib/cn'
 
 const CONTROL =
@@ -13,6 +13,11 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(function Textarea({ className, ...props }, ref) {
   return <textarea ref={ref} className={cn(CONTROL, 'min-h-[110px] resize-y py-2.5 leading-relaxed', className)} {...props} />
+})
+
+/** A native select, which stays usable with a keyboard and on a phone. */
+export const NativeSelect = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(function NativeSelect({ className, ...props }, ref) {
+  return <select ref={ref} className={cn(CONTROL, 'h-10', className)} {...props} />
 })
 
 interface FieldProps {

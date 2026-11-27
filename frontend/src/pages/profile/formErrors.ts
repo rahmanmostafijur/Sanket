@@ -2,16 +2,11 @@ import { ApiError } from '@/api/client'
 import type { ProfileWrite } from '@/api/types'
 import { LIMITS } from './limits'
 
-/** Messages by field key: `personal.<field>` for the account's info, `profile.<field>` for the profile. */
+/** Messages by field key: `profile.<field>`. */
 export type FieldErrors = Record<string, string>
-export type ErrorScope = 'personal' | 'profile'
 
 /** The order the fields appear on the page, which is the order "first invalid" is judged in. */
 export const FIELD_ORDER = [
-  'personal.full_name',
-  'personal.headline',
-  'personal.location',
-  'personal.summary',
   'profile.name',
   'profile.desired_titles',
   'profile.required_skills',
@@ -22,10 +17,6 @@ export const FIELD_ORDER = [
 ] as const
 
 const LABELS: Record<string, string> = {
-  'personal.full_name': 'Full name',
-  'personal.headline': 'Headline',
-  'personal.location': 'Location',
-  'personal.summary': 'Short summary',
   'profile.name': 'Profile name',
   'profile.desired_titles': 'Preferred roles',
   'profile.required_skills': 'Required skills',
@@ -52,13 +43,13 @@ export function validateProfile(form: ProfileWrite): FieldErrors {
 }
 
 /** The fields a 422 points at, with the server's wording. An error about the whole body has no field and is left out. */
-export function errorsFromServer(error: unknown, scope: ErrorScope): FieldErrors {
+export function errorsFromServer(error: unknown): FieldErrors {
   const errors: FieldErrors = {}
   if (!(error instanceof ApiError)) return errors
   for (const detail of error.details) {
     const field = detail.loc?.[detail.loc.length - 1]
     if (typeof field !== 'string' || !detail.msg) continue
-    const key = `${scope}.${field}`
+    const key = `profile.${field}`
     if ((FIELD_ORDER as readonly string[]).includes(key)) errors[key] = detail.msg
   }
   return errors

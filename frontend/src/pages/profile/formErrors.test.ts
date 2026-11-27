@@ -58,39 +58,38 @@ describe('validateProfile', () => {
 })
 
 describe('errorsFromServer', () => {
-  it('maps each detail to the field it names, in the scope asked for', () => {
-    const error = invalid({ loc: ['body', 'full_name'], msg: 'too long' }, { loc: ['body', 'summary'], msg: 'bad' })
+  it('maps each detail to the profile field it names', () => {
+    const error = invalid({ loc: ['body', 'name'], msg: 'taken' }, { loc: ['body', 'summary'], msg: 'bad' })
 
-    expect(errorsFromServer(error, 'personal')).toEqual({ 'personal.full_name': 'too long', 'personal.summary': 'bad' })
-    expect(errorsFromServer(error, 'profile')).toEqual({ 'profile.summary': 'bad' })
+    expect(errorsFromServer(error)).toEqual({ 'profile.name': 'taken', 'profile.summary': 'bad' })
   })
 
   it('leaves out what names no known field, and anything that is not an API error', () => {
-    expect(errorsFromServer(invalid({ loc: ['body'], msg: 'whole body' }, { loc: ['body', 'nope'], msg: 'x' }), 'profile')).toEqual({})
-    expect(errorsFromServer(new Error('boom'), 'profile')).toEqual({})
+    expect(errorsFromServer(invalid({ loc: ['body'], msg: 'whole body' }, { loc: ['body', 'nope'], msg: 'x' }))).toEqual({})
+    expect(errorsFromServer(new Error('boom'))).toEqual({})
   })
 })
 
 describe('firstInvalid and errorSummary', () => {
   it('picks the first field in page order, whatever order the errors were found in', () => {
-    const errors = { 'profile.summary': 'a', 'profile.name': 'b', 'personal.headline': 'c' }
+    const errors = { 'profile.summary': 'a', 'profile.locations': 'b', 'profile.name': 'c' }
 
-    expect(firstInvalid(errors)).toBe('personal.headline')
+    expect(firstInvalid(errors)).toBe('profile.name')
     expect(firstInvalid({})).toBeNull()
   })
 
   it('says which fields to fix, in page order', () => {
     expect(errorSummary({ 'profile.summary': 'a', 'profile.desired_titles': 'b' })).toBe('Please fix these fields: Preferred roles, What you are looking for.')
-    expect(errorSummary({ 'personal.full_name': 'a' })).toBe('Please fix this field: Full name.')
+    expect(errorSummary({ 'profile.name': 'a' })).toBe('Please fix this field: Profile name.')
     expect(errorSummary({})).toBeNull()
   })
 })
 
 describe('clearFixed', () => {
-  const errors = { 'profile.desired_titles': CONTENT_ERROR, 'personal.full_name': 'too long' }
+  const errors = { 'profile.desired_titles': CONTENT_ERROR, 'profile.name': 'too long' }
 
   it('drops the error of the field that changed and keeps the others', () => {
-    expect(clearFixed(errors, 'personal.full_name', FORM)).toEqual({ 'profile.desired_titles': CONTENT_ERROR })
+    expect(clearFixed(errors, 'profile.name', FORM)).toEqual({ 'profile.desired_titles': CONTENT_ERROR })
   })
 
   it('drops the "something to match" error once any field that can hold it has content', () => {
@@ -100,7 +99,7 @@ describe('clearFixed', () => {
       ['profile.preferred_skills', { preferred_skills: ['Docker'] }],
     ]
     for (const [field, changes] of cases) {
-      expect(clearFixed(errors, field, { ...FORM, ...changes })).toEqual({ 'personal.full_name': 'too long' })
+      expect(clearFixed(errors, field, { ...FORM, ...changes })).toEqual({ 'profile.name': 'too long' })
     }
   })
 

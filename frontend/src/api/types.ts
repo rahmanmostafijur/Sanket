@@ -253,31 +253,127 @@ export interface AccessToken {
   email: string
 }
 
-/** The signed-in account's own details (`GET /me`); empty strings when unset. */
-export interface PersonalInfo {
+/** The signed-in account (`GET /me`); empty strings when unset. The name and headline come from the career profile. */
+export interface Me {
+  email: string
   full_name: string
   headline: string
-  location: string
-  summary: string
 }
 
-export interface Me extends PersonalInfo {
-  email: string
+export type Availability = 'immediately' | 'within_one_month' | 'open_to_offers' | 'not_looking'
+export type SkillLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert'
+export type LanguageProficiency = 'basic' | 'conversational' | 'fluent' | 'native'
+
+/** The career profile's personal part. Optional text is "" and never null. */
+export interface CareerPersonal {
+  full_name: string
+  headline: string
+  summary: string
+  country: string
+  city: string
+  github_url: string
+  linkedin_url: string
+  portfolio_url: string
+  availability: Availability | null
+}
+
+/** Dates are "YYYY-MM". */
+export interface EducationInput {
+  institution: string
+  degree: string
+  field: string
+  start: string
+  end: string | null
+  grade: string
+}
+
+export interface ExperienceInput {
+  company: string
+  title: string
+  start: string
+  end: string | null
+  current: boolean
+  description: string
+}
+
+export interface SkillInput {
+  name: string
+  level: SkillLevel | null
+}
+
+export interface LanguageInput {
+  name: string
+  proficiency: LanguageProficiency
+}
+
+export interface CertificationInput {
+  title: string
+  issuer: string
+  year: number | null
+  url: string
+}
+
+export interface ProjectInput {
+  title: string
+  description: string
+  url: string
+}
+
+type WithId<T> = T & { id: number }
+
+export type Education = WithId<EducationInput>
+export type Experience = WithId<ExperienceInput>
+export type Skill = WithId<SkillInput>
+export type Language = WithId<LanguageInput>
+export type Certification = WithId<CertificationInput>
+export type Project = WithId<ProjectInput>
+
+/** The sections the completeness figure counts. */
+export type CareerSectionKey = 'personal' | 'education' | 'experience' | 'skills' | 'languages' | 'certifications' | 'projects'
+
+export interface Completeness {
+  percent: number
+  sections: Record<CareerSectionKey, boolean>
+  missing: CareerSectionKey[]
+}
+
+/** The whole career profile (`GET /career`). */
+export interface Career {
+  personal: CareerPersonal
+  education: Education[]
+  experience: Experience[]
+  skills: Skill[]
+  languages: Language[]
+  certifications: Certification[]
+  projects: Project[]
+  completeness: Completeness
+  years_of_experience: number | null
+}
+
+/** The sections stored as a list; each is replaced as a whole by `PUT /career/{section}`. */
+export type CareerListKey = Exclude<CareerSectionKey, 'personal'>
+
+/** The item a list section sends, by section. */
+export interface CareerListInputs {
+  education: EducationInput
+  experience: ExperienceInput
+  skills: SkillInput
+  languages: LanguageInput
+  certifications: CertificationInput
+  projects: ProjectInput
+}
+
+/** What `POST /career/matching-draft` suggests for a matching profile. Nothing is created. */
+export interface MatchingDraft {
+  desired_titles: string[]
+  required_skills: string[]
+  preferred_skills: string[]
+  seniorities: Seniority[]
+  locations: string[]
+  years_of_experience: number | null
 }
 
 /** What `POST /cv/import` reads out of a CV. Nothing in it is saved by the API. */
-export interface CvProposal {
-  personal: PersonalInfo
-  profile: Pick<
-    ProfileCriteria,
-    | 'desired_titles'
-    | 'required_skills'
-    | 'preferred_skills'
-    | 'seniorities'
-    | 'work_modes'
-    | 'employment_types'
-    | 'countries'
-    | 'locations'
-    | 'summary'
-  >
-}
+export type CvProposal = {
+  personal: Omit<CareerPersonal, 'availability'>
+} & { [K in CareerListKey]: CareerListInputs[K][] }

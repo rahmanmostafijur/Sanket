@@ -1,13 +1,17 @@
 import type { ApiConfig } from '@/api/client'
 import * as api from '@/api/endpoints'
 import type {
+  Career,
+  CareerListInputs,
+  CareerListKey,
+  CareerPersonal,
   CvProposal,
   JobDetail,
   JobListParams,
   JobListResponse,
   Match,
+  MatchingDraft,
   Me,
-  PersonalInfo,
   Profile,
   ProfileWrite,
   SavedJobItem,
@@ -20,7 +24,10 @@ import type {
 export interface DataSource {
   health: (signal?: AbortSignal) => Promise<void>
   getMe: (signal?: AbortSignal) => Promise<Me>
-  updateMe: (info: PersonalInfo) => Promise<Me>
+  getCareer: (signal?: AbortSignal) => Promise<Career>
+  saveCareerPersonal: (personal: CareerPersonal) => Promise<CareerPersonal>
+  replaceCareerList: <K extends CareerListKey>(section: K, items: CareerListInputs[K][]) => Promise<(CareerListInputs[K] & { id: number })[]>
+  createMatchingDraft: () => Promise<MatchingDraft>
   importCv: (file: File) => Promise<CvProposal>
   search: (params: SearchParams, signal?: AbortSignal) => Promise<SearchResponse>
   /** Listed jobs without a query. */
@@ -48,7 +55,10 @@ export function apiSource(config: ApiConfig): DataSource {
       await api.getHealth(config, signal)
     },
     getMe: (signal) => api.getMe(config, signal),
-    updateMe: (info) => api.updateMe(config, info),
+    getCareer: (signal) => api.getCareer(config, signal),
+    saveCareerPersonal: (personal) => api.saveCareerPersonal(config, personal),
+    replaceCareerList: (section, items) => api.replaceCareerList(config, section, items),
+    createMatchingDraft: () => api.createMatchingDraft(config),
     importCv: (file) => api.importCv(config, file),
     search: (params, signal) => api.searchJobs(config, params, signal),
     listJobs: (params, signal) => api.listJobs(config, params, signal),
