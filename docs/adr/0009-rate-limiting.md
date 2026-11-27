@@ -4,8 +4,8 @@ Status: accepted
 
 ## Context
 
-The API is reachable by authenticated users and, when `SEARCH_PUBLIC` is on, by
-anyone. Search costs an embedding call per query (a small, metered free-tier
+The API is reachable by authenticated users and, for search and the job routes,
+by anyone. Search costs an embedding call per query (a small, metered free-tier
 quota), profile writes queue work, and unauthenticated callers can guess
 credentials. One caller must not be able to exhaust any of these for everyone.
 The API may run as several processes, and Redis is already part of the stack

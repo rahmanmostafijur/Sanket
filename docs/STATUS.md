@@ -69,7 +69,7 @@ Around the pipeline (phase 8):
 - **Authentication.** Every route except `/healthz` and `/readyz` needs `Authorization: Bearer`
   with an HS256 or JWKS-verified JWT or a static API key; the subject (or the key's owner) is the
   owner id and scopes every profile, match and stream query (another owner's id is a 404).
-  `GET /search` needs a credential unless `SEARCH_PUBLIC=true`. A browser `EventSource` uses
+  `GET /search`, `GET /jobs` and `GET /jobs/{id}` are public. A browser `EventSource` uses
   `POST /auth/stream-token` and `?stream_token=`: a one-minute token bound to one owner and one
   stream path (ADR 0008). `AUTH_DEV_BYPASS=true` is allowed in development and test and refused
   in production: with `ENVIRONMENT=production` the settings do not load, so no process starts (ADR

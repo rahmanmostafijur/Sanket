@@ -80,9 +80,9 @@ example `.env` turns it on for local work.
 
 **6. Public and protected routes.** `/healthz` and `/readyz` are public (they
 return no data about the system beyond up or down). `/metrics` has its own
-token (ADR 0010). `GET /search` **requires a credential by default**, because
-each query costs an embedding call; `SEARCH_PUBLIC=true` opens it (it is then
-rate limited by client address, ADR 0009). Every other route requires a
+token (ADR 0010). `GET /search`, `GET /jobs` and `GET /jobs/{id}` are
+**public**, so anyone can browse; search costs an embedding call per query, so
+it is rate limited by client address (ADR 0009). Every other route requires a
 credential.
 
 **7. How the feed authenticates.** The stream is `GET

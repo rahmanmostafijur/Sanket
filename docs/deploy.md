@@ -144,7 +144,7 @@ the development bypass:
 | `AUTH_STREAM_TOKEN_SECRET` **S** | unset | enables stream tokens for browsers (at least 32 characters) |
 | `AUTH_STREAM_TOKEN_TTL_SECONDS` | `60` | stream token lifetime |
 | `AUTH_DEV_BYPASS` | `false` | credential-less requests act as `DEFAULT_OWNER_ID`; allowed in `development` and `test`, and with `ENVIRONMENT=production` no process starts (ADR 0008). Leave it unset in production |
-| `SEARCH_PUBLIC` | `false` | allow `GET /search` without credentials |
+| `AUTH_ACCESS_TOKEN_TTL_SECONDS` | `3600` | lifetime of the token `POST /auth/signup` and `/auth/login` return, signed with `AUTH_JWT_SECRET` (needed for accounts); no refresh token |
 
 **Limits and probes**
 

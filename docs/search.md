@@ -12,10 +12,8 @@ From `backend/`:
 python -m sanket.api        # serves on API_HOST:API_PORT, default 127.0.0.1:8000
 ```
 
-It binds to loopback unless you change `API_HOST`. Requests need
-`Authorization: Bearer <JWT or API key>` unless `SEARCH_PUBLIC=true` (for local work
-`AUTH_DEV_BYPASS=true`, see [adr/0008-authentication.md](adr/0008-authentication.md)), and
-are rate limited ([adr/0009-rate-limiting.md](adr/0009-rate-limiting.md)). Errors use the
+It binds to loopback unless you change `API_HOST`. Search needs no credential (see
+[adr/0008-authentication.md](adr/0008-authentication.md)), and is rate limited ([adr/0009-rate-limiting.md](adr/0009-rate-limiting.md)). Errors use the
 envelope `{"error": {"code", "message", "request_id", "details"}}`. Interactive documentation is at `/docs` and the
 OpenAPI document at `/openapi.json`. The index must exist first (`python -m
 sanket.indexing --apply`), and the server checks at startup that
