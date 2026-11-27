@@ -20,13 +20,15 @@ interface FieldProps {
   hint?: ReactNode
   error?: string | null
   htmlFor?: string
+  /** Names the field for code that has to find it, such as focusing the first invalid one. */
+  fieldKey?: string
   children: ReactNode
   className?: string
 }
 
-export function Field({ label, hint, error, htmlFor, children, className }: FieldProps) {
+export function Field({ label, hint, error, htmlFor, fieldKey, children, className }: FieldProps) {
   return (
-    <div className={cn('space-y-2', className)}>
+    <div data-field={fieldKey} className={cn('space-y-2', className)}>
       <label htmlFor={htmlFor} className="block text-[13.5px] font-medium text-fg">{label}</label>
       {children}
       {error ? <p role="alert" className="text-[12.5px] text-danger">{error}</p> : hint ? <p className="text-[12.5px] leading-relaxed text-subtle">{hint}</p> : null}
