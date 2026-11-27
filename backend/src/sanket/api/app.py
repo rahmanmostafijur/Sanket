@@ -29,6 +29,7 @@ from sanket.api.limits import RateLimit
 from sanket.api.middleware import RequestContextMiddleware
 from sanket.api.routers import accounts as accounts_router
 from sanket.api.routers import auth as auth_router
+from sanket.api.routers import career as career_router
 from sanket.api.routers import cv as cv_router
 from sanket.api.routers import feed as feed_router
 from sanket.api.routers import jobs as jobs_router
@@ -168,6 +169,7 @@ def create_app(
     app.include_router(search_router.router, dependencies=[Depends(RateLimit("search")), *guard])
     app.include_router(jobs_router.router, dependencies=[Depends(RateLimit("search")), *guard])
     app.include_router(me_router.router, dependencies=standard)
+    app.include_router(career_router.router, dependencies=standard)
     app.include_router(cv_router.router, dependencies=standard)
     app.include_router(profiles_router.router, dependencies=standard)
     app.include_router(saved_router.router, dependencies=standard)

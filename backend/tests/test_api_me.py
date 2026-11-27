@@ -1,4 +1,5 @@
-"""Personal info (`/me`) and the note that explains a profile that is not ready."""
+"""`GET /me` (who the account is, named by its career profile) and the note that explains a
+profile that is not ready."""
 
 from typing import Any
 
@@ -6,154 +7,81 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, text
 
-from sanket.accounts.personal import (
-    MAX_FULL_NAME_CHARS,
-    MAX_HEADLINE_CHARS,
-    MAX_LOCATION_CHARS,
-    MAX_PERSONAL_SUMMARY_CHARS,
-)
 from sanket.api.profile_schemas import embedding_note_of
 from tests.auth_helpers import API_KEY, auth_client, bearer
-from tests.test_api_accounts import BOB, headers_of, scalar, sign_up
+from tests.test_api_accounts import BOB, headers_of, sign_up
 from tests.test_api_profiles import BODY
 
-ADA_INFO = {
-    "full_name": "Ada Example",
-    "headline": "Backend engineer",
-    "location": "Berlin, Germany",
-    "summary": "Builds APIs and data pipelines.",
-}
+
+def set_personal(client: TestClient, headers: dict[str, str], **fields: Any) -> Any:
+    return client.put("/career/personal", json=fields, headers=headers)
 
 
-def put_me(client: TestClient, headers: dict[str, str], **fields: Any) -> Any:
-    return client.put("/me", json={**ADA_INFO, **fields}, headers=headers)
+# --- /me -----------------------------------------------------------------------------------
 
 
-# --- read and write -----------------------------------------------------------------------
-
-
-def test_a_new_account_has_the_email_and_no_personal_info(clean_db: Engine) -> None:
+def test_a_new_account_has_its_email_and_no_name(clean_db: Engine) -> None:
     client = auth_client(clean_db)
     ada = headers_of(sign_up(client))
 
     response = client.get("/me", headers=ada)
 
     assert response.status_code == 200
-    assert response.json() == {
+    assert response.json() == {"email": "ada@example.com", "full_name": "", "headline": ""}
+
+
+def test_the_name_and_headline_come_from_the_career_profile(clean_db: Engine) -> None:
+    client = auth_client(clean_db)
+    ada = headers_of(sign_up(client))
+
+    set_personal(client, ada, full_name="  Ada   Example ", headline="Backend engineer")
+
+    assert client.get("/me", headers=ada).json() == {
         "email": "ada@example.com",
-        "full_name": "",
-        "headline": "",
-        "location": "",
-        "summary": "",
+        "full_name": "Ada Example",
+        "headline": "Backend engineer",
     }
 
 
-def test_personal_info_is_saved_and_read_back(clean_db: Engine) -> None:
-    client = auth_client(clean_db)
-    ada = headers_of(sign_up(client))
-
-    saved = put_me(client, ada)
-
-    assert saved.status_code == 200
-    assert saved.json() == {"email": "ada@example.com", **ADA_INFO}
-    assert client.get("/me", headers=ada).json() == saved.json()
-    assert scalar(clean_db, "select full_name from users") == "Ada Example"
-
-
-def test_text_is_trimmed_and_whitespace_collapsed(clean_db: Engine) -> None:
-    client = auth_client(clean_db)
-    ada = headers_of(sign_up(client))
-
-    saved = put_me(client, ada, full_name="  Ada \n  Example ", headline="\tBackend   engineer")
-
-    assert saved.json()["full_name"] == "Ada Example"
-    assert saved.json()["headline"] == "Backend engineer"
-
-
-def test_putting_replaces_all_four_and_an_empty_value_clears_one(clean_db: Engine) -> None:
-    client = auth_client(clean_db)
-    ada = headers_of(sign_up(client))
-    put_me(client, ada)
-
-    cleared = client.put("/me", json={"full_name": "Ada Example"}, headers=ada)
-
-    assert cleared.status_code == 200
-    assert cleared.json()["headline"] == ""
-    assert scalar(clean_db, "select headline from users") is None
-    assert scalar(clean_db, "select full_name from users") == "Ada Example"
-
-
-def test_the_largest_allowed_values_are_accepted(clean_db: Engine) -> None:
-    client = auth_client(clean_db)
-    ada = headers_of(sign_up(client))
-
-    response = put_me(
-        client,
-        ada,
-        full_name="n" * MAX_FULL_NAME_CHARS,
-        headline="h" * MAX_HEADLINE_CHARS,
-        location="l" * MAX_LOCATION_CHARS,
-        summary="s" * MAX_PERSONAL_SUMMARY_CHARS,
-    )
-
-    assert response.status_code == 200
-
-
-@pytest.mark.parametrize(
-    "changes",
-    [
-        {"full_name": "n" * (MAX_FULL_NAME_CHARS + 1)},
-        {"headline": "h" * (MAX_HEADLINE_CHARS + 1)},
-        {"location": "l" * (MAX_LOCATION_CHARS + 1)},
-        {"summary": "s" * (MAX_PERSONAL_SUMMARY_CHARS + 1)},
-        {"full_name": "Ada\x00Example"},
-        {"full_name": 42},
-        {"full_name": None},
-        {"is_admin": True},
-    ],
-    ids=["name", "headline", "location", "summary", "nul", "number", "null", "extra"],
-)
-def test_invalid_personal_info_is_422_and_changes_nothing(
-    clean_db: Engine, changes: dict[str, Any]
-) -> None:
-    client = auth_client(clean_db)
-    ada = headers_of(sign_up(client))
-    put_me(client, ada)
-
-    response = put_me(client, ada, **changes)
-
-    assert response.status_code == 422
-    assert client.get("/me", headers=ada).json() == {"email": "ada@example.com", **ADA_INFO}
-
-
-# --- who may use it -----------------------------------------------------------------------
-
-
-def test_each_account_sees_and_changes_only_its_own_info(clean_db: Engine) -> None:
+def test_each_account_sees_only_its_own_name(clean_db: Engine) -> None:
     client = auth_client(clean_db)
     ada = headers_of(sign_up(client))
     bob = headers_of(sign_up(client, BOB))
-    put_me(client, ada)
+    set_personal(client, ada, full_name="Ada Example")
 
     assert client.get("/me", headers=bob).json()["full_name"] == ""
-    put_me(client, bob, full_name="Bob Example")
+    set_personal(client, bob, full_name="Bob Example")
     assert client.get("/me", headers=ada).json()["full_name"] == "Ada Example"
 
 
-@pytest.mark.parametrize("method", ["GET", "PUT"])
-def test_me_needs_a_credential(clean_db: Engine, method: str) -> None:
-    response = auth_client(clean_db).request(method, "/me", json=ADA_INFO)
+def test_the_name_survives_signing_in_again(clean_db: Engine) -> None:
+    client = auth_client(clean_db)
+    set_personal(client, headers_of(sign_up(client)), full_name="Ada Example")
 
-    assert response.status_code == 401
+    login = client.post(
+        "/auth/login", json={"email": "ada@example.com", "password": "correct horse battery staple"}
+    )
+
+    assert client.get("/me", headers=headers_of(login)).json()["full_name"] == "Ada Example"
 
 
-@pytest.mark.parametrize("method", ["GET", "PUT"])
-def test_a_credential_that_is_not_an_account_has_no_me(clean_db: Engine, method: str) -> None:
+def test_the_name_can_no_longer_be_written_through_me(clean_db: Engine) -> None:
+    client = auth_client(clean_db)
+    ada = headers_of(sign_up(client))
+
+    response = client.put("/me", json={"full_name": "Ada Example"}, headers=ada)
+
+    assert response.status_code == 405
+
+
+def test_me_needs_a_credential(clean_db: Engine) -> None:
+    assert auth_client(clean_db).get("/me").status_code == 401
+
+
+def test_a_credential_that_is_not_an_account_has_no_me(clean_db: Engine) -> None:
     client = auth_client(clean_db, auth_api_keys=f"svc={API_KEY}")
 
-    response = client.request(method, "/me", json=ADA_INFO, headers=bearer(API_KEY))
-
-    assert response.status_code == 404
+    assert client.get("/me", headers=bearer(API_KEY)).status_code == 404
 
 
 def test_a_token_of_a_deleted_account_has_no_me(clean_db: Engine) -> None:
@@ -163,18 +91,6 @@ def test_a_token_of_a_deleted_account_has_no_me(clean_db: Engine) -> None:
         conn.execute(text("delete from users"))
 
     assert client.get("/me", headers=ada).status_code == 404
-    assert put_me(client, ada).status_code == 404
-
-
-def test_personal_info_survives_signing_in_again(clean_db: Engine) -> None:
-    client = auth_client(clean_db)
-    put_me(client, headers_of(sign_up(client)))
-
-    login = client.post(
-        "/auth/login", json={"email": "ada@example.com", "password": "correct horse battery staple"}
-    )
-
-    assert client.get("/me", headers=headers_of(login)).json()["full_name"] == "Ada Example"
 
 
 # --- why a profile is not ready -----------------------------------------------------------

@@ -1,11 +1,13 @@
 """What request handlers share: the application context, read from `app.state`."""
 
+import uuid
 from dataclasses import dataclass, field
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy import Engine
 
+from sanket.accounts.identity import user_id_of
 from sanket.accounts.tokens import AccessTokens
 from sanket.api.health import ReadinessProbe
 from sanket.auth.authenticator import Authenticator
@@ -135,3 +137,15 @@ def get_owner_id(principal: Annotated[Principal, Depends(get_principal)]) -> str
 
 def get_header_owner_id(principal: Annotated[Principal, Depends(get_header_principal)]) -> str:
     return principal.owner_id
+
+
+NO_ACCOUNT = "this credential has no account"
+
+
+def get_account_id(owner: Annotated[str, Depends(get_owner_id)]) -> uuid.UUID:
+    """The account a request acts for. Only email and password accounts have a career profile:
+    an API key or the development owner is answered 404, so a client can tell there is none."""
+    user_id = user_id_of(owner)
+    if user_id is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, NO_ACCOUNT)
+    return user_id
