@@ -17,8 +17,19 @@ from sanket.profiles.store import ProfileRow
 from sanket.search.attribution import source_info
 
 EmbeddingStatusName = Literal["pending", "ready", "failed"]
+# Why a profile is not ready, in words that are safe to show: never the provider's own text.
+EmbeddingNote = Literal["quota", "error"]
+_QUOTA_MARKERS = ("429", "resource_exhausted", "quota", "rate limit")
 MAX_MATCH_PAGE = 100
 DEFAULT_MATCH_PAGE = 50
+
+
+def embedding_note_of(status: str, error: str | None) -> EmbeddingNote | None:
+    """`quota` or `error` for a profile that is not ready and has a recorded failure."""
+    if status == "ready" or not error:
+        return None
+    lowered = error.lower()
+    return "quota" if any(marker in lowered for marker in _QUOTA_MARKERS) else "error"
 
 
 class ProfileOut(BaseModel):
@@ -39,6 +50,12 @@ class ProfileOut(BaseModel):
         description="`pending` until the profile's current content is embedded, `ready` when "
         "it is being matched, `failed` when the last attempt to embed it failed (it is "
         "retried; saving the profile again also queues it again)."
+    )
+    embedding_note: EmbeddingNote | None = Field(
+        default=None,
+        description="Set while the profile is `pending` or `failed` after an attempt to embed "
+        "it failed: `quota` when the embedding provider's quota is used up (a retry is "
+        "scheduled), `error` for any other failure.",
     )
     created_at: datetime
     updated_at: datetime
@@ -61,6 +78,7 @@ class ProfileOut(BaseModel):
             summary=criteria.get("summary", ""),
             min_score_override=criteria.get("min_score_override"),
             embedding_status=row.embedding_status,  # type: ignore[arg-type]
+            embedding_note=embedding_note_of(row.embedding_status, row.embedding_error),
             created_at=row.created_at,
             updated_at=row.updated_at,
         )

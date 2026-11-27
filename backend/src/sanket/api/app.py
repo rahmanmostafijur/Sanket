@@ -31,6 +31,7 @@ from sanket.api.routers import accounts as accounts_router
 from sanket.api.routers import auth as auth_router
 from sanket.api.routers import feed as feed_router
 from sanket.api.routers import jobs as jobs_router
+from sanket.api.routers import me as me_router
 from sanket.api.routers import ops as ops_router
 from sanket.api.routers import profiles as profiles_router
 from sanket.api.routers import saved as saved_router
@@ -159,6 +160,7 @@ def create_app(
     standard = [Depends(RateLimit("default")), *guard]
     app.include_router(search_router.router, dependencies=[Depends(RateLimit("search")), *guard])
     app.include_router(jobs_router.router, dependencies=[Depends(RateLimit("search")), *guard])
+    app.include_router(me_router.router, dependencies=standard)
     app.include_router(profiles_router.router, dependencies=standard)
     app.include_router(saved_router.router, dependencies=standard)
     app.include_router(auth_router.router, dependencies=standard)

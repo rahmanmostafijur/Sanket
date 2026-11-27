@@ -247,6 +247,12 @@ class User(Base):
     )
     email: Mapped[str] = mapped_column(String(254), nullable=False, unique=True)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    # Personal info (sanket.accounts.personal): who the person is, shared by all their
+    # profiles. `full_name` is the display name; all four are optional.
+    full_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    headline: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    location: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    summary: Mapped[str | None] = mapped_column(String(600), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
