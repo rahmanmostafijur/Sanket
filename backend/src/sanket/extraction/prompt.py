@@ -2,6 +2,7 @@
 
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from html.parser import HTMLParser
 
 # Bump whenever SYSTEM_PROMPT or the posting format changes; stored with every extraction.
@@ -110,21 +111,28 @@ _SKIP = rf"[\s{_INVISIBLE}]*"  # whitespace or invisible characters
 # `<` plus its fullwidth and small-form lookalikes; `/` plus its fullwidth form.
 _OPEN = "[<\uff1c\ufe64]"
 _SLASH = "[/\uff0f]"
-# Each letter may also be written fullwidth (U+FF21..U+FF5A = ASCII + 0xFEE0).
-_NAME = _GAP.join(f"[{c}{chr(ord(c) + 0xFEE0)}]" for c in "posting")
-WRAPPER_TAG_START = re.compile(
-    rf"{_OPEN}(?={_SKIP}(?:{_SLASH}{_SKIP})?{_NAME}(?!\w))", re.IGNORECASE
-)
 
 
-def neutralise_wrapper_tags(text: str) -> str:
+@lru_cache(maxsize=8)
+def wrapper_tag_start(tag: str) -> re.Pattern[str]:
+    """Matches the `<` that opens or closes a `<tag>` wrapper, however it is disguised."""
+    # Each letter may also be written fullwidth (U+FF21..U+FF5A = ASCII + 0xFEE0).
+    name = _GAP.join(f"[{c}{chr(ord(c) + 0xFEE0)}]" for c in tag)
+    return re.compile(rf"{_OPEN}(?={_SKIP}(?:{_SLASH}{_SKIP})?{name}(?!\w))", re.IGNORECASE)
+
+
+WRAPPER_TAG_START = wrapper_tag_start("posting")
+
+
+def neutralise_wrapper_tags(text: str, tag: str = "posting") -> str:
     """Escape any `<posting>` or `</posting>` in posting content (entities are decoded by
     html_to_text, so `&lt;/posting&gt;` would otherwise close the prompt wrapper early).
 
     Also catches case, whitespace, attributes, self-closing forms, and look-alikes made of
     invisible characters or fullwidth characters. A double-encoded `&amp;lt;` is decoded once
-    to the inert text `&lt;`, which is not a tag, so it needs no handling here."""
-    return WRAPPER_TAG_START.sub("&lt;", text)
+    to the inert text `&lt;`, which is not a tag, so it needs no handling here. `tag` names a
+    different wrapper (the CV import wraps text in `<cv>`)."""
+    return wrapper_tag_start(tag).sub("&lt;", text)
 
 
 def build_posting_text(posting: PostingInput, max_description_chars: int) -> str:
