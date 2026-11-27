@@ -29,6 +29,7 @@ from sanket.api.limits import RateLimit
 from sanket.api.middleware import RequestContextMiddleware
 from sanket.api.routers import accounts as accounts_router
 from sanket.api.routers import auth as auth_router
+from sanket.api.routers import cv as cv_router
 from sanket.api.routers import feed as feed_router
 from sanket.api.routers import jobs as jobs_router
 from sanket.api.routers import me as me_router
@@ -40,8 +41,10 @@ from sanket.auth.authenticator import authenticator_from_settings
 from sanket.auth.stream_token import StreamTokens
 from sanket.config import Settings
 from sanket.config import settings as default_settings
+from sanket.cv.service import cv_client_from_settings
 from sanket.db import engine as default_engine
 from sanket.embeddings.client import EmbeddingClient, spec_of
+from sanket.extraction.llm import LlmClient
 from sanket.feed.config import config_from_settings as feed_config_from_settings
 from sanket.feed.connection import redis_factory_from_settings
 from sanket.feed.limits import StreamLimiter
@@ -102,6 +105,7 @@ def create_app(
     rate_limiter: RateLimiter | None | _UseSettings = USE_SETTINGS,
     dependencies: Sequence[Depends] = (),
     feed_redis: RedisFactory | None | _UseSettings = USE_SETTINGS,
+    llm_client: LlmClient | None | _UseSettings = USE_SETTINGS,
 ) -> FastAPI:
     config = settings or default_settings
     check_api(config)
@@ -148,6 +152,9 @@ def create_app(
         access_tokens=access_tokens_from_settings(config),
         limiter=limiter,
         auth_limiter=limiter or MemoryRateLimiter(),
+        llm_client=cv_client_from_settings(config)
+        if isinstance(llm_client, _UseSettings)
+        else llm_client,
         rate_limits=limits_from_settings(config),
         readiness=ReadinessProbe(
             checks_from_settings(config, engine_in_use), config.readyz_timeout_seconds
@@ -161,6 +168,7 @@ def create_app(
     app.include_router(search_router.router, dependencies=[Depends(RateLimit("search")), *guard])
     app.include_router(jobs_router.router, dependencies=[Depends(RateLimit("search")), *guard])
     app.include_router(me_router.router, dependencies=standard)
+    app.include_router(cv_router.router, dependencies=standard)
     app.include_router(profiles_router.router, dependencies=standard)
     app.include_router(saved_router.router, dependencies=standard)
     app.include_router(auth_router.router, dependencies=standard)

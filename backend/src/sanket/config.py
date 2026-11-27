@@ -240,6 +240,9 @@ class Settings(BaseSettings):
     # apply even with RATE_LIMIT_ENABLED=false (an in-memory limiter is used then).
     rate_limit_auth_requests: int = Field(default=10, ge=1)
     rate_limit_auth_email_requests: int = Field(default=5, ge=1)
+    # POST /cv/import, per window and per signed-in owner: each call costs a model request.
+    # Like the sign-in limits it applies even with RATE_LIMIT_ENABLED=false.
+    rate_limit_cv_requests: int = Field(default=5, ge=1)
 
     # Probes and metrics (docs/adr/0010-observability.md). /readyz checks the database, Redis
     # when configured, and optionally that the schema is at the head the code expects (leave

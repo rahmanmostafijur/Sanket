@@ -13,6 +13,7 @@ from sanket.auth.errors import AuthError
 from sanket.auth.principal import Principal
 from sanket.auth.stream_token import QUERY_PARAMETER, StreamTokens
 from sanket.embeddings.client import EmbeddingClient
+from sanket.extraction.llm import LlmClient
 from sanket.feed.config import FeedConfig
 from sanket.feed.limits import StreamLimiter
 from sanket.feed.subscription import RedisFactory
@@ -48,9 +49,11 @@ class ApiContext:
     access_tokens: AccessTokens | None = None
     # None when rate limiting is off (see sanket.api.limits).
     limiter: RateLimiter | None = None
-    # Sign-up and log-in are always limited: this is `limiter`, or a per-process one when
-    # rate limiting is off.
+    # Sign-up, log-in and CV imports are always limited: this is `limiter`, or a per-process
+    # one when rate limiting is off.
     auth_limiter: RateLimiter | None = None
+    # Reads CVs; None without an API key (CV import then answers 503).
+    llm_client: LlmClient | None = None
     rate_limits: RateLimits = field(default_factory=RateLimits)
     # None disables /readyz checks (always ready) and /metrics (404) respectively.
     readiness: ReadinessProbe | None = None

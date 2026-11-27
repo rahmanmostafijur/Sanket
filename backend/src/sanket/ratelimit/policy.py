@@ -17,6 +17,8 @@ class RateLimits:
     # Sign-up and log-in, per client address and per email.
     auth_requests: int = 10
     auth_email_requests: int = 5
+    # CV imports, per owner.
+    cv_requests: int = 5
 
     def for_bucket(self, bucket: Bucket) -> int:
         return self.search_requests if bucket == "search" else self.default_requests
@@ -30,4 +32,5 @@ def limits_from_settings(config: Settings) -> RateLimits:
         trusted_proxy_hops=config.trusted_proxy_hops,
         auth_requests=config.rate_limit_auth_requests,
         auth_email_requests=config.rate_limit_auth_email_requests,
+        cv_requests=config.rate_limit_cv_requests,
     )
