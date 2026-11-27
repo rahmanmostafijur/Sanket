@@ -46,10 +46,9 @@ def own_profile(engine: Engine, owner: str = "alice") -> int:
         ("DELETE", "/profiles/1"),
         ("GET", "/profiles/1/matches"),
         ("POST", "/auth/stream-token"),
-        ("GET", "/search?q=python"),
     ],
 )
-def test_every_owner_route_and_search_refuse_a_request_without_credentials(
+def test_every_owner_route_refuses_a_request_without_credentials(
     clean_db: Engine, method: str, url: str
 ) -> None:
     response = auth_client(clean_db).request(method, url, json={})
@@ -147,21 +146,21 @@ def test_a_static_key_acts_as_its_named_owner(clean_db: Engine) -> None:
     assert client.get(f"/profiles/{profile_id}", headers=ALICE).status_code == 404
 
 
-# --- public routes and search policy -------------------------------------------------------
+# --- public routes -------------------------------------------------------------------------
 
 
-def test_search_is_open_only_when_configured(clean_db: Engine) -> None:
+def test_search_is_public_with_or_without_a_credential(clean_db: Engine) -> None:
     add_search_job(clean_db, title="Python Developer", extraction=extraction_data())
-    open_client = auth_client(clean_db, search_public=True)
+    client = auth_client(clean_db)
 
-    assert open_client.get("/search", params={"q": "python"}).status_code == 200
-    assert auth_client(clean_db).get("/search", params={"q": "python"}).status_code == 401
-    assert auth_client(clean_db).get("/search", params={"q": "p"}, headers=ALICE).status_code == 200
+    assert client.get("/search", params={"q": "python"}).status_code == 200
+    assert client.get("/search", params={"q": "python"}, headers=ALICE).status_code == 200
 
 
-def test_search_does_not_open_the_profile_routes(clean_db: Engine) -> None:
-    client = auth_client(clean_db, search_public=True)
+def test_public_search_does_not_open_the_profile_routes(clean_db: Engine) -> None:
+    client = auth_client(clean_db)
 
+    assert client.get("/search", params={"q": "python"}).status_code == 200
     assert client.get("/profiles").status_code == 401
 
 

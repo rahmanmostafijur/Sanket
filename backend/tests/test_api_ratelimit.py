@@ -96,7 +96,7 @@ def test_callers_without_a_valid_credential_share_the_budget_of_their_address(
 
 
 def test_public_search_is_limited_by_address(clean_db: Engine) -> None:
-    client, _ = limited_client(clean_db, search_public=True)
+    client, _ = limited_client(clean_db)
 
     codes = [client.get("/search?q=python").status_code for _ in range(3)]
 

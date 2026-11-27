@@ -97,7 +97,6 @@ def assert_envelope(response: Any, status: int, code: str) -> dict[str, Any]:
     [
         ("GET", "/profiles"),
         ("POST", "/profiles"),
-        ("GET", "/search?q=python"),
         ("POST", "/auth/stream-token"),
         ("GET", "/profiles/1/matches"),
         ("GET", "/profiles/1/matches/stream"),
@@ -172,17 +171,13 @@ def test_each_owner_gets_their_own_matches_and_a_foreign_profile_is_a_404(auth: 
 # -- search ------------------------------------------------------------------------------------
 
 
-def test_search_needs_a_credential_unless_it_is_made_public(auth: Auth) -> None:
+def test_search_is_public_and_opens_nothing_else(auth: Auth) -> None:
     p.run_pipeline(auth.stack, data.first_run_feeds())
 
-    assert auth.client.get("/search", params={"q": "kubernetes"}).status_code == 401
+    assert p.search_titles(auth.client, "kubernetes")[0] == data.DEVOPS
     assert p.search_titles(auth.client, "kubernetes", ALICE)[0] == data.DEVOPS
     assert p.search_titles(auth.client, "kubernetes", OPS)[0] == data.DEVOPS
-
-    public = TestClient(p.api_app(auth.stack, search_public=True))
-    assert p.search_titles(public, "kubernetes")[0] == data.DEVOPS
-    # Public search does not open anything else.
-    assert public.get("/profiles").status_code == 401
+    assert auth.client.get("/profiles").status_code == 401
 
 
 # -- the live feed -----------------------------------------------------------------------------
@@ -239,9 +234,8 @@ def test_the_stream_token_opens_nothing_but_its_stream(auth: Auth) -> None:
         "/profiles",
         f"/profiles/{auth.alice_profile}",
         f"/profiles/{auth.alice_profile}/matches",
-        "/search",
     ):
-        response = auth.client.get(path, params={**query, "q": "python"})
+        response = auth.client.get(path, params=query)
         assert_envelope(response, 401, "unauthenticated")
     # It cannot mint another token, and it is not good for another profile's stream.
     minting = auth.client.post(
