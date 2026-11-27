@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy import Engine
 
+from sanket.accounts.tokens import AccessTokens
 from sanket.api.health import ReadinessProbe
 from sanket.auth.authenticator import Authenticator
 from sanket.auth.errors import AuthError
@@ -43,10 +44,13 @@ class ApiContext:
     authenticator: Authenticator = field(default_factory=Authenticator)
     # None when stream tokens are not configured (see sanket.auth.stream_token).
     stream_tokens: StreamTokens | None = None
-    # Whether GET /search may be called without credentials.
-    search_public: bool = False
+    # Signs the access tokens of email and password accounts; None without AUTH_JWT_SECRET.
+    access_tokens: AccessTokens | None = None
     # None when rate limiting is off (see sanket.api.limits).
     limiter: RateLimiter | None = None
+    # Sign-up and log-in are always limited: this is `limiter`, or a per-process one when
+    # rate limiting is off.
+    auth_limiter: RateLimiter | None = None
     rate_limits: RateLimits = field(default_factory=RateLimits)
     # None disables /readyz checks (always ready) and /metrics (404) respectively.
     readiness: ReadinessProbe | None = None
@@ -128,11 +132,3 @@ def get_owner_id(principal: Annotated[Principal, Depends(get_principal)]) -> str
 
 def get_header_owner_id(principal: Annotated[Principal, Depends(get_header_principal)]) -> str:
     return principal.owner_id
-
-
-def require_search_access(
-    request: Request, context: Annotated[ApiContext, Depends(get_context)]
-) -> None:
-    """Search is open only when SEARCH_PUBLIC is set; otherwise it needs a credential."""
-    if not context.search_public:
-        get_header_principal(request, context)

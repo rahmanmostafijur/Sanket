@@ -1,10 +1,10 @@
-"""`GET /search`: hybrid (full-text plus vector) job search."""
+"""`GET /search`: hybrid (full-text plus vector) job search. Public, rate limited per caller."""
 
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from sanket.api.deps import ApiContext, get_context, require_search_access
+from sanket.api.deps import ApiContext, get_context
 from sanket.api.schemas import (
     SearchMode,
     SearchParams,
@@ -15,7 +15,7 @@ from sanket.api.schemas import (
 from sanket.search.retrieval import SearchMode as RetrievalMode
 from sanket.search.service import search
 
-router = APIRouter(tags=["search"], dependencies=[Depends(require_search_access)])
+router = APIRouter(tags=["search"])
 
 RETRIEVAL_MODES = {
     SearchMode.HYBRID: RetrievalMode.HYBRID,

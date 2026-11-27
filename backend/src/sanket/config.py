@@ -236,6 +236,10 @@ class Settings(BaseSettings):
     rate_limit_default_requests: int = Field(default=120, ge=1)
     rate_limit_search_requests: int = Field(default=30, ge=1)
     trusted_proxy_hops: int = Field(default=0, ge=0, le=5)
+    # POST /auth/signup and /auth/login, per window: per client address and per email. These
+    # apply even with RATE_LIMIT_ENABLED=false (an in-memory limiter is used then).
+    rate_limit_auth_requests: int = Field(default=10, ge=1)
+    rate_limit_auth_email_requests: int = Field(default=5, ge=1)
 
     # Probes and metrics (docs/adr/0010-observability.md). /readyz checks the database, Redis
     # when configured, and optionally that the schema is at the head the code expects (leave
@@ -273,9 +277,9 @@ class Settings(BaseSettings):
     # open the match stream. Unset disables them.
     auth_stream_token_secret: SecretStr | None = None
     auth_stream_token_ttl_seconds: int = Field(default=60, ge=10, le=600)
-    # GET /search costs an embedding call per query. It requires authentication unless this
-    # is true, in which case it is open (and rate limited by client address).
-    search_public: bool = False
+    # Lifetime of the access token POST /auth/login and /auth/signup return (signed with
+    # AUTH_JWT_SECRET). There is no refresh token: the user signs in again when it expires.
+    auth_access_token_ttl_seconds: int = Field(default=3600, ge=300, le=86400)
 
     @field_validator(
         "himalayas_api_key",

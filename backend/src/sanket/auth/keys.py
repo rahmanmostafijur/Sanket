@@ -15,6 +15,7 @@ import secrets
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
+from sanket.accounts.identity import USER_OWNER_PREFIX
 from sanket.auth.principal import is_valid_owner_id
 
 MIN_API_KEY_LENGTH = 24
@@ -56,6 +57,11 @@ def parse_api_keys(raw: str) -> tuple[ApiKeys, list[str]]:
         digest, problem = _entry_digest(key)
         if not separator or not is_valid_owner_id(owner):
             problems.append(f"AUTH_API_KEYS entry {number} must look like owner=key")
+        elif owner.startswith(USER_OWNER_PREFIX):
+            problems.append(
+                f"AUTH_API_KEYS entry {number} uses an owner starting with {USER_OWNER_PREFIX!r}, "
+                "which is reserved for accounts"
+            )
         elif digest is None:
             problems.append(f"AUTH_API_KEYS entry {number} {problem}")
         elif digest in owners:

@@ -13,11 +13,13 @@ internals leak. Successful responses are untouched.
 """
 
 import logging
+import re
 from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from sanket.observability.logs import request_id_var
@@ -26,6 +28,9 @@ logger = logging.getLogger(__name__)
 
 GENERIC_500 = "internal server error"
 VALIDATION_MESSAGE = "the request is invalid"
+ACCOUNT_GONE = "the account for this token no longer exists, sign in again"
+# The foreign keys from owned tables to `users` (named by the naming convention in models.py).
+_ACCOUNT_FOREIGN_KEY = re.compile(r"^fk_\w+_user_id_users$")
 
 _CODES = {
     400: "bad_request",
@@ -110,8 +115,20 @@ async def _validation_error(request: Request, exc: Exception) -> JSONResponse:
     return error_response(422, VALIDATION_MESSAGE, _validation_details(list(exc.errors())))
 
 
+async def _integrity_error(request: Request, exc: Exception) -> JSONResponse:
+    """A valid token can outlive its account (the token is not checked against the database), so
+    a write that points at the missing account is a 401, not a crash. Any other integrity error
+    is a bug and is raised on to the request middleware, which answers the generic 500."""
+    assert isinstance(exc, IntegrityError)
+    constraint = getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
+    if isinstance(constraint, str) and _ACCOUNT_FOREIGN_KEY.match(constraint):
+        return error_response(401, ACCOUNT_GONE, headers={"WWW-Authenticate": "Bearer"})
+    raise exc
+
+
 def install_error_handlers(app: FastAPI) -> None:
     """Answer HTTP errors and validation errors with the envelope. Unhandled exceptions are
     handled by the request middleware, which sits outside every handler."""
     app.add_exception_handler(StarletteHTTPException, _http_exception)
     app.add_exception_handler(RequestValidationError, _validation_error)
+    app.add_exception_handler(IntegrityError, _integrity_error)

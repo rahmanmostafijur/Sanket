@@ -21,11 +21,13 @@ from fastapi import FastAPI
 from fastapi.params import Depends
 from sqlalchemy import Engine
 
+from sanket.accounts.tokens import access_tokens_from_settings
 from sanket.api.deps import ApiContext
 from sanket.api.errors import install_error_handlers
 from sanket.api.health import ReadinessProbe, checks_from_settings
 from sanket.api.limits import RateLimit
 from sanket.api.middleware import RequestContextMiddleware
+from sanket.api.routers import accounts as accounts_router
 from sanket.api.routers import auth as auth_router
 from sanket.api.routers import feed as feed_router
 from sanket.api.routers import jobs as jobs_router
@@ -49,7 +51,7 @@ from sanket.observability.worker_metrics import worker_collector_for
 from sanket.queue.base import TaskQueue
 from sanket.queue.connection import task_queue_from_settings
 from sanket.ratelimit.factory import limiter_from_settings
-from sanket.ratelimit.limiter import RateLimiter
+from sanket.ratelimit.limiter import MemoryRateLimiter, RateLimiter
 from sanket.ratelimit.policy import limits_from_settings
 from sanket.runtime_checks import check_api
 from sanket.search.cache import QueryEmbeddingCache
@@ -118,6 +120,9 @@ def create_app(
     install_error_handlers(app)
     engine_in_use = db_engine or default_engine
     queue = task_queue_from_settings(config) if isinstance(task_queue, _UseSettings) else task_queue
+    limiter = (
+        limiter_from_settings(config) if isinstance(rate_limiter, _UseSettings) else rate_limiter
+    )
     metrics = _metrics(config, queue)
     app.add_middleware(
         RequestContextMiddleware, observer=metrics.observe_request if metrics else None
@@ -139,12 +144,9 @@ def create_app(
         ),
         authenticator=authenticator_from_settings(config),
         stream_tokens=_stream_tokens(config),
-        search_public=config.search_public,
-        limiter=(
-            limiter_from_settings(config)
-            if isinstance(rate_limiter, _UseSettings)
-            else rate_limiter
-        ),
+        access_tokens=access_tokens_from_settings(config),
+        limiter=limiter,
+        auth_limiter=limiter or MemoryRateLimiter(),
         rate_limits=limits_from_settings(config),
         readiness=ReadinessProbe(
             checks_from_settings(config, engine_in_use), config.readyz_timeout_seconds
@@ -160,6 +162,8 @@ def create_app(
     app.include_router(profiles_router.router, dependencies=standard)
     app.include_router(saved_router.router, dependencies=standard)
     app.include_router(auth_router.router, dependencies=standard)
+    # Sign-up and log-in carry their own, stricter limits (per address and per email).
+    app.include_router(accounts_router.router, dependencies=guard)
     # Streams are exempt from the per-request rate limit; the feed caps open streams instead.
     app.include_router(feed_router.router, dependencies=guard)
     app.include_router(ops_router.router)

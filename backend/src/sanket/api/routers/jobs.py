@@ -1,18 +1,19 @@
 """`GET /jobs` (browse without a query) and `GET /jobs/{job_id}` (one job in full).
 
-Both are as open as search: public with SEARCH_PUBLIC, otherwise they need a credential.
+Both are public, like search: no credential is needed, and callers without one are rate
+limited by client address. The responses hold public job data only.
 """
 
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from sanket.api.deps import ApiContext, get_context, require_search_access
+from sanket.api.deps import ApiContext, get_context
 from sanket.api.job_schemas import JobDetailOut, JobListParams, JobListResponse, detail_out
 from sanket.api.schemas import job_from_details
 from sanket.search.browse import list_jobs, load_job
 
-router = APIRouter(prefix="/jobs", tags=["jobs"], dependencies=[Depends(require_search_access)])
+router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 Context = Annotated[ApiContext, Depends(get_context)]
 
