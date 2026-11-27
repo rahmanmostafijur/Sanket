@@ -4,9 +4,10 @@ owner never sees or changes another's bookmarks."""
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import Engine, Text, delete, literal, select
+from sqlalchemy import Engine, Text, Uuid, delete, literal, select
 from sqlalchemy.dialects.postgresql import insert
 
+from sanket.accounts.identity import user_id_of
 from sanket.db import engine
 from sanket.models import Job, SavedJob
 
@@ -36,8 +37,10 @@ def save(owner_id: str, job_id: int, db_engine: Engine = engine) -> Bookmark | N
     insert_stmt = (
         insert(SavedJob)
         .from_select(
-            ["owner_id", "job_id"],
-            select(literal(owner_id, Text), Job.id).where(Job.id == job_id),
+            ["owner_id", "user_id", "job_id"],
+            select(literal(owner_id, Text), literal(user_id_of(owner_id), Uuid), Job.id).where(
+                Job.id == job_id
+            ),
         )
         .on_conflict_do_nothing(index_elements=["owner_id", "job_id"])
     )

@@ -3,6 +3,7 @@ by it, so a profile of another owner is simply not found. Functions without an `
 (`load_profile`) are for the worker, which acts on a profile id it was given by the system.
 """
 
+import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -11,6 +12,7 @@ from typing import Any
 from sqlalchemy import Connection, case, delete, func, null, select, update
 from sqlalchemy.dialects.postgresql import insert
 
+from sanket.accounts.identity import user_id_of
 from sanket.embeddings.client import EmbeddingSpec
 from sanket.models import EmbeddingStatus, Profile, ProfileEmbedding
 
@@ -30,6 +32,8 @@ class ProfileRow:
     embedding_error: str | None
     created_at: datetime
     updated_at: datetime
+    # The account that owns the profile; None for API-key and development owners.
+    user_id: uuid.UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -53,6 +57,7 @@ def insert_profile(conn: Connection, owner_id: str, values: ProfileValues) -> Pr
         insert(Profile)
         .values(
             owner_id=owner_id,
+            user_id=user_id_of(owner_id),
             name=values.name,
             criteria=values.criteria,
             active=values.active,

@@ -1,3 +1,4 @@
+import uuid
 from datetime import date, datetime
 
 from pgvector.sqlalchemy import Vector
@@ -16,6 +17,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    Uuid,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
@@ -229,6 +231,27 @@ class MatchStatus:
     WITHDRAWN = "withdrawn"
 
 
+class User(Base):
+    """An account that signs in with email and password (sanket.accounts).
+
+    `email` is stored lower-cased and is unique. `password_hash` is an argon2id hash; neither
+    it nor the password is ever logged or returned. A user's owner id is `user:<id>`
+    (sanket.accounts.owner_id_for) and the rows they own carry `user_id` as well.
+    """
+
+    __tablename__ = "users"
+    __table_args__ = (CheckConstraint("email = lower(email)", name="email_lower_case"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, server_default=func.gen_random_uuid()
+    )
+    email: Mapped[str] = mapped_column(String(254), nullable=False, unique=True)
+    password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class Profile(Base):
     """What one user is looking for (docs/adr/0006-profiles-and-matching.md).
 
@@ -266,6 +289,10 @@ class Profile(Base):
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    # The account that owns the row; null for rows of API-key and development owners.
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
     )
 
 
@@ -363,4 +390,8 @@ class SavedJob(Base):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    # The account that owns the row; null for rows of API-key and development owners.
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
     )
