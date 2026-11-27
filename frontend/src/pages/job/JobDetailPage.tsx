@@ -222,7 +222,7 @@ function NotMatched() {
       <p className="mt-3 text-[14px] leading-relaxed text-muted">
         This job is not among your profile’s matches, so there is no score to show. Jobs are scored when they pass your profile’s filters and threshold.
       </p>
-      <Link to="/profile" className="mt-4 inline-flex text-[13.5px] font-medium text-accent hover:underline">Review your profile →</Link>
+      <Link to="/profile/matching" className="mt-4 inline-flex text-[13.5px] font-medium text-accent hover:underline">Review your profile →</Link>
     </Card>
   )
 }

@@ -219,7 +219,7 @@ export default function LiveMatchesPage() {
               icon={<UserRoundPlus />}
               title="No profile to match against"
               description="Live matches are found for a profile. Create one and new matches will stream in here."
-              action={<Button variant="primary" onClick={() => navigate('/profile')}>Create profile</Button>}
+              action={<Button variant="primary" onClick={() => navigate('/profile/matching')}>Create profile</Button>}
             />
           ) : entries.length === 0 ? (
             <EmptyState

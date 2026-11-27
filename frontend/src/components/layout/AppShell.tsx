@@ -47,6 +47,11 @@ function PageFallback() {
   return <div className="flex h-64 items-center justify-center"><span className="size-5 animate-spin rounded-full border-2 border-line-strong border-t-accent" /></div>
 }
 
+/** One page transition per page: the profile area keeps its layout, and what the user is editing, across its sections. */
+function transitionKey(pathname: string): string {
+  return pathname === '/profile' || pathname.startsWith('/profile/') ? '/profile' : pathname
+}
+
 export function AppShell() {
   const [menuOpen, setMenuOpen] = useState(false)
   const location = useLocation()
@@ -63,7 +68,7 @@ export function AppShell() {
         <main id="main" className="relative min-w-0 flex-1 px-4 pb-12 pt-4 sm:px-6 lg:px-10 lg:pt-2">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
-              key={location.pathname}
+              key={transitionKey(location.pathname)}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}

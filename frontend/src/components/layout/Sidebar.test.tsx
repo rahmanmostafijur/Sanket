@@ -10,7 +10,7 @@ function tokenFor(email: string): string {
   return `eyJhbGciOiJIUzI1NiJ9.${payload}.signature`
 }
 
-const ME = { email: 'ada@example.com', full_name: '', headline: '', location: '', summary: '' }
+const ME = { email: 'ada@example.com', full_name: '', headline: '' }
 
 function stubMe(status: number, body: unknown): void {
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(body), { status })))

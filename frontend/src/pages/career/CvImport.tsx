@@ -1,22 +1,15 @@
-import { FileUp, LoaderCircle, Upload, X } from 'lucide-react'
+import { FileUp, LoaderCircle, Upload } from 'lucide-react'
 import { useRef, useState, type DragEvent } from 'react'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/cn'
-import { CV_ACCEPT, CV_PRIVACY_NOTE } from './cvProposal'
+import { CV_ACCEPT, CV_PRIVACY_NOTE } from './cvFile'
 import type { CvImport as CvImportState } from './useCvImport'
-
-interface CvImportProps {
-  cv: CvImportState
-  /** How many fields the last import filled, or null when there is nothing to report. */
-  filledCount: number | null
-  onDismiss: () => void
-}
 
 /**
  * The one way to import a CV: a compact strip with a single button and a single file input, and the
- * same strip takes a dropped file. It stays one line tall so it does not push the form down.
+ * same strip takes a dropped file.
  */
-export function CvImport({ cv, filledCount, onDismiss }: CvImportProps) {
+export function CvImport({ cv }: { cv: CvImportState }) {
   const input = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
   const onDrop = (event: DragEvent) => {
@@ -26,7 +19,7 @@ export function CvImport({ cv, filledCount, onDismiss }: CvImportProps) {
     if (file && !cv.pending) cv.importFile(file)
   }
   return (
-    <div className="mb-5 space-y-3">
+    <div className="space-y-3">
       <div
         onDragOver={(event) => {
           event.preventDefault()
@@ -42,7 +35,7 @@ export function CvImport({ cv, filledCount, onDismiss }: CvImportProps) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="flex min-w-0 items-center gap-2.5 text-[13.5px] text-muted">
             <FileUp className="size-4 shrink-0" />
-            <span>Have a CV? Drop a PDF or DOCX here (up to 5 MB) to fill in this form.</span>
+            <span>Have a CV? Drop a PDF or DOCX here (up to 5 MB) to fill in your profile.</span>
           </p>
           <Button variant="outline" size="sm" disabled={cv.pending} onClick={() => input.current?.click()}>
             {cv.pending ? <LoaderCircle className="animate-spin" /> : <Upload />} Import from CV
@@ -69,14 +62,6 @@ export function CvImport({ cv, filledCount, onDismiss }: CvImportProps) {
         ) : null}
       </div>
       {cv.error ? <p role="alert" className="text-[13px] text-danger">{cv.error}</p> : null}
-      {filledCount !== null ? (
-        <div className="flex items-start justify-between gap-3 rounded-xl border border-accent/30 bg-accent/[0.07] px-4 py-3 text-[13.5px] text-fg-2">
-          <p>
-            Imported from your CV: {filledCount} {filledCount === 1 ? 'field' : 'fields'} filled. Review them, then press Save. Nothing is saved yet.
-          </p>
-          <Button variant="ghost" size="sm" onClick={onDismiss}><X /> Dismiss</Button>
-        </div>
-      ) : null}
     </div>
   )
 }

@@ -20,6 +20,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { to: '/discover', label: 'Discover Jobs', icon: Search },
   { to: '/live', label: 'Live Matches', icon: Radar, badge: 'live' },
   { to: '/saved', label: 'Saved Jobs', icon: Bookmark },
-  { to: '/profile', label: 'Matching profile', icon: UserRound },
+  { to: '/profile', label: 'Profile', icon: UserRound },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]

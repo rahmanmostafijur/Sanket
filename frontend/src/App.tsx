@@ -6,6 +6,7 @@ import { ApiError, setUnauthorizedHandler } from '@/api/client'
 import { RequireAuth } from '@/components/auth/RequireAuth'
 import { AppShell } from '@/components/layout/AppShell'
 import { LiveFeedController } from '@/features/live/LiveFeedController'
+import { profileRoute } from '@/pages/career/routes'
 import { forgetSession, isAuthPath, SIGN_IN_PATH, SIGN_UP_PATH } from '@/lib/auth'
 import { usePreferences } from '@/stores/preferences'
 
@@ -14,7 +15,6 @@ const DiscoverPage = lazy(() => import('@/pages/discover/DiscoverPage'))
 const JobDetailPage = lazy(() => import('@/pages/job/JobDetailPage'))
 const LiveMatchesPage = lazy(() => import('@/pages/live/LiveMatchesPage'))
 const SavedJobsPage = lazy(() => import('@/pages/saved/SavedJobsPage'))
-const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage'))
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 const SignInPage = lazy(() => import('@/pages/signin/SignInPage'))
@@ -66,7 +66,7 @@ const router = createBrowserRouter([
       { path: 'jobs/:jobId', element: <JobDetailPage /> },
       { path: 'live', element: guarded(<LiveMatchesPage />) },
       { path: 'saved', element: guarded(<SavedJobsPage />) },
-      { path: 'profile', element: guarded(<ProfilePage />) },
+      profileRoute(guarded),
       { path: 'settings', element: <SettingsPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],

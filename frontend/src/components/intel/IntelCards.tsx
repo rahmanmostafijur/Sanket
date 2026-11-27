@@ -84,7 +84,7 @@ export function ProfileMatchCard({ profile, best, className }: { profile: Profil
     <Card className={cn('p-5', className)}>
       <div className="flex items-center justify-between">
         <h2 className="text-[15.5px] font-semibold text-fg">Your Profile Match</h2>
-        <HeaderLink to="/profile">View Profile</HeaderLink>
+        <HeaderLink to="/profile/matching">View Profile</HeaderLink>
       </div>
       {profile ? (
         <div className="mt-5 flex items-center gap-5">

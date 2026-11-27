@@ -161,7 +161,7 @@ export default function OverviewPage() {
                   icon={<UserRoundPlus />}
                   title="Create your matching profile"
                   description="Tell Sanket the roles and skills you want. Matching jobs then appear here, scored against your profile, and arrive live as they are found."
-                  action={<Button variant="primary" onClick={() => navigate('/profile')}>Create profile</Button>}
+                  action={<Button variant="primary" onClick={() => navigate('/profile/matching')}>Create profile</Button>}
                 />
               ) : shown.length === 0 ? (
                 <EmptyState
