@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import type { CvProposal, Me, Profile } from '@/api/types'
 import { useSession } from '@/stores/session'
+import { CONTENT_ERROR } from './formErrors'
 import ProfilePage from './ProfilePage'
 
 // jsdom has no ResizeObserver, which the Active switch (Radix) measures with.
@@ -12,6 +13,10 @@ globalThis.ResizeObserver ??= class {
   unobserve(): void {}
   disconnect(): void {}
 }
+
+// jsdom has no scrollIntoView, which moving to the first invalid field calls.
+const scrollIntoView = vi.fn()
+Element.prototype.scrollIntoView = scrollIntoView
 
 const ME: Me = { email: 'ada@example.com', full_name: 'Ada Example', headline: 'Backend engineer', location: 'Berlin', summary: 'Builds APIs.' }
 
@@ -128,6 +133,7 @@ async function pickFile(file: File): Promise<void> {
 }
 
 beforeEach(() => {
+  scrollIntoView.mockClear()
   window.localStorage.clear()
   window.sessionStorage.clear()
   useSession.setState({ activeProfileId: null, token: 'header.payload.signature' })
@@ -380,5 +386,280 @@ describe('CV import', () => {
     const alert = await screen.findByRole('alert')
     expect(within(alert).getByText(message)).toBeInTheDocument()
     expect(screen.getByLabelText('Full name')).toHaveValue('Ada Example')
+  })
+})
+
+const NOT_AN_ACCOUNT = reply(404, { error: { code: 'not_found', message: 'not an account' } })
+const emptyRoutes = (me: Me | null = ME) => ({ 'GET /me': me ? reply(200, me) : NOT_AN_ACCOUNT, 'GET /profiles': reply(200, { items: [] }) })
+const savedRoute = (name: string) => ({ 'POST /profiles': reply(201, { ...PROFILE, id: 2, name }) })
+const createdName = (calls: Call[]) => (JSON.parse(only(calls, 'POST', '/profiles').init.body as string) as { name: string }).name
+
+describe('Cancel and New profile', () => {
+  it('offers New profile, and no Cancel, while a saved profile is open', async () => {
+    stubApi(accountRoutes())
+    renderPage()
+
+    expect(await screen.findByRole('button', { name: /new profile/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /save changes/i })).toBeInTheDocument()
+  })
+
+  it('swaps New profile for a visible, enabled Cancel in the create state', async () => {
+    stubApi(accountRoutes())
+    renderPage()
+
+    await userEvent.setup().click(await screen.findByRole('button', { name: /new profile/i }))
+
+    const cancel = screen.getByRole('button', { name: 'Cancel' })
+    expect(cancel).toBeEnabled()
+    // The secondary style, not the faint ghost one.
+    expect(cancel.className).toContain('bg-elevated')
+    expect(cancel.className).not.toContain('text-muted')
+    expect(screen.queryByRole('button', { name: /new profile/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /create profile/i })).toBeInTheDocument()
+    expect(screen.getByLabelText('Profile name')).toHaveValue('')
+  })
+
+  it('discards what was typed and every error, and returns to the saved profile', async () => {
+    stubApi(accountRoutes())
+    renderPage()
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: /new profile/i }))
+    await user.type(screen.getByLabelText('Profile name'), 'Draft name')
+    await user.type(screen.getByLabelText('Full name'), ' Jr')
+    await user.click(screen.getByRole('button', { name: /create profile/i }))
+    expect(await screen.findByText(CONTENT_ERROR)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.queryByText(CONTENT_ERROR)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /save changes/i })).toBeInTheDocument()
+    expect(screen.getByLabelText('Profile name')).toHaveValue('Python backend')
+    expect(screen.getByLabelText('Full name')).toHaveValue('Ada Example')
+    expect(screen.getByRole('button', { name: /new profile/i })).toBeInTheDocument()
+  })
+
+  it('also drops an imported CV, its marks and its error', async () => {
+    stubApi({ ...accountRoutes(), 'POST /cv/import': reply(200, FULL_PROPOSAL) })
+    renderPage()
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: /new profile/i }))
+    await pickFile(new File(['hello'], 'cv.txt', { type: 'text/plain' }))
+    expect(await screen.findByText('Only PDF and DOCX files are supported.')).toBeInTheDocument()
+    await pickFile(cvFile())
+    expect(await screen.findByText(/Imported from your CV/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByText(/Imported from your CV/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Only PDF and DOCX files are supported.')).not.toBeInTheDocument()
+    expect(screen.queryAllByText('Filled from CV')).toHaveLength(0)
+    expect(screen.getByLabelText('Full name')).toHaveValue('Ada Example')
+  })
+
+  it('opens straight in the create state, with neither New profile nor Cancel, when nothing is saved', async () => {
+    stubApi(emptyRoutes())
+    renderPage()
+
+    expect(await screen.findByRole('button', { name: /create profile/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /new profile/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /save changes/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Delete this profile' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Profile name')).toHaveValue('')
+  })
+
+})
+
+describe('the single CV import entry point', () => {
+  it.each([
+    ['a saved profile', accountRoutes],
+    ['no saved profile', emptyRoutes],
+  ])('has one button, one file input and one privacy note with %s', async (_name, routes) => {
+    stubApi(routes())
+    renderPage()
+
+    await screen.findByRole('heading', { name: 'Personal info' })
+    expect(screen.getAllByRole('button', { name: 'Import from CV' })).toHaveLength(1)
+    expect(screen.getAllByTestId('cv-file-input')).toHaveLength(1)
+    expect(screen.getAllByText(/Your CV text is sent to the language-model provider/)).toHaveLength(1)
+  })
+
+  it('is a compact strip, not a large panel with its own heading', async () => {
+    stubApi(accountRoutes())
+    renderPage()
+
+    await screen.findByRole('heading', { name: 'Personal info' })
+    expect(screen.queryByRole('heading', { name: 'Import from CV' })).not.toBeInTheDocument()
+    expect(screen.getByText(/Drop a PDF or DOCX here \(up to 5 MB\)/)).toBeInTheDocument()
+  })
+
+  it('still reads a file chosen through that one button', async () => {
+    const calls = stubApi({ ...accountRoutes(), 'POST /cv/import': reply(200, FULL_PROPOSAL) })
+    renderPage()
+
+    await pickFile(cvFile())
+
+    expect(await screen.findByText(/Imported from your CV/)).toBeInTheDocument()
+    expect(named(calls, 'POST', '/cv/import')).toHaveLength(1)
+  })
+})
+
+describe('the profile name', () => {
+  it('puts Full name first and keeps Profile name editable under Basics', async () => {
+    stubApi(accountRoutes())
+    renderPage()
+
+    const fullName = await screen.findByLabelText('Full name')
+    const profileName = screen.getByLabelText('Profile name')
+    expect(fullName.compareDocumentPosition(profileName) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(profileName).toBeEnabled()
+    expect(profileName).toHaveValue('Python backend')
+  })
+
+  it('does not block a new user who left it empty, and names the profile from the headline', async () => {
+    // Changing the headline changes the account, so it is saved first.
+    const calls = stubApi({ ...emptyRoutes(), 'PUT /me': reply(200, { ...ME, headline: 'Staff engineer' }), ...savedRoute('Staff engineer') })
+    renderPage()
+    const user = userEvent.setup()
+
+    const headline = await screen.findByLabelText('Headline')
+    await user.clear(headline)
+    await user.type(headline, 'Staff engineer')
+    await user.type(screen.getByLabelText('What you are looking for'), 'Backend roles')
+    await user.click(screen.getByRole('button', { name: /create profile/i }))
+
+    await waitFor(() => expect(named(calls, 'POST', '/profiles')).toHaveLength(1))
+    expect(createdName(calls)).toBe('Staff engineer')
+    expect(screen.queryByText(/Give the profile a name/)).not.toBeInTheDocument()
+  })
+
+  it('falls back to "My profile" when the headline is empty', async () => {
+    const calls = stubApi({ ...emptyRoutes({ ...ME, headline: '' }), ...savedRoute('My profile') })
+    renderPage()
+
+    await userEvent.setup().type(await screen.findByLabelText('What you are looking for'), 'Backend roles')
+    await userEvent.setup().click(screen.getByRole('button', { name: /create profile/i }))
+
+    await waitFor(() => expect(named(calls, 'POST', '/profiles')).toHaveLength(1))
+    expect(createdName(calls)).toBe('My profile')
+  })
+
+  it('falls back to "My profile" for a credential that has no account, so there is no headline', async () => {
+    const calls = stubApi({ ...emptyRoutes(null), ...savedRoute('My profile') })
+    renderPage()
+
+    await userEvent.setup().type(await screen.findByLabelText('What you are looking for'), 'Backend roles')
+    await userEvent.setup().click(screen.getByRole('button', { name: /create profile/i }))
+
+    await waitFor(() => expect(named(calls, 'POST', '/profiles')).toHaveLength(1))
+    expect(createdName(calls)).toBe('My profile')
+  })
+
+  it('shows the name it would use as the placeholder and in the hint, and follows the headline', async () => {
+    stubApi(emptyRoutes())
+    renderPage()
+    const user = userEvent.setup()
+
+    const name = await screen.findByLabelText('Profile name')
+    expect(name).toHaveAttribute('placeholder', 'Backend engineer')
+    expect(screen.getByText(/Left empty, the profile is called “Backend engineer”/)).toBeInTheDocument()
+    await user.clear(screen.getByLabelText('Headline'))
+    expect(name).toHaveAttribute('placeholder', 'My profile')
+  })
+
+  it('keeps a name the user typed', async () => {
+    const calls = stubApi({ ...emptyRoutes(), ...savedRoute('Python backend') })
+    renderPage()
+    const user = userEvent.setup()
+
+    await user.type(await screen.findByLabelText('Profile name'), '  Python backend ')
+    await user.type(screen.getByLabelText('What you are looking for'), 'Backend roles')
+    await user.click(screen.getByRole('button', { name: /create profile/i }))
+
+    await waitFor(() => expect(named(calls, 'POST', '/profiles')).toHaveLength(1))
+    expect(createdName(calls)).toBe('Python backend')
+  })
+
+  it('numbers the default when another profile already has it, so a second one is not a conflict', async () => {
+    const calls = stubApi({
+      'GET /me': reply(200, { ...ME, headline: '' }),
+      'GET /profiles': reply(200, { items: [{ ...PROFILE, name: 'My profile' }] }),
+      ...savedRoute('My profile 2'),
+    })
+    renderPage()
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: /new profile/i }))
+    await user.type(screen.getByLabelText('What you are looking for'), 'Backend roles')
+    await user.click(screen.getByRole('button', { name: /create profile/i }))
+
+    await waitFor(() => expect(named(calls, 'POST', '/profiles')).toHaveLength(1))
+    expect(createdName(calls)).toBe('My profile 2')
+  })
+})
+
+describe('validation errors', () => {
+  it('shows the problem next to its field, focuses and scrolls to it, and summarises at the top', async () => {
+    const calls = stubApi(emptyRoutes())
+    renderPage()
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: /create profile/i }))
+
+    const message = screen.getByText(CONTENT_ERROR)
+    expect(message.closest('[data-field="profile.desired_titles"]')).not.toBeNull()
+    expect(screen.getByText('Please fix this field: Preferred roles.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Preferred roles')).toHaveFocus()
+    expect(scrollIntoView).toHaveBeenCalled()
+    expect(named(calls, 'POST', '/profiles')).toHaveLength(0)
+  })
+
+  it('clears the error and the summary once the field is fixed', async () => {
+    stubApi(emptyRoutes())
+    renderPage()
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: /create profile/i }))
+    await user.type(screen.getByLabelText('What you are looking for'), 'Backend roles')
+
+    expect(screen.queryByText(CONTENT_ERROR)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Please fix/)).not.toBeInTheDocument()
+  })
+
+  it('puts a server complaint about the full name on that field, focuses it, and clears it on edit', async () => {
+    stubApi({
+      ...accountRoutes(),
+      'PUT /me': reply(422, { error: { code: 'validation_error', message: 'invalid request', details: [{ loc: ['body', 'full_name'], msg: 'must not contain links' }] } }),
+    })
+    renderPage()
+    const user = userEvent.setup()
+
+    await user.type(await screen.findByLabelText('Full name'), ' Jr')
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    const message = await screen.findByText('must not contain links')
+    expect(message.closest('[data-field="personal.full_name"]')).not.toBeNull()
+    expect(screen.getByText('Please fix this field: Full name.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Full name')).toHaveFocus()
+    expect(screen.getByLabelText('Full name')).toHaveAttribute('aria-invalid', 'true')
+    await user.type(screen.getByLabelText('Full name'), 'x')
+    expect(screen.queryByText('must not contain links')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Please fix/)).not.toBeInTheDocument()
+  })
+
+  it('shows a name conflict on the profile name field', async () => {
+    stubApi({
+      ...accountRoutes(),
+      'PUT /profiles/1': reply(409, { error: { code: 'conflict', message: 'another profile has this name' } }),
+    })
+    renderPage()
+
+    await userEvent.setup().click(await screen.findByRole('button', { name: /save changes/i }))
+
+    const message = await screen.findByText('another profile has this name')
+    expect(message.closest('[data-field="profile.name"]')).not.toBeNull()
+    expect(screen.getByLabelText('Profile name')).toHaveFocus()
   })
 })

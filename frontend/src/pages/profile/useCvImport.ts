@@ -14,7 +14,9 @@ export function useCvImport(onProposal: (proposal: CvProposal) => void) {
     if (problem) return
     importCv.mutate(file, { onSuccess: onProposal, onError: (failure) => setError(cvImportMessage(failure)) })
   }
-  return { importFile, pending: importCv.isPending, error }
+  /** Forgets the last failure, for when the form is cancelled. */
+  const reset = () => setError(null)
+  return { importFile, pending: importCv.isPending, error, reset }
 }
 
 export type CvImport = ReturnType<typeof useCvImport>
