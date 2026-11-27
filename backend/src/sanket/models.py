@@ -19,6 +19,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -247,15 +248,149 @@ class User(Base):
     )
     email: Mapped[str] = mapped_column(String(254), nullable=False, unique=True)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
-    # Personal info (sanket.accounts.personal): who the person is, shared by all their
-    # profiles. `full_name` is the display name; all four are optional.
-    full_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    headline: Mapped[str | None] = mapped_column(String(120), nullable=True)
-    location: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    summary: Mapped[str | None] = mapped_column(String(600), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+AVAILABILITIES = ("immediately", "within_one_month", "open_to_offers", "not_looking")
+SKILL_LEVELS = ("beginner", "intermediate", "advanced", "expert")
+LANGUAGE_PROFICIENCIES = ("basic", "conversational", "fluent", "native")
+
+
+def _one_of(column: str, values: tuple[str, ...]) -> str:
+    return f"{column} IN ({', '.join(repr(value) for value in values)})"
+
+
+class CareerProfile(Base):
+    """The résumé data of one account: who the person is (sanket.career).
+
+    One row per user, created on first save. Private to its owner: nothing here is public, and
+    only roles, skills, experience and locations ever feed matching. The display name of the
+    account is `full_name`. The sections (education, experience, ...) are tables of their own.
+    """
+
+    __tablename__ = "career_profile"
+    __table_args__ = (
+        CheckConstraint(_one_of("availability", AVAILABILITIES), name="availability_valid"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    full_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    headline: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    summary: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    # ISO 3166-1 alpha-2, upper case.
+    country: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    github_url: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    linkedin_url: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    portfolio_url: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    availability: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class CareerEducation(Base):
+    __tablename__ = "career_education"
+    __table_args__ = (
+        CheckConstraint("end_date IS NULL OR end_date >= start_date", name="dates_ordered"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    institution: Mapped[str] = mapped_column(String(150), nullable=False)
+    degree: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    field: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # The first day of the month: the API speaks in months.
+    start_date: Mapped[date] = mapped_column(Date, nullable=False)
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    grade: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+
+class CareerExperience(Base):
+    __tablename__ = "career_experience"
+    __table_args__ = (
+        CheckConstraint(
+            "(is_current AND end_date IS NULL) OR "
+            "(NOT is_current AND end_date IS NOT NULL AND end_date >= start_date)",
+            name="current_or_ended",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    company: Mapped[str] = mapped_column(String(150), nullable=False)
+    title: Mapped[str] = mapped_column(String(150), nullable=False)
+    start_date: Mapped[date] = mapped_column(Date, nullable=False)
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    is_current: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    description: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+
+
+class CareerSkill(Base):
+    __tablename__ = "career_skill"
+    __table_args__ = (
+        CheckConstraint(_one_of("level", SKILL_LEVELS), name="level_valid"),
+        # Skill names are unique per person ignoring case.
+        Index("uq_career_skill_user_id_name_lower", "user_id", text("lower(name)"), unique=True),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(60), nullable=False)
+    level: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
+
+class CareerLanguage(Base):
+    __tablename__ = "career_language"
+    __table_args__ = (
+        CheckConstraint(_one_of("proficiency", LANGUAGE_PROFICIENCIES), name="proficiency_valid"),
+        Index("uq_career_language_user_id_name_lower", "user_id", text("lower(name)"), unique=True),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(60), nullable=False)
+    proficiency: Mapped[str] = mapped_column(String(20), nullable=False)
+
+
+class CareerCertification(Base):
+    __tablename__ = "career_certification"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    title: Mapped[str] = mapped_column(String(150), nullable=False)
+    issuer: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    url: Mapped[str | None] = mapped_column(String(300), nullable=True)
+
+
+class CareerProject(Base):
+    __tablename__ = "career_project"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    title: Mapped[str] = mapped_column(String(150), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    url: Mapped[str | None] = mapped_column(String(300), nullable=True)
 
 
 class Profile(Base):
