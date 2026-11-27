@@ -27,7 +27,7 @@ from sanket.cv.reader import (
     detect_format,
     read_cv,
 )
-from sanket.cv.schema import CvExtraction
+from sanket.cv.schema import CvProposal
 from sanket.cv.service import CvProposalError, propose_profile
 from sanket.extraction.llm import LlmError, LlmRateLimitError
 
@@ -93,11 +93,11 @@ def _quota_response(error: LlmRateLimitError) -> HTTPException:
 
 @router.post(
     "/import",
-    response_model=CvExtraction,
+    response_model=CvProposal,
     summary="Read a CV into a proposed profile",
     description=(
-        "Send the PDF or DOCX file as the request body (at most 5 MB). Returns personal info "
-        "and profile fields the CV states; a field it does not state is empty. Nothing is "
+        "Send the PDF or DOCX file as the request body (at most 5 MB). Returns the career profile "
+        "the CV states (personal details, education, experience, skills, languages, certifications, projects); what it does not state is empty. Nothing is "
         "stored: save the profile yourself after reviewing it."
     ),
     openapi_extra={
@@ -111,7 +111,7 @@ def _quota_response(error: LlmRateLimitError) -> HTTPException:
 )
 async def import_cv(
     request: Request, response: Response, context: Context, owner: Owner
-) -> CvExtraction:
+) -> CvProposal:
     _limit_by_owner(context, owner)
     data = await _read_body(request)
     if not data:

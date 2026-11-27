@@ -70,9 +70,13 @@ def test_a_pdf_is_read_into_a_proposal(clean_db: Engine) -> None:
     assert response.headers["cache-control"] == "no-store"
     body = response.json()
     assert body["personal"]["full_name"] == "Ada Example"
-    assert body["profile"]["required_skills"] == ["Python", "PostgreSQL"]
-    assert body["profile"]["countries"] == ["DE", "SE"]
-    assert body["profile"]["seniorities"] == ["senior"]
+    assert (body["personal"]["country"], body["personal"]["city"]) == ("DE", "Berlin")
+    assert [job["company"] for job in body["experience"]] == ["Example Corp", "Sample GmbH"]
+    assert body["education"][0]["start"] == "2012-09"
+    assert [skill["name"] for skill in body["skills"]] == ["Python", "PostgreSQL", "Docker"]
+    assert [lang["name"] for lang in body["languages"]] == ["English", "German"]
+    assert body["certifications"][0]["title"] == "Cloud Practitioner"
+    assert body["projects"][0]["title"] == "Example Router"
     sent = llm.calls[0][1][0].text
     assert sent.startswith("<cv>\n") and "Ada Example" in sent and "Kubernetes" in sent
 
@@ -93,26 +97,26 @@ def test_what_the_cv_does_not_state_stays_empty(clean_db: Engine) -> None:
 
     body = post_cv(client, make_pdf(), signed_in(client)).json()
 
-    assert body["personal"] == {
-        "full_name": "Ada Example",
-        "headline": "",
-        "location": "",
-        "summary": "",
+    assert body["personal"]["full_name"] == "Ada Example"
+    assert body["personal"]["headline"] == ""
+    for section in ("education", "experience", "skills", "languages", "certifications", "projects"):
+        assert body[section] == []
+
+
+def test_an_entry_that_cannot_be_saved_is_left_out_of_the_proposal(clean_db: Engine) -> None:
+    answer = {
+        "experience": [
+            {"company": "Example Corp", "title": "Engineer", "start": "2019-01", "end": "2020-01"},
+            {"company": "Unknown Dates Ltd", "title": "Engineer", "start": "", "end": ""},
+        ],
+        "languages": [{"name": "French", "proficiency": None}],
     }
-    assert body["profile"]["desired_titles"] == []
-    assert body["profile"]["seniorities"] == []
-    assert body["profile"]["summary"] == ""
-
-
-def test_only_a_few_skills_come_back_as_required(clean_db: Engine) -> None:
-    skills = [f"Skill{n}" for n in range(12)]
-    answer = {"profile": {"required_skills": skills, "preferred_skills": ["Go"]}}
     client = cv_client(clean_db, ScriptedLlm(answer))
 
-    profile = post_cv(client, make_pdf(), signed_in(client)).json()["profile"]
+    body = post_cv(client, make_pdf(), signed_in(client)).json()
 
-    assert profile["required_skills"] == skills[:8]
-    assert profile["preferred_skills"] == [*skills[8:], "Go"]
+    assert [job["company"] for job in body["experience"]] == ["Example Corp"]
+    assert body["languages"] == []
 
 
 def test_the_file_is_judged_by_its_content_not_its_declared_type(clean_db: Engine) -> None:

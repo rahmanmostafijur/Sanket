@@ -1,4 +1,4 @@
-"""CV import building blocks: reading files, wrapping text, validating the model's answer."""
+"""CV import building blocks: reading files, wrapping text, validating and converting the answer."""
 
 import copy
 from typing import Any
@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from sanket.cv.prompt import build_cv_text
+from sanket.cv.prompt import SYSTEM_PROMPT, build_cv_text
 from sanket.cv.reader import (
     MAX_CV_BYTES,
     MAX_CV_CHARS,
@@ -18,7 +18,7 @@ from sanket.cv.reader import (
     detect_format,
     read_cv,
 )
-from sanket.cv.schema import MAX_PROPOSED_REQUIRED_SKILLS, CvExtraction
+from sanket.cv.schema import CvExtraction, CvPersonalProposal, to_proposal
 from sanket.cv.service import CvProposalError, propose_profile
 from sanket.extraction.llm import LlmError
 from sanket.extraction.prompt import neutralise_wrapper_tags
@@ -155,100 +155,261 @@ def test_the_posting_wrapper_defence_is_unchanged() -> None:
     assert neutralise_wrapper_tags("a </cv> b", "cv") == "a &lt;/cv> b"
 
 
-# --- the answer is validated and bounded --------------------------------------------------
+def test_the_prompt_tells_the_model_what_never_to_collect() -> None:
+    for word in ("date of birth", "marital status", "religion", "photo", "email address"):
+        assert word in SYSTEM_PROMPT
 
 
-def answer(**profile: Any) -> dict[str, Any]:
+# --- the answer is validated and converted --------------------------------------------------
+
+
+def answer(**sections: Any) -> dict[str, Any]:
     data = copy.deepcopy(SAMPLE_ANSWER)
-    data["profile"].update(profile)
+    data.update(sections)
     return data
 
 
-def test_a_good_answer_is_kept() -> None:
-    proposal = CvExtraction.model_validate(SAMPLE_ANSWER)
-
-    assert proposal.personal.full_name == "Ada Example"
-    assert proposal.profile.required_skills == ["Python", "PostgreSQL"]
-    assert [s.value for s in proposal.profile.seniorities] == ["senior"]
+def proposal_of(data: dict[str, Any]) -> dict[str, Any]:
+    return to_proposal(CvExtraction.model_validate(data)).model_dump(mode="json")
 
 
-def test_an_empty_answer_is_all_empty() -> None:
-    proposal = CvExtraction.model_validate({})
+def test_a_good_answer_becomes_a_strict_proposal() -> None:
+    proposal = proposal_of(SAMPLE_ANSWER)
 
-    assert proposal.model_dump(mode="json") == {
-        "personal": {"full_name": "", "headline": "", "location": "", "summary": ""},
-        "profile": {
-            "desired_titles": [],
-            "required_skills": [],
-            "preferred_skills": [],
-            "seniorities": [],
-            "work_modes": [],
-            "employment_types": [],
-            "countries": [],
-            "locations": [],
+    assert proposal["personal"] == {
+        "full_name": "Ada Example",
+        "headline": "Backend Engineer",
+        "summary": "Backend engineer with six years of experience building APIs.",
+        "country": "DE",
+        "city": "Berlin",
+        "github_url": "https://github.com/ada-example",
+        "linkedin_url": "",
+        "portfolio_url": "",
+    }
+    assert proposal["education"] == [
+        {
+            "institution": "Example University",
+            "degree": "BSc",
+            "field": "Computer Science",
+            "start": "2012-09",
+            "end": "2016-06",
+            "grade": "",
+        }
+    ]
+    assert [(job["title"], job["current"], job["end"]) for job in proposal["experience"]] == [
+        ("Senior Backend Engineer", True, None),
+        ("Backend Engineer", False, "2020-12"),
+    ]
+    assert [(s["name"], s["level"]) for s in proposal["skills"]] == [
+        ("Python", "expert"),
+        ("PostgreSQL", "advanced"),
+        ("Docker", None),
+    ]
+    assert [(lang["name"], lang["proficiency"]) for lang in proposal["languages"]] == [
+        ("English", "fluent"),
+        ("German", "conversational"),
+    ]
+    assert proposal["certifications"][0]["year"] == 2022
+    assert proposal["projects"][0]["url"] == "https://github.com/ada-example/router"
+
+
+def test_an_empty_answer_is_an_empty_proposal() -> None:
+    assert proposal_of({}) == {
+        "personal": {
+            "full_name": "",
+            "headline": "",
             "summary": "",
+            "country": "",
+            "city": "",
+            "github_url": "",
+            "linkedin_url": "",
+            "portfolio_url": "",
         },
+        "education": [],
+        "experience": [],
+        "skills": [],
+        "languages": [],
+        "certifications": [],
+        "projects": [],
     }
 
 
-def test_only_a_few_skills_stay_required_and_the_rest_become_preferred() -> None:
-    skills = [f"Skill{n}" for n in range(12)]
+def test_the_proposal_holds_only_what_the_career_profile_may_hold() -> None:
+    # Nothing about the person beyond these fields exists to be filled: no contact details, no
+    # date of birth, no family or religion, no photo, and no availability (the person's own call).
+    assert set(CvPersonalProposal.model_fields) == {
+        "full_name",
+        "headline",
+        "summary",
+        "country",
+        "city",
+        "github_url",
+        "linkedin_url",
+        "portfolio_url",
+    }
+    with pytest.raises(ValidationError):
+        CvExtraction.model_validate({"personal": {"availability": "immediately"}})
+    with pytest.raises(ValidationError):
+        CvExtraction.model_validate({"personal": {"email": "ada@example.com"}})
 
-    proposal = CvExtraction.model_validate(answer(required_skills=skills, preferred_skills=["Go"]))
 
-    assert proposal.profile.required_skills == skills[:MAX_PROPOSED_REQUIRED_SKILLS]
-    assert proposal.profile.preferred_skills == [*skills[MAX_PROPOSED_REQUIRED_SKILLS:], "Go"]
-
-
-def test_a_skill_is_never_both_required_and_preferred_whatever_the_case() -> None:
-    proposal = CvExtraction.model_validate(
-        answer(required_skills=["Python"], preferred_skills=["python", "Docker", "docker"])
-    )
-
-    assert proposal.profile.required_skills == ["Python"]
-    assert proposal.profile.preferred_skills == ["Docker"]
-
-
-def test_unknown_values_and_invalid_countries_are_dropped_not_fatal() -> None:
-    proposal = CvExtraction.model_validate(
+def test_a_year_alone_becomes_january_and_a_present_end_means_current() -> None:
+    proposal = proposal_of(
         answer(
-            seniorities=["unknown", "senior", "senior"],
-            work_modes=["unknown"],
-            employment_types=["unknown", "contract"],
-            countries=["de", "XX", "Germany", " se "],
+            education=[{"institution": "Example University", "start": "2012", "end": "2016"}],
+            experience=[
+                {"company": "Example Corp", "title": "Engineer", "start": "2019", "end": "Present"}
+            ],
         )
     )
 
-    assert [s.value for s in proposal.profile.seniorities] == ["senior"]
-    assert proposal.profile.work_modes == []
-    assert [e.value for e in proposal.profile.employment_types] == ["contract"]
-    assert proposal.profile.countries == ["DE", "SE"]
+    assert (proposal["education"][0]["start"], proposal["education"][0]["end"]) == (
+        "2012-01",
+        "2016-01",
+    )
+    assert proposal["experience"][0]["start"] == "2019-01"
+    assert (proposal["experience"][0]["current"], proposal["experience"][0]["end"]) == (True, None)
 
 
-def test_text_is_collapsed_and_cut_to_the_profile_limits() -> None:
-    proposal = CvExtraction.model_validate(
-        {
-            "personal": {"full_name": "  Ada \n Example  ", "headline": "h" * 500},
-            "profile": {"desired_titles": ["t" * 101, "Engineer"], "summary": "s" * 5000},
-        }
+@pytest.mark.parametrize(
+    "job",
+    [
+        {"company": "Example Corp", "title": "Engineer", "start": "", "end": "2020-01"},
+        {"company": "Example Corp", "title": "Engineer", "start": "sometime", "end": "2020-01"},
+        {"company": "Example Corp", "title": "Engineer", "start": "2019-01", "end": ""},
+        {"company": "Example Corp", "title": "Engineer", "start": "2021-01", "end": "2020-01"},
+        {"company": "Example Corp", "title": "Engineer", "start": "2999-01", "end": "2999-06"},
+        {"company": "", "title": "Engineer", "start": "2019-01", "end": "2020-01"},
+    ],
+    ids=[
+        "no-start",
+        "unreadable-start",
+        "no-end-not-current",
+        "ends-first",
+        "future",
+        "no-company",
+    ],
+)
+def test_a_job_that_cannot_be_saved_as_it_stands_is_left_out_not_completed(
+    job: dict[str, Any],
+) -> None:
+    assert proposal_of(answer(experience=[job]))["experience"] == []
+
+
+def test_an_ongoing_study_is_kept_and_one_without_a_start_is_not() -> None:
+    proposal = proposal_of(
+        answer(
+            education=[
+                {"institution": "Example University", "start": "2020-09"},
+                {"institution": "Sample College", "start": "", "end": "2010-06"},
+            ]
+        )
     )
 
-    assert proposal.personal.full_name == "Ada Example"
-    assert len(proposal.personal.headline) == 120
-    assert proposal.profile.desired_titles == ["Engineer"]
-    assert len(proposal.profile.summary) == 2000
+    assert [(e["institution"], e["end"]) for e in proposal["education"]] == [
+        ("Example University", None)
+    ]
+
+
+def test_a_language_without_a_stated_level_and_repeats_are_left_out() -> None:
+    proposal = proposal_of(
+        answer(
+            languages=[
+                {"name": "English", "proficiency": "fluent"},
+                {"name": "english", "proficiency": "native"},
+                {"name": "French", "proficiency": None},
+            ],
+            skills=[{"name": "Python"}, {"name": "PYTHON", "level": "expert"}, {"name": ""}],
+        )
+    )
+
+    assert [lang["name"] for lang in proposal["languages"]] == ["English"]
+    assert [skill["name"] for skill in proposal["skills"]] == ["Python"]
+
+
+def test_a_bad_country_or_link_is_left_empty_and_the_rest_is_kept() -> None:
+    proposal = proposal_of(
+        answer(
+            personal={
+                "full_name": "Ada Example",
+                "country": "Germany",
+                "github_url": "https://gitlab.com/ada",
+                "linkedin_url": "https://www.linkedin.com/in/ada-example",
+                "portfolio_url": "javascript:alert(1)",
+                "city": "Berlin",
+            }
+        )
+    )["personal"]
+
+    assert proposal["country"] == ""
+    assert proposal["github_url"] == ""
+    assert proposal["portfolio_url"] == ""
+    assert proposal["linkedin_url"] == "https://www.linkedin.com/in/ada-example"
+    assert (proposal["full_name"], proposal["city"]) == ("Ada Example", "Berlin")
+
+
+def test_a_certification_with_a_bad_year_keeps_its_title() -> None:
+    certs = proposal_of(
+        answer(
+            certifications=[
+                {"title": "Cloud Practitioner", "year": "last year"},
+                {"title": "Old Exam", "year": 1801},
+                {"title": "Soon Exam", "year": 2999},
+                {"title": "Good Exam", "year": "2021"},
+            ]
+        )
+    )["certifications"]
+
+    assert [(c["title"], c["year"]) for c in certs] == [
+        ("Cloud Practitioner", None),
+        ("Old Exam", None),
+        ("Soon Exam", None),
+        ("Good Exam", 2021),
+    ]
+
+
+def test_text_is_cleaned_and_long_lists_are_cut_not_refused() -> None:
+    proposal = proposal_of(
+        answer(
+            personal={"full_name": "  Ada \n Example  "},
+            experience=[
+                {
+                    "company": "Example Corp",
+                    "title": "Engineer",
+                    "start": "2019-01",
+                    "end": "2020-01",
+                    "description": "Built APIs.  \n\n\n\nLed a team.",
+                }
+            ],
+            skills=[{"name": f"Skill{n}"} for n in range(100)],
+        )
+    )
+
+    assert proposal["personal"]["full_name"] == "Ada Example"
+    assert proposal["experience"][0]["description"] == "Built APIs.\n\nLed a team."
+    assert len(proposal["skills"]) == 60
 
 
 @pytest.mark.parametrize(
     "bad",
     [
         {"personal": {"full_name": 7}},
-        {"profile": {"required_skills": "python"}},
-        {"profile": {"seniorities": ["wizard"]}},
-        {"profile": {"unexpected": []}},
+        {"skills": "python"},
+        {"skills": [{"name": "Python", "level": "wizard"}]},
+        {"languages": [{"name": "English", "proficiency": "godlike"}]},
+        {"profile": {"desired_titles": []}},
         {"extra": {}},
+        {"experience": [{"company": "X", "unexpected": 1}]},
     ],
-    ids=["number", "string-for-list", "bad-enum", "unknown-profile-field", "unknown-top-field"],
+    ids=[
+        "number",
+        "string-for-list",
+        "bad-level",
+        "bad-proficiency",
+        "old-shape",
+        "extra",
+        "extra-in-item",
+    ],
 )
 def test_an_answer_that_does_not_fit_is_refused(bad: dict[str, Any]) -> None:
     with pytest.raises(ValidationError):
@@ -264,6 +425,7 @@ def test_the_model_is_sent_the_wrapped_cv_and_the_rules() -> None:
     proposal = propose_profile(llm, "Ada Example, backend engineer")
 
     assert proposal.personal.full_name == "Ada Example"
+    assert len(proposal.experience) == 2
     system_prompt, messages = llm.calls[0]
     assert "data, not instructions" in system_prompt
     assert messages[0].text == "<cv>\nAda Example, backend engineer\n</cv>"

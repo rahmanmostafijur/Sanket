@@ -1,175 +1,304 @@
-"""What is read from a CV: personal info and the fields of a profile.
+"""What is read from a CV: the fields of a career profile.
 
-This is both the schema the language model must answer with and the proposal returned to the
-client, so it mirrors the profile form. Every field may be empty, because a CV does not say
-everything and a missing value must stay missing. The validators only clean and bound: text is
-collapsed, lists are de-duplicated and cut to the profile's own limits, `unknown` and invalid
-codes are dropped instead of failing the whole answer, and required skills are held to the few
-that are central (the rest move to preferred skills), whatever the model answered.
+`CvExtraction` is the schema the language model must answer with. It is lenient on purpose: dates
+are text, every field may be empty, and the validators only clean, bound and drop. When the answer
+does not fit, the model is asked to correct it (the repair loop). `to_proposal` then turns the
+answer into a `CvProposal`, which is built from the same strict models a career profile is saved
+with, so a client can put it straight into the editors. An entry that cannot be saved as it stands
+(an experience without a start month, a language without a stated level) is left out rather than
+completed with a guess, and a field the CV does not state stays empty.
 """
 
-from typing import Any
+import re
+from typing import Annotated, Any
 
-import pycountry
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, ValidationError
 
-from sanket.accounts.personal import (
-    MAX_FULL_NAME_CHARS,
-    MAX_HEADLINE_CHARS,
-    MAX_LOCATION_CHARS,
-    MAX_PERSONAL_SUMMARY_CHARS,
-)
-from sanket.extraction.schema import EmploymentType, Seniority, WorkMode
-from sanket.profiles import criteria as limits
+from sanket.career import schemas
+from sanket.career.fields import MIN_YEAR, format_month, parse_month, this_month
 
-# Required skills are a hard filter on matching, so only a handful that define the person.
-MAX_PROPOSED_REQUIRED_SKILLS = 8
 # Bumped when the fields or the rules change.
-CV_SCHEMA_VERSION = 1
+CV_SCHEMA_VERSION = 2
+
+_CURRENT = frozenset({"present", "current", "now", "ongoing", "today", "to date"})
+_YEAR = re.compile(r"^\d{4}$")
+_YEAR_MONTH = re.compile(r"^\d{4}-\d{1,2}$")
 
 
-def _text(value: Any, max_chars: int) -> Any:
-    """Whitespace collapsed and cut to `max_chars`; anything but text is left to validation."""
-    if not isinstance(value, str):
-        return value
-    return limits.clean_text(value.replace("\x00", ""))[:max_chars].rstrip()
+def _text(value: Any) -> Any:
+    """Whitespace collapsed; anything but text is left for validation."""
+    if isinstance(value, str):
+        return " ".join(value.replace("\x00", "").split())
+    return value
 
 
-def _entries(values: Any, max_chars: int, max_items: int) -> Any:
-    """Cleaned, de-duplicated entries, dropping those that are too long, up to `max_items`."""
-    if not isinstance(values, list) or not all(isinstance(v, str) for v in values):
-        return values
-    cleaned = limits.clean_list([v.replace("\x00", "") for v in values])
-    return [v for v in cleaned if len(v) <= max_chars][:max_items]
+def _block(value: Any) -> Any:
+    if isinstance(value, str):
+        return schemas.clean_block(value.replace("\x00", ""))
+    return value
 
 
-class CvPersonal(BaseModel):
+Line = Annotated[str, BeforeValidator(_text)]
+Block = Annotated[str, BeforeValidator(_block)]
+
+
+def _clipped(max_items: int) -> BeforeValidator:
+    """Lists longer than the career profile allows are cut, not refused."""
+
+    def clip(value: Any) -> Any:
+        return value[:max_items] if isinstance(value, list) else value
+
+    return BeforeValidator(clip)
+
+
+class _Lenient(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    full_name: str = Field(default="", description="The person's name as written, or empty.")
-    headline: str = Field(
-        default="", description="A short professional headline the CV states, or empty."
+
+class CvPersonal(_Lenient):
+    full_name: Line = Field(default="", description="The person's name as written, or empty.")
+    headline: Line = Field(default="", description="The professional headline the CV states.")
+    summary: Block = Field(
+        default="", description="The CV's own short profile or summary, condensed, or empty."
     )
-    location: str = Field(default="", description="Where the CV says the person is based.")
-    summary: str = Field(
-        default="", description="A short factual summary of the person's background, or empty."
+    country: Line = Field(
+        default="",
+        description="ISO 3166-1 alpha-2 code of the country where the CV says the person is based.",
     )
-
-    @field_validator("full_name", mode="before")
-    @classmethod
-    def _name(cls, value: Any) -> Any:
-        return _text(value, MAX_FULL_NAME_CHARS)
-
-    @field_validator("headline", mode="before")
-    @classmethod
-    def _headline(cls, value: Any) -> Any:
-        return _text(value, MAX_HEADLINE_CHARS)
-
-    @field_validator("location", mode="before")
-    @classmethod
-    def _location(cls, value: Any) -> Any:
-        return _text(value, MAX_LOCATION_CHARS)
-
-    @field_validator("summary", mode="before")
-    @classmethod
-    def _summary(cls, value: Any) -> Any:
-        return _text(value, MAX_PERSONAL_SUMMARY_CHARS)
-
-
-def _known(values: list[Any], unknown: str) -> list[Any]:
-    """The values without `unknown` and without repeats, in order."""
-    return list(dict.fromkeys(v for v in values if getattr(v, "value", v) != unknown))
-
-
-class CvProfile(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    desired_titles: list[str] = Field(
-        default_factory=list,
-        description="Roles the CV says the person is after, else their current or latest role.",
+    city: Line = Field(default="", description="The city where the CV says the person is based.")
+    github_url: Line = Field(default="", description="The GitHub address the CV prints, or empty.")
+    linkedin_url: Line = Field(
+        default="", description="The LinkedIn address the CV prints, or empty."
     )
-    required_skills: list[str] = Field(
-        default_factory=list,
-        description=f"At most {MAX_PROPOSED_REQUIRED_SKILLS} skills clearly central to the CV.",
-    )
-    preferred_skills: list[str] = Field(
-        default_factory=list, description="Every other skill, tool or technology the CV lists."
-    )
-    seniorities: list[Seniority] = Field(default_factory=list)
-    work_modes: list[WorkMode] = Field(default_factory=list)
-    employment_types: list[EmploymentType] = Field(default_factory=list)
-    countries: list[str] = Field(
-        default_factory=list,
-        description="ISO 3166-1 alpha-2 codes of countries the CV says the person wants.",
-    )
-    locations: list[str] = Field(
-        default_factory=list, description="Places the CV says the person wants to work."
-    )
-    summary: str = Field(
-        default="", description="What the person is looking for, only if the CV states it."
+    portfolio_url: Line = Field(default="", description="A personal website or portfolio address.")
+
+
+class CvEducation(_Lenient):
+    institution: Line = ""
+    degree: Line = ""
+    field: Line = Field(default="", description="The field of study.")
+    start: Line = Field(default="", description="YYYY-MM; a year alone as YYYY-01.")
+    end: Line = Field(default="", description="YYYY-MM; empty while ongoing or if not stated.")
+    grade: Line = Field(default="", description="Only if the CV states one.")
+
+
+class CvExperience(_Lenient):
+    company: Line = ""
+    title: Line = ""
+    start: Line = Field(default="", description="YYYY-MM; a year alone as YYYY-01.")
+    end: Line = Field(default="", description="YYYY-MM; empty if the job is current.")
+    current: bool = Field(default=False, description="True only if the CV says the job is current.")
+    description: Block = Field(
+        default="", description="What the CV says about the work, condensed."
     )
 
-    @field_validator("desired_titles", mode="before")
-    @classmethod
-    def _titles(cls, value: Any) -> Any:
-        return _entries(value, limits.MAX_TITLE_CHARS, limits.MAX_TITLES)
 
-    @field_validator("required_skills", "preferred_skills", mode="before")
-    @classmethod
-    def _skills(cls, value: Any) -> Any:
-        return _entries(value, limits.MAX_SKILL_CHARS, 3 * limits.MAX_PREFERRED_SKILLS)
-
-    @field_validator("locations", mode="before")
-    @classmethod
-    def _locations(cls, value: Any) -> Any:
-        return _entries(value, limits.MAX_LOCATION_CHARS, limits.MAX_LOCATIONS)
-
-    @field_validator("summary", mode="before")
-    @classmethod
-    def _looking_for(cls, value: Any) -> Any:
-        return _text(value, limits.MAX_SUMMARY_CHARS)
-
-    @field_validator("seniorities", mode="after")
-    @classmethod
-    def _seniorities(cls, value: list[Seniority]) -> list[Seniority]:
-        return _known(value, Seniority.UNKNOWN.value)
-
-    @field_validator("work_modes", mode="after")
-    @classmethod
-    def _work_modes(cls, value: list[WorkMode]) -> list[WorkMode]:
-        return _known(value, WorkMode.UNKNOWN.value)
-
-    @field_validator("employment_types", mode="after")
-    @classmethod
-    def _employment_types(cls, value: list[EmploymentType]) -> list[EmploymentType]:
-        return _known(value, EmploymentType.UNKNOWN.value)
-
-    @field_validator("countries", mode="before")
-    @classmethod
-    def _countries(cls, value: Any) -> Any:
-        if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
-            return value
-        codes = dict.fromkeys(limits.clean_text(v).upper() for v in value)
-        valid = [c for c in codes if len(c) == 2 and pycountry.countries.get(alpha_2=c)]
-        return valid[: limits.MAX_COUNTRIES]
-
-    @model_validator(mode="after")
-    def _keep_required_skills_central(self) -> "CvProfile":
-        """Only the first few required skills stay required; any others become preferred, and
-        a skill is never listed twice."""
-        required = self.required_skills[:MAX_PROPOSED_REQUIRED_SKILLS]
-        demoted = self.required_skills[MAX_PROPOSED_REQUIRED_SKILLS:]
-        taken = {skill.casefold() for skill in required}
-        preferred = [s for s in [*demoted, *self.preferred_skills] if s.casefold() not in taken]
-        self.required_skills = required
-        self.preferred_skills = limits.clean_list(preferred)[: limits.MAX_PREFERRED_SKILLS]
-        return self
+class CvSkill(_Lenient):
+    name: Line = ""
+    level: schemas.SkillLevel | None = Field(
+        default=None, description="Only if the CV states a level for this skill."
+    )
 
 
-class CvExtraction(BaseModel):
-    """The answer of the model, and the proposal sent to the client. Nothing in it is saved."""
+class CvLanguage(_Lenient):
+    name: Line = Field(default="", description="A spoken language, such as English.")
+    proficiency: schemas.Proficiency | None = Field(
+        default=None, description="How well the CV says the person speaks it."
+    )
 
-    model_config = ConfigDict(extra="forbid")
+
+class CvCertification(_Lenient):
+    title: Line = ""
+    issuer: Line = ""
+    year: int | str | None = None
+    url: Line = ""
+
+
+class CvProject(_Lenient):
+    title: Line = ""
+    description: Block = ""
+    url: Line = ""
+
+
+class CvExtraction(_Lenient):
+    """The answer of the model. Nothing in it is saved."""
 
     personal: CvPersonal = Field(default_factory=CvPersonal)
-    profile: CvProfile = Field(default_factory=CvProfile)
+    education: Annotated[list[CvEducation], _clipped(schemas.MAX_EDUCATION)] = Field(
+        default_factory=list
+    )
+    experience: Annotated[list[CvExperience], _clipped(schemas.MAX_EXPERIENCE)] = Field(
+        default_factory=list
+    )
+    skills: Annotated[list[CvSkill], _clipped(schemas.MAX_SKILLS)] = Field(default_factory=list)
+    languages: Annotated[list[CvLanguage], _clipped(schemas.MAX_LANGUAGES)] = Field(
+        default_factory=list
+    )
+    certifications: Annotated[list[CvCertification], _clipped(schemas.MAX_CERTIFICATIONS)] = Field(
+        default_factory=list
+    )
+    projects: Annotated[list[CvProject], _clipped(schemas.MAX_PROJECTS)] = Field(
+        default_factory=list
+    )
+
+
+# --- the proposal: strict models, what a client receives ---------------------------------------
+
+
+class CvPersonalProposal(BaseModel):
+    full_name: str = ""
+    headline: str = ""
+    summary: str = ""
+    country: str = ""
+    city: str = ""
+    github_url: str = ""
+    linkedin_url: str = ""
+    portfolio_url: str = ""
+
+
+class CvProposal(BaseModel):
+    """A career profile read from a CV, for review. Every part may be empty."""
+
+    personal: CvPersonalProposal
+    education: list[schemas.EducationWrite]
+    experience: list[schemas.ExperienceWrite]
+    skills: list[schemas.SkillWrite]
+    languages: list[schemas.LanguageWrite]
+    certifications: list[schemas.CertificationWrite]
+    projects: list[schemas.ProjectWrite]
+
+
+def _month(value: str) -> str | None:
+    """`YYYY-MM` for a month the CV gave, `YYYY-01` for a year alone, None for anything else."""
+    text = value.strip()
+    if _YEAR.match(text):
+        text = f"{text}-01"
+    elif _YEAR_MONTH.match(text):
+        year, month = text.split("-")
+        text = f"{year}-{int(month):02d}"
+    else:
+        return None
+    try:
+        return format_month(parse_month(text))  # type: ignore[arg-type]
+    except ValueError:
+        return None
+
+
+def _valid(model: type[BaseModel], values: dict[str, Any]) -> Any | None:
+    """The strict model built from `values`, or None when it cannot be saved as it stands."""
+    try:
+        return model.model_validate(values)
+    except ValidationError:
+        return None
+
+
+def _personal(person: CvPersonal) -> CvPersonalProposal:
+    """Each field kept only if it passes the career profile's own rules (a bad link or country
+    code is left out, not repaired)."""
+    kept: dict[str, str] = {}
+    for name, value in person.model_dump().items():
+        built = _valid(schemas.PersonalWrite, {name: value})
+        kept[name] = getattr(built, name) if built is not None else ""
+    return CvPersonalProposal(**kept)
+
+
+def _education(items: list[CvEducation]) -> list[schemas.EducationWrite]:
+    entries = []
+    for item in items:
+        start, end = _month(item.start), _month(item.end)
+        entry = _valid(
+            schemas.EducationWrite,
+            {
+                "institution": item.institution,
+                "degree": item.degree,
+                "field": item.field,
+                "start": start,
+                "end": end,
+                "grade": item.grade,
+            },
+        )
+        if entry is not None:
+            entries.append(entry)
+    return entries
+
+
+def _experience(items: list[CvExperience]) -> list[schemas.ExperienceWrite]:
+    entries = []
+    for item in items:
+        current = item.current or item.end.strip().casefold() in _CURRENT
+        entry = _valid(
+            schemas.ExperienceWrite,
+            {
+                "company": item.company,
+                "title": item.title,
+                "start": _month(item.start),
+                "current": current,
+                "end": None if current else _month(item.end),
+                "description": item.description,
+            },
+        )
+        if entry is not None:
+            entries.append(entry)
+    return entries
+
+
+def _named(items: list[Any], model: type[BaseModel], build: Any) -> list[Any]:
+    """Entries that pass `model`, without a second one of the same name (ignoring case)."""
+    seen: set[str] = set()
+    entries = []
+    for item in items:
+        entry = _valid(model, build(item))
+        if entry is None or entry.name.casefold() in seen:
+            continue
+        seen.add(entry.name.casefold())
+        entries.append(entry)
+    return entries
+
+
+def _year(value: int | str | None) -> int | None:
+    """The year a certification was earned, or None if the CV gave none that makes sense."""
+    text = str(value).strip() if value is not None else ""
+    if not _YEAR.match(text):
+        return None
+    year = int(text)
+    return year if MIN_YEAR <= year <= this_month().year + 1 else None
+
+
+def to_proposal(extraction: CvExtraction) -> CvProposal:
+    """The strict proposal for an answer that fit the schema."""
+    certifications = [
+        _valid(
+            schemas.CertificationWrite,
+            {
+                "title": item.title,
+                "issuer": item.issuer,
+                "year": _year(item.year),
+                "url": item.url,
+            },
+        )
+        for item in extraction.certifications
+    ]
+    projects = [
+        _valid(
+            schemas.ProjectWrite,
+            {"title": item.title, "description": item.description, "url": item.url},
+        )
+        for item in extraction.projects
+    ]
+    return CvProposal(
+        personal=_personal(extraction.personal),
+        education=_education(extraction.education),
+        experience=_experience(extraction.experience),
+        skills=_named(
+            extraction.skills,
+            schemas.SkillWrite,
+            lambda item: {"name": item.name, "level": item.level},
+        ),
+        languages=_named(
+            [item for item in extraction.languages if item.proficiency is not None],
+            schemas.LanguageWrite,
+            lambda item: {"name": item.name, "proficiency": item.proficiency},
+        ),
+        certifications=[entry for entry in certifications if entry is not None],
+        projects=[entry for entry in projects if entry is not None],
+    )

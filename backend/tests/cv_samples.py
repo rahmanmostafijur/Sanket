@@ -33,20 +33,60 @@ SAMPLE_ANSWER: dict[str, Any] = {
     "personal": {
         "full_name": "Ada Example",
         "headline": "Backend Engineer",
-        "location": "Berlin, Germany",
         "summary": "Backend engineer with six years of experience building APIs.",
+        "country": "DE",
+        "city": "Berlin",
+        "github_url": "github.com/ada-example",
+        "linkedin_url": "",
+        "portfolio_url": "",
     },
-    "profile": {
-        "desired_titles": ["Backend Engineer"],
-        "required_skills": ["Python", "PostgreSQL"],
-        "preferred_skills": ["FastAPI", "Docker", "Kubernetes", "Redis", "Terraform"],
-        "seniorities": ["senior"],
-        "work_modes": ["remote"],
-        "employment_types": [],
-        "countries": ["DE", "SE"],
-        "locations": [],
-        "summary": "",
-    },
+    "education": [
+        {
+            "institution": "Example University",
+            "degree": "BSc",
+            "field": "Computer Science",
+            "start": "2012-09",
+            "end": "2016-06",
+            "grade": "",
+        }
+    ],
+    "experience": [
+        {
+            "company": "Example Corp",
+            "title": "Senior Backend Engineer",
+            "start": "2021-01",
+            "end": "",
+            "current": True,
+            "description": "Built REST services with Python and PostgreSQL.",
+        },
+        {
+            "company": "Sample GmbH",
+            "title": "Backend Engineer",
+            "start": "2018-03",
+            "end": "2020-12",
+            "current": False,
+            "description": "",
+        },
+    ],
+    "skills": [
+        {"name": "Python", "level": "expert"},
+        {"name": "PostgreSQL", "level": "advanced"},
+        {"name": "Docker", "level": None},
+    ],
+    "languages": [
+        {"name": "English", "proficiency": "fluent"},
+        {"name": "German", "proficiency": "conversational"},
+    ],
+    "certifications": [
+        {"title": "Cloud Practitioner", "issuer": "Example Cloud", "year": 2022, "url": ""}
+    ],
+    "projects": [
+        {
+            "title": "Example Router",
+            "description": "An open-source HTTP router.",
+            "url": "https://github.com/ada-example/router",
+        }
+    ],
 }
 
 LINES_PER_PAGE = 45
