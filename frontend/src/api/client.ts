@@ -1,5 +1,7 @@
 import type { ApiErrorBody } from './types'
 
+export type ApiErrorDetail = NonNullable<ApiErrorBody['error']['details']>[number]
+
 export interface ApiConfig {
   /** Where the API is mounted, e.g. "/api" behind the dev proxy. No trailing slash needed. */
   baseUrl: string
@@ -15,6 +17,8 @@ export interface RequestOptions {
   query?: Record<string, QueryValue>
   body?: unknown
   signal?: AbortSignal
+  /** Whether a 401 runs the global unauthorized handler. Off for sign-in calls, where a 401 is a wrong password. */
+  reportUnauthorized?: boolean
 }
 
 export type ApiErrorCode = 'network_error' | 'unreachable' | string
@@ -26,6 +30,8 @@ export class ApiError extends Error {
   readonly requestId: string | null
   /** How long the server asked us to wait (a 429's or 503's `Retry-After`), or null. */
   readonly retryAfterMs: number | null
+  /** Which inputs a validation error (422) is about; empty otherwise. */
+  readonly details: readonly ApiErrorDetail[]
 
   constructor(
     status: number,
@@ -33,6 +39,7 @@ export class ApiError extends Error {
     message: string,
     requestId: string | null = null,
     retryAfterMs: number | null = null,
+    details: readonly ApiErrorDetail[] = [],
   ) {
     super(message)
     this.name = 'ApiError'
@@ -40,6 +47,7 @@ export class ApiError extends Error {
     this.code = code
     this.requestId = requestId
     this.retryAfterMs = retryAfterMs
+    this.details = details
   }
 
   get isRateLimited(): boolean {
@@ -89,8 +97,8 @@ async function errorFrom(response: Response): Promise<ApiError> {
   const body: unknown = await response.json().catch(() => null)
   const retryAfterMs = parseRetryAfter(response.headers.get('Retry-After'))
   if (isErrorBody(body)) {
-    const { code, message, request_id: requestId } = body.error
-    return new ApiError(response.status, code, message, requestId ?? null, retryAfterMs)
+    const { code, message, request_id: requestId, details } = body.error
+    return new ApiError(response.status, code, message, requestId ?? null, retryAfterMs, Array.isArray(details) ? details : [])
   }
   if (response.status === 429) {
     return new ApiError(429, 'rate_limited', 'Too many requests. Please wait a moment.', null, retryAfterMs)
@@ -139,7 +147,7 @@ export async function apiRequest<T>(
   }
   if (!response.ok) {
     const error = await errorFrom(response)
-    if (response.status === 401) notifyUnauthorized()
+    if (response.status === 401 && options.reportUnauthorized !== false) notifyUnauthorized()
     throw error
   }
   if (response.status === 204) return undefined as T
@@ -152,7 +160,7 @@ export function errorMessage(error: unknown): string {
     if (error.isUnauthorized) {
       return import.meta.env.DEV
         ? 'Authentication required. Add an API key or token in Settings, under Developers.'
-        : 'Sanket could not authorise this request.'
+        : 'Sign in to your account to continue.'
     }
     return error.message
   }

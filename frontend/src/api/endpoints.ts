@@ -1,5 +1,7 @@
 import { apiRequest, buildUrl, type ApiConfig } from './client'
 import type {
+  AccessToken,
+  Credentials,
   JobDetail,
   JobListParams,
   JobListResponse,
@@ -17,6 +19,16 @@ import type {
 
 export function getHealth(config: ApiConfig, signal?: AbortSignal): Promise<unknown> {
   return apiRequest(config, '/healthz', { signal })
+}
+
+/** Creates an account and returns a token for it. A 401 here is not a lost session, so it is not reported. */
+export function signUp(config: ApiConfig, credentials: Credentials): Promise<AccessToken> {
+  return apiRequest(config, '/auth/signup', { method: 'POST', body: credentials, reportUnauthorized: false })
+}
+
+/** Signs in with an email and password. A wrong password is a 401 that must stay on the sign-in page. */
+export function logIn(config: ApiConfig, credentials: Credentials): Promise<AccessToken> {
+  return apiRequest(config, '/auth/login', { method: 'POST', body: credentials, reportUnauthorized: false })
 }
 
 export function searchJobs(

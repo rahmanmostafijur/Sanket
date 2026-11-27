@@ -235,3 +235,17 @@ export interface ApiErrorBody {
     details?: { loc?: (string | number)[]; msg?: string; type?: string }[]
   }
 }
+
+/** What sign-up and sign-in send. */
+export interface Credentials {
+  email: string
+  password: string
+}
+
+/** A signed-in session: a short-lived bearer token for the account. */
+export interface AccessToken {
+  access_token: string
+  token_type: string
+  expires_in: number
+  email: string
+}

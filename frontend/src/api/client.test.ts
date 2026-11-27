@@ -1,5 +1,5 @@
 import { ApiError, apiRequest, buildUrl, errorMessage, setUnauthorizedHandler } from './client'
-import { streamUrl } from './endpoints'
+import { logIn, signUp, streamUrl } from './endpoints'
 
 const config = { baseUrl: '/api', token: 'secret-key' }
 
@@ -72,6 +72,15 @@ describe('unauthorized handler', () => {
     expect(error).toMatchObject({ name: 'ApiError', status: 401 })
   })
 
+  it('is not called when the caller opts out, as sign-in does for a wrong password', async () => {
+    const handler = vi.fn()
+    setUnauthorizedHandler(handler)
+    respond(401, { error: { code: 'unauthenticated', message: 'invalid email or password' } })
+    const error = await logIn({ baseUrl: '/api', token: null }, { email: 'a@b.co', password: 'x'.repeat(12) }).catch((e: unknown) => e)
+    expect(handler).not.toHaveBeenCalled()
+    expect(error).toMatchObject({ status: 401, message: 'invalid email or password' })
+  })
+
   it('is not called on a 403', async () => {
     const handler = vi.fn()
     setUnauthorizedHandler(handler)
@@ -85,6 +94,19 @@ describe('unauthorized handler', () => {
 describe('errorMessage', () => {
   it('points at the credential settings for 401', () => {
     expect(errorMessage(new ApiError(401, 'unauthorized', 'nope'))).toMatch(/Settings, under Developers/)
+  })
+})
+
+describe('account endpoints', () => {
+  it('posts the email and password to sign up without a credential', async () => {
+    const issued = { access_token: 'jwt', token_type: 'bearer', expires_in: 3600, email: 'a@b.co' }
+    respond(201, issued)
+    await expect(signUp({ baseUrl: '/api', token: null }, { email: 'a@b.co', password: 'long enough pw' })).resolves.toEqual(issued)
+    const [url, init] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/auth/signup')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body as string)).toEqual({ email: 'a@b.co', password: 'long enough pw' })
+    expect((init.headers as Record<string, string>).Authorization).toBeUndefined()
   })
 })
 
