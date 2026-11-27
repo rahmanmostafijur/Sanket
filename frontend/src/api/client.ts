@@ -16,6 +16,8 @@ export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   query?: Record<string, QueryValue>
   body?: unknown
+  /** A file sent as the raw request body, with its own type as the content type (no JSON, no multipart). */
+  rawBody?: Blob
   signal?: AbortSignal
   /** Whether a 401 runs the global unauthorized handler. Off for sign-in calls, where a 401 is a wrong password. */
   reportUnauthorized?: boolean
@@ -132,13 +134,14 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (config.token) headers.Authorization = `Bearer ${config.token}`
-  if (options.body !== undefined) headers['Content-Type'] = 'application/json'
+  if (options.rawBody) headers['Content-Type'] = options.rawBody.type || 'application/octet-stream'
+  else if (options.body !== undefined) headers['Content-Type'] = 'application/json'
   let response: Response
   try {
     response = await fetch(buildUrl(config.baseUrl, path, options.query), {
       method: options.method ?? 'GET',
       headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body: options.rawBody ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
       signal: options.signal,
     })
   } catch (error: unknown) {

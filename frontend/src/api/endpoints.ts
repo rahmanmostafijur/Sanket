@@ -2,10 +2,13 @@ import { apiRequest, buildUrl, type ApiConfig } from './client'
 import type {
   AccessToken,
   Credentials,
+  CvProposal,
   JobDetail,
   JobListParams,
   JobListResponse,
+  Me,
   MatchList,
+  PersonalInfo,
   Profile,
   ProfileWrite,
   SavedJobItem,
@@ -29,6 +32,20 @@ export function signUp(config: ApiConfig, credentials: Credentials): Promise<Acc
 /** Signs in with an email and password. A wrong password is a 401 that must stay on the sign-in page. */
 export function logIn(config: ApiConfig, credentials: Credentials): Promise<AccessToken> {
   return apiRequest(config, '/auth/login', { method: 'POST', body: credentials, reportUnauthorized: false })
+}
+
+/** The signed-in account; a 404 means the credential is not an account (API key). */
+export function getMe(config: ApiConfig, signal?: AbortSignal): Promise<Me> {
+  return apiRequest(config, '/me', { signal })
+}
+
+export function updateMe(config: ApiConfig, info: PersonalInfo): Promise<Me> {
+  return apiRequest(config, '/me', { method: 'PUT', body: info })
+}
+
+/** Reads a PDF or DOCX and returns what it says. The API saves nothing. */
+export function importCv(config: ApiConfig, file: File): Promise<CvProposal> {
+  return apiRequest(config, '/cv/import', { method: 'POST', rawBody: file })
 }
 
 export function searchJobs(

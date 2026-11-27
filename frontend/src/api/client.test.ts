@@ -110,6 +110,25 @@ describe('account endpoints', () => {
   })
 })
 
+describe('raw request body', () => {
+  it('sends a file as is with its own content type, not JSON', async () => {
+    respond(200, { ok: true })
+    const file = new File(['%PDF-1.7'], 'cv.pdf', { type: 'application/pdf' })
+    await apiRequest(config, '/cv/import', { method: 'POST', rawBody: file })
+    const [, init] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(init.body).toBe(file)
+    expect((init.headers as Record<string, string>)['Content-Type']).toBe('application/pdf')
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer secret-key')
+  })
+
+  it('falls back to a generic content type when the file has none', async () => {
+    respond(200, {})
+    await apiRequest(config, '/cv/import', { method: 'POST', rawBody: new File(['x'], 'cv.docx') })
+    const [, init] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect((init.headers as Record<string, string>)['Content-Type']).toBe('application/octet-stream')
+  })
+})
+
 describe('streamUrl', () => {
   it('carries the stream token and resume point', () => {
     const token = { token: 't0k', expires_in: 60, path: '/profiles/3/matches/stream', query_parameter: 'stream_token' }

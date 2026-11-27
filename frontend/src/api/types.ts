@@ -151,6 +151,8 @@ export interface SavedJobList {
 }
 
 export type EmbeddingStatus = 'pending' | 'ready' | 'failed'
+/** Why a profile is still "pending" or "failed": the provider's quota ran out, or another step failed. */
+export type EmbeddingNote = 'quota' | 'error'
 
 export interface ProfileCriteria {
   desired_titles: string[]
@@ -173,6 +175,7 @@ export interface ProfileWrite extends ProfileCriteria {
 export interface Profile extends ProfileWrite {
   id: number
   embedding_status: EmbeddingStatus
+  embedding_note?: EmbeddingNote | null
   created_at: string
   updated_at: string
 }
@@ -248,4 +251,33 @@ export interface AccessToken {
   token_type: string
   expires_in: number
   email: string
+}
+
+/** The signed-in account's own details (`GET /me`); empty strings when unset. */
+export interface PersonalInfo {
+  full_name: string
+  headline: string
+  location: string
+  summary: string
+}
+
+export interface Me extends PersonalInfo {
+  email: string
+}
+
+/** What `POST /cv/import` reads out of a CV. Nothing in it is saved by the API. */
+export interface CvProposal {
+  personal: PersonalInfo
+  profile: Pick<
+    ProfileCriteria,
+    | 'desired_titles'
+    | 'required_skills'
+    | 'preferred_skills'
+    | 'seniorities'
+    | 'work_modes'
+    | 'employment_types'
+    | 'countries'
+    | 'locations'
+    | 'summary'
+  >
 }

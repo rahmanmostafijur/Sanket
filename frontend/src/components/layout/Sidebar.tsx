@@ -9,7 +9,8 @@ import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger } from '@/componen
 import { SignInButton } from '@/components/auth/GuestPrompt'
 import { forgetSession, SIGN_IN_PATH, useIsGuest } from '@/lib/auth'
 import { cn } from '@/lib/cn'
-import { describeIdentity } from '@/lib/identity'
+import { useMe } from '@/hooks/data'
+import { describeIdentity, withDisplayName } from '@/lib/identity'
 import { useLiveFeed } from '@/stores/liveFeed'
 import { usePreferences } from '@/stores/preferences'
 import { useSession } from '@/stores/session'
@@ -87,7 +88,8 @@ function GuestRow({ collapsed }: { collapsed: boolean }) {
 function UserRow({ collapsed }: { collapsed: boolean }) {
   const token = useSession((s) => s.token)
   const guest = useIsGuest()
-  const identity = describeIdentity(token)
+  const me = useMe()
+  const identity = withDisplayName(describeIdentity(token), me.data?.full_name)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   if (guest) return <GuestRow collapsed={collapsed} />
@@ -106,10 +108,7 @@ function UserRow({ collapsed }: { collapsed: boolean }) {
         <Avatar initials={identity.initials} />
         {collapsed ? null : (
           <>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[14px] font-medium text-fg">{identity.name}</span>
-              <span className="block truncate text-[12px] text-muted">{identity.detail}</span>
-            </span>
+            <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-fg">{identity.name}</span>
             <ChevronRight className="size-4 text-muted" />
           </>
         )}

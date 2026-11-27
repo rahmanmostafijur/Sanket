@@ -12,11 +12,11 @@ import { Button } from '@/components/ui/Button'
 import { EmptyState, ErrorState } from '@/components/ui/States'
 import { Segmented, UnderlineTabs } from '@/components/ui/Tabs'
 import { activeFilterCount, EMPTY_FILTERS, filtersToApi, filtersToParams, matchesFilters, type JobFilters } from '@/features/jobs/filters'
-import { useActiveProfile, useJobList, useMatches } from '@/hooks/data'
+import { useActiveProfile, useJobList, useMatches, useMe } from '@/hooks/data'
 import { useIsGuest } from '@/lib/auth'
 import { cn } from '@/lib/cn'
 import { greeting, jobDate, monthlyUsd } from '@/lib/format'
-import { describeIdentity, firstName } from '@/lib/identity'
+import { describeIdentity, firstName, withDisplayName } from '@/lib/identity'
 import { usePreferences, type ResultsView } from '@/stores/preferences'
 import { useSession } from '@/stores/session'
 import { HeroHeading, HeroSearch } from './Hero'
@@ -63,7 +63,8 @@ function LatestJobs({ filters, view }: { filters: JobFilters; view: ResultsView 
 
 function useGreetingName(): string | null {
   const token = useSession((s) => s.token)
-  return firstName(describeIdentity(token))
+  const me = useMe()
+  return firstName(withDisplayName(describeIdentity(token), me.data?.full_name))
 }
 
 export default function OverviewPage() {

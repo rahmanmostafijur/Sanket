@@ -6,7 +6,7 @@ import {
 } from '@tanstack/react-query'
 import { useEffect, useMemo } from 'react'
 import { ApiError } from '@/api/client'
-import type { Job, JobListParams, Match, Profile, ProfileWrite, SavedJobList, SearchParams } from '@/api/types'
+import type { CvProposal, Job, JobListParams, Match, PersonalInfo, Profile, ProfileWrite, SavedJobList, SearchParams } from '@/api/types'
 import { apiSource, type DataSource } from '@/data/source'
 import { useIsGuest } from '@/lib/auth'
 import { useJobRegistry } from '@/stores/jobRegistry'
@@ -36,6 +36,37 @@ export function useHealth() {
     retry: 1,
     refetchInterval: 30_000,
   })
+}
+
+/**
+ * The signed-in account (`GET /me`). `data` stays undefined for a credential that is not an
+ * account (a 404, never retried) and for a visitor with no token, so callers can treat both
+ * as "no account".
+ */
+export function useMe() {
+  const { source, key } = useDataSource()
+  const token = useSession((s) => s.token)
+  return useQuery({
+    queryKey: ['me', key],
+    queryFn: ({ signal }) => source.getMe(signal),
+    enabled: Boolean(token),
+  })
+}
+
+/** Saves the personal details and puts the answer in the shared `me` cache, so the sidebar updates at once. */
+export function useUpdateMe() {
+  const { source, key } = useDataSource()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (info: PersonalInfo) => source.updateMe(info),
+    onSuccess: (saved) => client.setQueryData(['me', key], saved),
+  })
+}
+
+/** Reads a CV file into a proposal. Nothing is stored anywhere. */
+export function useImportCv() {
+  const { source } = useDataSource()
+  return useMutation<CvProposal, unknown, File>({ mutationFn: (file) => source.importCv(file) })
 }
 
 export function useProfiles() {

@@ -1,10 +1,13 @@
 import type { ApiConfig } from '@/api/client'
 import * as api from '@/api/endpoints'
 import type {
+  CvProposal,
   JobDetail,
   JobListParams,
   JobListResponse,
   Match,
+  Me,
+  PersonalInfo,
   Profile,
   ProfileWrite,
   SavedJobItem,
@@ -16,6 +19,9 @@ import type {
 /** Where the UI reads its data: the Sanket API. Pages only talk to this interface. */
 export interface DataSource {
   health: (signal?: AbortSignal) => Promise<void>
+  getMe: (signal?: AbortSignal) => Promise<Me>
+  updateMe: (info: PersonalInfo) => Promise<Me>
+  importCv: (file: File) => Promise<CvProposal>
   search: (params: SearchParams, signal?: AbortSignal) => Promise<SearchResponse>
   /** Listed jobs without a query. */
   listJobs: (params: JobListParams, signal?: AbortSignal) => Promise<JobListResponse>
@@ -41,6 +47,9 @@ export function apiSource(config: ApiConfig): DataSource {
     health: async (signal) => {
       await api.getHealth(config, signal)
     },
+    getMe: (signal) => api.getMe(config, signal),
+    updateMe: (info) => api.updateMe(config, info),
+    importCv: (file) => api.importCv(config, file),
     search: (params, signal) => api.searchJobs(config, params, signal),
     listJobs: (params, signal) => api.listJobs(config, params, signal),
     getJob: (jobId, signal) => api.getJob(config, jobId, signal),

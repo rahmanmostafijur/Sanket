@@ -1,6 +1,5 @@
 export interface Identity {
   name: string
-  detail: string
   initials: string
   kind: 'jwt' | 'api_key' | 'none'
 }
@@ -40,18 +39,25 @@ function initialsOf(name: string): string {
 }
 
 /**
- * Who to show as signed in. The API has no "me" endpoint: a JWT's own claims are read for
- * display only (never trusted for anything), an API key is shown as such.
+ * Who to show as signed in. A JWT's own claims are read for display only (never trusted for
+ * anything): the email is the name until the account has a full name, see `withDisplayName`.
+ * An API key is shown as such.
  */
 export function describeIdentity(token: string | null): Identity {
-  if (!token) return { name: 'Not signed in', detail: 'No credential set', initials: '?', kind: 'none' }
+  if (!token) return { name: 'Not signed in', initials: '?', kind: 'none' }
   const payload = decodeJwtPayload(token)
   if (payload) {
-    const name = text(payload, 'name', 'preferred_username', 'nickname', 'email', 'sub') ?? 'Signed in'
-    const detail = text(payload, 'email', 'sub') ?? 'JWT'
-    return { name, detail: detail === name ? 'Signed in with JWT' : detail, initials: initialsOf(name), kind: 'jwt' }
+    const name = text(payload, 'email', 'name', 'preferred_username', 'nickname', 'sub') ?? 'Signed in'
+    return { name, initials: initialsOf(name), kind: 'jwt' }
   }
-  return { name: 'API key', detail: `Key ending ${token.slice(-4)}`, initials: 'AK', kind: 'api_key' }
+  return { name: 'API key', initials: 'AK', kind: 'api_key' }
+}
+
+/** The identity of an account with a full name set: that name replaces the email. Others are unchanged. */
+export function withDisplayName(identity: Identity, fullName: string | null | undefined): Identity {
+  const name = fullName?.trim()
+  if (!name || identity.kind !== 'jwt') return identity
+  return { ...identity, name, initials: initialsOf(name) }
 }
 
 /** First name for the greeting, or null when there is no person to greet. */
