@@ -9,6 +9,8 @@ import { cn } from '@/lib/cn'
 import { employmentLabel, externalUrl, formatSalary, jobDate, percent, relativeTime, seniorityLabel, workModeLabel } from '@/lib/format'
 import { errorMessage } from '@/api/client'
 import { useIsSaved, useSetSaved } from '@/hooks/data'
+import { useAuthNavigation } from '@/hooks/useAuthNavigation'
+import { useIsGuest } from '@/lib/auth'
 import { toast } from '@/stores/toasts'
 import { CompanyAvatar } from './CompanyAvatar'
 
@@ -33,6 +35,8 @@ function jobTags(job: Job): string[] {
 export function SaveButton({ job, className }: { job: Job; className?: string }) {
   const saved = useIsSaved(job.job_id)
   const { setSaved, isPending } = useSetSaved()
+  const guest = useIsGuest()
+  const { signIn } = useAuthNavigation()
   const Icon = saved ? BookmarkCheck : Bookmark
   return (
     <Tooltip>
@@ -46,6 +50,11 @@ export function SaveButton({ job, className }: { job: Job; className?: string })
       onClick={(event) => {
         event.preventDefault()
         event.stopPropagation()
+        // Saved jobs belong to an account: a guest is asked to sign in and comes back here.
+        if (guest) {
+          signIn()
+          return
+        }
         const save = !saved
         setSaved({ jobId: job.job_id, job, save }).then(
           () => toast({ tone: 'success', title: save ? 'Saved to your list' : 'Removed from saved jobs', description: job.title }),
@@ -61,7 +70,7 @@ export function SaveButton({ job, className }: { job: Job; className?: string })
       <Icon className={cn('size-[19px]', saved && 'fill-accent/20')} />
     </motion.button>
       </TooltipTrigger>
-      <TooltipContent>{saved ? 'Remove from saved' : 'Save job'}</TooltipContent>
+      <TooltipContent>{guest ? 'Sign in to save jobs' : saved ? 'Remove from saved' : 'Save job'}</TooltipContent>
     </Tooltip>
   )
 }

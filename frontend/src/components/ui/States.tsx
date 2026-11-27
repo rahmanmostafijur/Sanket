@@ -37,13 +37,13 @@ export function ErrorState({ error, onRetry, className }: { error: unknown; onRe
         className={className}
         icon={<KeyRound />}
         title="Authentication required"
-        description={IS_DEV ? 'Sanket needs a credential. Add an API key or sign-in token in Settings, under Developers.' : 'Sanket could not authorise this request. Try again in a moment.'}
+        description={IS_DEV ? 'Sanket needs a credential. Add an API key or sign-in token in Settings, under Developers.' : 'Sign in to your account to see this.'}
         action={
           IS_DEV ? (
             <Button variant="primary" size="sm" onClick={() => navigate('/settings')}>Add credential</Button>
-          ) : onRetry ? (
-            <Button size="sm" onClick={onRetry}>Try again</Button>
-          ) : undefined
+          ) : (
+            <Button variant="primary" size="sm" onClick={() => navigate('/signin')}>Sign in</Button>
+          )
         }
       />
     )

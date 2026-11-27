@@ -6,7 +6,8 @@ import { NavLink, useNavigate } from 'react-router'
 import { Logo } from '@/components/brand/Logo'
 import { StatusDot } from '@/components/ui/primitives'
 import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { forgetSession } from '@/lib/auth'
+import { SignInButton } from '@/components/auth/GuestPrompt'
+import { forgetSession, SIGN_IN_PATH, useIsGuest } from '@/lib/auth'
 import { cn } from '@/lib/cn'
 import { describeIdentity } from '@/lib/identity'
 import { useLiveFeed } from '@/stores/liveFeed'
@@ -75,15 +76,25 @@ function NavEntry({ item, collapsed, onNavigate }: { item: NavItem; collapsed: b
   )
 }
 
+function GuestRow({ collapsed }: { collapsed: boolean }) {
+  return (
+    <div className={cn('flex border-t border-line pt-3', collapsed && 'justify-center')}>
+      <SignInButton className={collapsed ? undefined : 'w-full'} size={collapsed ? 'icon' : 'md'} compact={collapsed} />
+    </div>
+  )
+}
+
 function UserRow({ collapsed }: { collapsed: boolean }) {
   const token = useSession((s) => s.token)
+  const guest = useIsGuest()
   const identity = describeIdentity(token)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  if (guest) return <GuestRow collapsed={collapsed} />
   if (identity.kind === 'none') return null
   const signOut = () => {
     forgetSession(queryClient)
-    navigate('/signin', { replace: true })
+    navigate(SIGN_IN_PATH, { replace: true })
   }
   return (
     <div className={cn('flex gap-1 border-t border-line pt-3', collapsed ? 'flex-col items-center' : 'items-center')}>

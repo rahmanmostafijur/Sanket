@@ -8,6 +8,7 @@ import { SwitchRow } from '@/components/ui/Field'
 import { Card } from '@/components/ui/primitives'
 import { Segmented } from '@/components/ui/Tabs'
 import { useClearSaved, useSavedJobs } from '@/hooks/data'
+import { useIsGuest } from '@/lib/auth'
 import { IS_DEV } from '@/lib/env'
 import { usePreferences, type ResultsView } from '@/stores/preferences'
 import { useSession } from '@/stores/session'
@@ -51,6 +52,8 @@ function resetLocalData(): void {
 
 export default function SettingsPage() {
   const { token, clearToken } = useSession()
+  // Saved jobs live on the account: a guest has none to show or clear.
+  const guest = useIsGuest()
   const prefs = usePreferences()
   const savedCount = useSavedJobs().entries.length
   const clearSaved = useClearSaved()
@@ -91,7 +94,7 @@ export default function SettingsPage() {
           <Row label="Recent searches" description={`${prefs.recentSearches.length} kept for suggestions.`}>
             <Button size="sm" variant="outline" disabled={!prefs.recentSearches.length} onClick={prefs.clearRecentSearches}>Clear</Button>
           </Row>
-          <Row label="Saved jobs" description={`${savedCount} saved.`}>
+          {guest ? null : <Row label="Saved jobs" description={`${savedCount} saved.`}>
             <Button
               size="sm"
               variant="outline"
@@ -100,7 +103,7 @@ export default function SettingsPage() {
             >
               Clear
             </Button>
-          </Row>
+          </Row>}
           <Row label="Reset this browser" description="Removes the credential, saved jobs, preferences and cached jobs, then reloads.">
             <Button size="sm" variant="danger" onClick={() => setConfirmReset(true)}>Reset</Button>
             <ConfirmDialog

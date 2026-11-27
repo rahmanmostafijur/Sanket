@@ -3,7 +3,9 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Popover } from 'radix-ui'
 import { useState } from 'react'
 import { Link } from 'react-router'
+import { SignInButton } from '@/components/auth/GuestPrompt'
 import { Button } from '@/components/ui/Button'
+import { useIsGuest } from '@/lib/auth'
 import { percent, relativeTime } from '@/lib/format'
 import { useLiveFeed } from '@/stores/liveFeed'
 import { GlobalSearch } from './GlobalSearch'
@@ -91,6 +93,7 @@ function Notifications() {
 }
 
 export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
+  const guest = useIsGuest()
   return (
     <header className="sticky top-0 z-30 border-b border-line/60 bg-bg/80 backdrop-blur-xl lg:border-none lg:bg-bg/70">
       <div className="flex h-[72px] items-center gap-3 px-4 sm:px-6 lg:h-[88px] lg:gap-6 lg:px-10">
@@ -99,8 +102,15 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
         </Button>
         <GlobalSearch className="min-w-0 max-w-[870px] flex-1" />
         <div className="ml-auto flex items-center gap-2 sm:gap-5">
-          <LiveStatusPill className="hidden sm:inline-flex" />
-          <Notifications />
+          {guest ? (
+            // The live feed and its notifications belong to an account.
+            <SignInButton />
+          ) : (
+            <>
+              <LiveStatusPill className="hidden sm:inline-flex" />
+              <Notifications />
+            </>
+          )}
         </div>
       </div>
     </header>

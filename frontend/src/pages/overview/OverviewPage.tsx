@@ -1,4 +1,5 @@
 import { LayoutGrid, List, SearchX, UserRoundPlus } from 'lucide-react'
+import { GuestPrompt } from '@/components/auth/GuestPrompt'
 import { AnimatePresence } from 'motion/react'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
@@ -10,8 +11,9 @@ import { JobCard, JobCardSkeleton } from '@/components/jobs/JobCard'
 import { Button } from '@/components/ui/Button'
 import { EmptyState, ErrorState } from '@/components/ui/States'
 import { Segmented, UnderlineTabs } from '@/components/ui/Tabs'
-import { activeFilterCount, EMPTY_FILTERS, filtersToParams, matchesFilters, type JobFilters } from '@/features/jobs/filters'
-import { useActiveProfile, useMatches } from '@/hooks/data'
+import { activeFilterCount, EMPTY_FILTERS, filtersToApi, filtersToParams, matchesFilters, type JobFilters } from '@/features/jobs/filters'
+import { useActiveProfile, useJobList, useMatches } from '@/hooks/data'
+import { useIsGuest } from '@/lib/auth'
 import { cn } from '@/lib/cn'
 import { greeting, jobDate, monthlyUsd } from '@/lib/format'
 import { describeIdentity, firstName } from '@/lib/identity'
@@ -29,6 +31,36 @@ const SORTERS: Record<SortKey, (a: Match, b: Match) => number> = {
   salary: (a, b) => (monthlyUsd(b.job?.extracted?.salary) ?? -1) - (monthlyUsd(a.job?.extracted?.salary) ?? -1),
 }
 
+const LATEST_JOBS_SHOWN = 10
+
+/** What a guest sees instead of their matches: the newest public jobs, with the same filters. */
+function LatestJobs({ filters, view }: { filters: JobFilters; view: ResultsView }) {
+  const navigate = useNavigate()
+  const query = useJobList({ sort: 'newest', ...filtersToApi(filters) })
+  const jobs = query.data?.pages[0]?.items.slice(0, LATEST_JOBS_SHOWN) ?? []
+  return (
+    <section aria-label="Latest jobs">
+      <div className="flex items-end justify-between gap-4 border-b border-line pb-3">
+        <h2 className="text-[16px] font-semibold text-fg">Latest jobs</h2>
+        <Button variant="ghost" size="sm" onClick={() => navigate(`/discover?${filtersToParams(filters).toString()}`)}>See all jobs</Button>
+      </div>
+      <div className="mt-5">
+        {query.error ? (
+          <ErrorState error={query.error} onRetry={() => void query.refetch()} className="rounded-[14px] border border-line bg-surface" />
+        ) : query.isLoading ? (
+          <div className="space-y-4">{[0, 1, 2].map((i) => <JobCardSkeleton key={i} />)}</div>
+        ) : jobs.length === 0 ? (
+          <EmptyState className="rounded-[14px] border border-line bg-surface" icon={<SearchX />} title="No jobs for these filters" description="Loosen the filters to see more jobs." />
+        ) : (
+          <div className={cn(view === 'grid' ? 'grid grid-cols-1 gap-4 md:grid-cols-2' : 'space-y-4')}>
+            {jobs.map((job, index) => <JobCard key={job.job_id} job={job} variant={view} index={index} />)}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
 function useGreetingName(): string | null {
   const token = useSession((s) => s.token)
   return firstName(describeIdentity(token))
@@ -37,6 +69,7 @@ function useGreetingName(): string | null {
 export default function OverviewPage() {
   const navigate = useNavigate()
   const name = useGreetingName()
+  const guest = useIsGuest()
   const { profile, isLoading: profileLoading, error: profileError } = useActiveProfile()
   const matchesQuery = useMatches(profile?.id)
   const view = usePreferences((s) => s.view)
@@ -73,12 +106,18 @@ export default function OverviewPage() {
         <section className="space-y-6 pt-2">
           <HeroHeading greeting={greeting()} name={name} />
           <HeroSearch onSearch={search} onToggleFilters={() => setShowPanel((v) => !v)} filtersActive={showPanel || activeFilterCount(filters) > 0} />
-          <FilterChips filters={filters} onChange={setFilters} sort={sort} onSortChange={setSort} sortOptions={['match', 'newest', 'salary']} />
+          {guest ? (
+            <FilterChips filters={filters} onChange={setFilters} sort="newest" onSortChange={setSort} sortOptions={['newest']} />
+          ) : (
+            <FilterChips filters={filters} onChange={setFilters} sort={sort} onSortChange={setSort} sortOptions={['match', 'newest', 'salary']} />
+          )}
         </section>
 
-        <StatCards matches={matchesQuery.matches} isLoading={loading} />
+        {guest ? <LatestJobs filters={filters} view={view} /> : null}
 
-        <section aria-label="Matching jobs">
+        {guest ? null : <StatCards matches={matchesQuery.matches} isLoading={loading} />}
+
+        {guest ? null : <section aria-label="Matching jobs">
           <div className="flex items-end justify-between gap-4 border-b border-line">
             <UnderlineTabs
               id="overview-mode"
@@ -159,12 +198,18 @@ export default function OverviewPage() {
               ) : null}
             </div>
           </div>
-        </section>
+        </section>}
       </div>
 
       <aside className="grid grid-cols-1 content-start gap-5 md:grid-cols-2 xl:sticky xl:top-[100px] xl:grid-cols-1 xl:self-start" aria-label="Intelligence">
-        <LiveFeedCard matches={matchesQuery.matches} isLoading={loading} />
-        <ProfileMatchCard profile={profile} best={best} />
+        {guest ? (
+          <GuestPrompt className="md:col-span-2 xl:col-span-1" />
+        ) : (
+          <>
+            <LiveFeedCard matches={matchesQuery.matches} isLoading={loading} />
+            <ProfileMatchCard profile={profile} best={best} />
+          </>
+        )}
         <QuickInsightsCard className="md:col-span-2 xl:col-span-1" />
       </aside>
     </div>

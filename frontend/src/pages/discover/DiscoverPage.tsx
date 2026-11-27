@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useMemo, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router'
 import type { Job, SearchItem, SearchMode } from '@/api/types'
+import { GuestPrompt } from '@/components/auth/GuestPrompt'
 import { FilterChips, type SortKey } from '@/components/jobs/FilterChips'
 import { JobCard, JobCardSkeleton } from '@/components/jobs/JobCard'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -11,6 +12,7 @@ import { EmptyState, ErrorState } from '@/components/ui/States'
 import { Segmented, UnderlineTabs } from '@/components/ui/Tabs'
 import { activeFilterCount, EMPTY_FILTERS, filtersFromParams, filtersToApi, filtersToParams, type JobFilters } from '@/features/jobs/filters'
 import { useActiveProfile, useJobList, useMatchIndex, useSearch } from '@/hooks/data'
+import { useIsGuest } from '@/lib/auth'
 import { cn } from '@/lib/cn'
 import { monthlyUsd } from '@/lib/format'
 import { usePreferences, type ResultsView } from '@/stores/preferences'
@@ -19,6 +21,9 @@ type Lens = 'all' | 'keyword' | 'semantic'
 
 const LENS_MODE: Record<Lens, SearchMode> = { all: 'hybrid', keyword: 'keyword', semantic: 'semantic' }
 const BROWSE_SORTS: readonly SortKey[] = ['newest', 'match', 'salary']
+// A guest has no profile, so nothing can be sorted by match score.
+const GUEST_BROWSE_SORTS: readonly SortKey[] = ['newest', 'salary']
+const GUEST_SEARCH_SORTS: readonly SortKey[] = ['relevance', 'newest', 'salary']
 const MONTHS_PER_YEAR = 12
 
 function useDiscoverQuery() {
@@ -108,6 +113,7 @@ export default function DiscoverPage() {
   const addRecent = usePreferences((s) => s.addRecentSearch)
   const { profile } = useActiveProfile()
   const matchIndex = useMatchIndex(profile?.id)
+  const guest = useIsGuest()
   const browsing = !q
   const effectiveSort: SortKey = browsing && sort === 'relevance' ? 'newest' : sort
   const apiFilters = useMemo(() => filtersToApi(filters), [filters])
@@ -152,10 +158,17 @@ export default function DiscoverPage() {
           onChange={(next) => update({ filters: next })}
           sort={effectiveSort}
           onSortChange={setSort}
-          sortOptions={browsing ? BROWSE_SORTS : undefined}
+          sortOptions={guest ? (browsing ? GUEST_BROWSE_SORTS : GUEST_SEARCH_SORTS) : browsing ? BROWSE_SORTS : undefined}
         />
       </div>
 
+      {guest ? (
+        <GuestPrompt
+          variant="banner"
+          className="mt-6"
+          description="Search is open to everyone. Create a free account and a matching profile to see how each job fits you and to save jobs."
+        />
+      ) : null}
       {browsing ? <div className="mt-6"><SearchIdeas onPick={search} /></div> : null}
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">

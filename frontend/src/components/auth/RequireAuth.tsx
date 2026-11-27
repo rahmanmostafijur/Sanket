@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router'
-import { shouldRequireSignIn } from '@/lib/auth'
+import { shouldRequireSignIn, SIGN_IN_PATH } from '@/lib/auth'
 import { IS_DEV } from '@/lib/env'
 import { useSession } from '@/stores/session'
 
@@ -15,6 +15,6 @@ export function RequireAuth({ children, enforce }: RequireAuthProps) {
   const token = useSession((s) => s.token)
   const location = useLocation()
   const required = enforce === undefined ? shouldRequireSignIn(token, IS_DEV) : enforce && !token
-  if (required) return <Navigate to="/signin" replace state={{ from: location }} />
+  if (required) return <Navigate to={SIGN_IN_PATH} replace state={{ from: location }} />
   return <>{children}</>
 }

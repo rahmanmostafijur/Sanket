@@ -8,8 +8,7 @@ import { useEffect, useMemo } from 'react'
 import { ApiError } from '@/api/client'
 import type { Job, JobListParams, Match, Profile, ProfileWrite, SavedJobList, SearchParams } from '@/api/types'
 import { apiSource, type DataSource } from '@/data/source'
-import { shouldRequireSignIn } from '@/lib/auth'
-import { IS_DEV } from '@/lib/env'
+import { useIsGuest } from '@/lib/auth'
 import { useJobRegistry } from '@/stores/jobRegistry'
 import { useLiveFeed } from '@/stores/liveFeed'
 import { useApiConfig, useSession } from '@/stores/session'
@@ -41,12 +40,12 @@ export function useHealth() {
 
 export function useProfiles() {
   const { source, key } = useDataSource()
-  const token = useSession((s) => s.token)
-  // The live feed mounts outside the sign-in guard: do not ask for profiles before there is a credential.
+  const guest = useIsGuest()
+  // Guests browse public pages and the live feed mounts outside every guard: no profiles without a credential.
   return useQuery({
     queryKey: ['profiles', key],
     queryFn: ({ signal }) => source.listProfiles(signal),
-    enabled: !shouldRequireSignIn(token, IS_DEV),
+    enabled: !guest,
   })
 }
 
@@ -71,12 +70,13 @@ export function useActiveProfile(): {
  */
 export function useMatches(profileId: number | null | undefined) {
   const { source, key } = useDataSource()
+  const guest = useIsGuest()
   const received = useLiveFeed((s) => s.received)
   const remember = useJobRegistry((s) => s.remember)
   const query = useQuery({
     queryKey: ['matches', key, profileId],
     queryFn: ({ signal }) => source.listAllMatches(profileId as number, signal),
-    enabled: profileId != null,
+    enabled: profileId != null && !guest,
   })
   const matches = useMemo(() => {
     const byId = new Map<number, Match>()
@@ -178,9 +178,12 @@ export interface SavedEntry {
 function useSavedQuery() {
   const { source, key } = useDataSource()
   const queryKey = useMemo(() => ['saved-jobs', key] as const, [key])
+  const guest = useIsGuest()
   const query = useQuery({
     queryKey,
     queryFn: ({ signal }) => source.listSavedJobs(signal),
+    // Saved jobs belong to an account: a guest has none and must not trigger a 401.
+    enabled: !guest,
   })
   return { source, queryKey, query }
 }

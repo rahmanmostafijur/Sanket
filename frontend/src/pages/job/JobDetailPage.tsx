@@ -3,6 +3,7 @@ import { useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import type { Job, JobDetail, JobPosting, Match } from '@/api/types'
 import { CompanyAvatar } from '@/components/jobs/CompanyAvatar'
+import { GuestPrompt } from '@/components/auth/GuestPrompt'
 import { SaveButton } from '@/components/jobs/JobCard'
 import { MatchBreakdown, MatchReasons } from '@/components/match/MatchBreakdown'
 import { MatchRing } from '@/components/match/MatchVisuals'
@@ -12,6 +13,7 @@ import { EmptyState, ErrorState } from '@/components/ui/States'
 import { Separator } from '@/components/ui/separator'
 import { UnderlineTabs } from '@/components/ui/Tabs'
 import { isNotFound, useActiveProfile, useJobDetail, useMatchIndex, useMatches } from '@/hooks/data'
+import { useIsGuest } from '@/lib/auth'
 import { descriptionBlocks } from '@/lib/description'
 import { employmentLabel, externalUrl, formatSalary, jobDate, jobLocation, percent, relativeTime, seniorityLabel, workModeLabel } from '@/lib/format'
 import { sourceMeta } from '@/lib/sources'
@@ -230,6 +232,7 @@ export default function JobDetailPage() {
   const navigate = useNavigate()
   const jobId = Number(params.jobId)
   const { job, detail, match, isLoading, detailLoading, notFound, error, retry } = useJob(jobId)
+  const guest = useIsGuest()
   const [tab, setTab] = useState<Tab>('details')
 
   if (notFound && !job) {
@@ -315,11 +318,19 @@ export default function JobDetailPage() {
             ]}
           />
           {tab === 'details' ? <DetailsTab job={job} detail={detail} detailLoading={detailLoading && !detail} /> : null}
-          {tab === 'why' ? (match ? <MatchReasons match={match} /> : <p className="text-[14px] text-muted">This job did not match your profile, so there is nothing to explain.</p>) : null}
+          {tab === 'why' ? (
+            match ? (
+              <MatchReasons match={match} />
+            ) : guest ? (
+              <p className="text-[14px] text-muted">Sign in and create a matching profile to see how this job fits you.</p>
+            ) : (
+              <p className="text-[14px] text-muted">This job did not match your profile, so there is nothing to explain.</p>
+            )
+          ) : null}
           {tab === 'source' ? <SourceTab job={job} detail={detail} /> : null}
         </Card>
         <div className="space-y-6 lg:sticky lg:top-[100px] lg:self-start">
-          {match ? <MatchBreakdown match={match} /> : <NotMatched />}
+          {match ? <MatchBreakdown match={match} /> : guest ? <GuestPrompt description="Create a free account and a matching profile to see how this job fits you, and to save it." /> : <NotMatched />}
         </div>
       </div>
     </div>
